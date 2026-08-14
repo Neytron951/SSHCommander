@@ -1,0 +1,195 @@
+<resources>
+    <string name="app_name">SSH Commander</string>
+    <string name="servers">Servers</string>
+    <string name="add_server">Add Server</string>
+    <string name="edit_server">Edit Server</string>
+    <string name="delete_server">Delete Server</string>
+    <string name="settings">Settings</string>
+    <string name="back">Back</string>
+    <string name="exit">Exit</string>
+
+    <string name="theme">Theme</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="theme_system">System</string>
+
+    <string name="language">Language</string>
+    <string name="lang_en">English</string>
+    <string name="lang_ru">Русский</string>
+
+    <string name="console_font">Console Font Family</string>
+    <string name="font_default">Default</string>
+    <string name="font_monospace">Monospace</string>
+    <string name="font_sans_serif">Sans Serif</string>
+    <string name="font_serif">Serif</string>
+
+    <string name="console_font_size">Console Font Size</string>
+    <string name="size_small">Small (12sp)</string>
+    <string name="size_medium">Medium (14sp)</string>
+    <string name="size_large">Large (18sp)</string>
+
+    <string name="data_management">Data Management</string>
+    <string name="export_data">Export JSON</string>
+    <string name="import_data">Import JSON</string>
+    <string name="export_success">Data exported successfully</string>
+    <string name="import_success">Data imported. Please restart.</string>
+
+    <string name="server_name">Name</string>
+    <string name="host_ip">Host / IP</string>
+    <string name="port">Port</string>
+    <string name="username">Username</string>
+    <string name="password">Password</string>
+    <string name="save_server">Save Server</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="delete">Delete</string>
+    <string name="edit">Edit</string>
+    <string name="choose_action">Choose Action</string>
+    <string name="choose_icon">Choose Icon</string>
+
+    <string name="reboot">Reboot</string>
+    <string name="check_connection">Check Connection</string>
+    <string name="loading">Loading...</string>
+    <string name="commands">Commands</string>
+    <string name="manage_commands">Manage Commands</string>
+    <string name="run_command">Run Command</string>
+    <string name="run">Run</string>
+    <string name="confirm_execution">Confirm Execution</string>
+    <string name="execute">Execute</string>
+    <string name="dangerous">Dangerous</string>
+    <string name="new_command">New Custom Command</string>
+    <string name="requires_bio">Requires biometric confirmation</string>
+    <string name="confirm_reboot_msg">Are you sure? Biometric verification may be required.</string>
+    <string name="reboot_confirm">Reboot Confirmation</string>
+
+    <string name="widget_settings">Widget Settings</string>
+    <string name="about_app">About</string>
+    <string name="about_version">Version: %1$s</string>
+    <string name="show_in_widget">Show in Widget</string>
+    <string name="widget_title">SSH Servers</string>
+    <string name="status_online">Online</string>
+    <string name="status_offline">Offline</string>
+    <string name="status">Status</string>
+
+    <string name="icon_gaming">Gaming</string>
+    <string name="icon_web">Web</string>
+    <string name="icon_database">Database</string>
+    <string name="icon_cloud">Cloud</string>
+    <string name="icon_nas">NAS</string>
+    <string name="icon_vpn">VPN</string>
+    <string name="icon_dev">Development</string>
+    <string name="icon_media">Media</string>
+    <string name="icon_default">Default</string>
+
+    <string name="sftp_explorer">SFTP Explorer</string>
+    <string name="terminal">Terminal</string>
+    <string name="empty_directory">Empty Directory</string>
+    <string name="delete_file_confirm">Delete this file?</string>
+
+    <!-- ServerControlScreen -->
+    <string name="exit_ssh_session_msg">This will close the active SSH session. Continue?</string>
+    <string name="confirm_exit">Confirm Exit</string>
+    <string name="history_up">History Up</string>
+    <string name="history_down">History Down</string>
+    <string name="tab_key">TAB</string>
+    <string name="ctrl_c_key">CTRL+C</string>
+    <string name="clear_key">CLEAR</string>
+    <string name="esc_key">ESC</string>
+    <string name="enter_key">ENTER</string>
+    <string name="command_placeholder">Command...</string>
+    <string name="execute_confirm_msg">Execute: %1$s?</string>
+
+    <!-- Base Commands -->
+    <string name="cmd_list">List</string>
+    <string name="cmd_top">Top</string>
+    <string name="cmd_disk">Disk</string>
+    <string name="cmd_ram">RAM</string>
+    <string name="cmd_uptime">Uptime</string>
+    <string name="cmd_processes">Processes</string>
+    <string name="cmd_logs">Logs</string>
+
+    <!-- SftpExplorerScreen -->
+    <string name="search_files">Search files...</string>
+    <string name="close_session_q">Close Session?</string>
+    <string name="stay">Stay</string>
+    <string name="upload">Upload</string>
+    <string name="session_error">Session Error</string>
+    <string name="reconnect">Reconnect</string>
+    <string name="dismiss">Dismiss</string>
+    <string name="exit_sftp_msg">Exiting will close the active SFTP connection.</string>
+    <string name="hide_hidden">Hide hidden files</string>
+    <string name="show_hidden">Show hidden files</string>
+    <string name="selected_count">%1$d selected</string>
+    <string name="new_folder">New Folder</string>
+    <string name="folder_name_placeholder">Folder name</string>
+    <string name="create">Create</string>
+    <string name="rename">Rename</string>
+
+    <!-- SSH Errors -->
+    <string name="err_timeout">Connection timed out. Check your network or server status.</string>
+    <string name="err_auth_failed">Authentication failed. Check your username, password, or SSH keys.</string>
+    <string name="err_host_unreachable">Host unreachable. Ensure the IP/Host and Port are correct.</string>
+    <string name="err_host_key_mismatch">SECURITY WARNING: Host identification has changed! Possible Man-in-the-Middle attack.</string>
+    <string name="err_unknown">An unexpected error occurred.</string>
+    <string name="err_connection_lost">Connection lost. Please try again.</string>
+    <string name="ssh_error_template">\n[Error: %1$s]\n</string>
+
+    <!-- Settings and Manage Commands -->
+    <string name="terminal_style">Terminal Style</string>
+    <string name="background_color">Background Color</string>
+    <string name="text_color">Text Color</string>
+    <string name="widget_customization">Widget Customization</string>
+    <string name="customize_widgets">Customize Dashboard Widgets</string>
+    <string name="button_color">Button Color</string>
+    <string name="cmd_placeholder_example">ls -la\ncd /var/www\n...</string>
+    <string name="error_prefix">Error: %1$s</string>
+    <string name="sftp_error_prefix">SFTP Error: %1$s</string>
+
+    <!-- Widget Settings & Service -->
+    <string name="appearance">Appearance</string>
+    <string name="widget_bg">Widget Background</string>
+    <string name="server_card_bg">Server Card Background</string>
+    <string name="accent_color">Accent Color</string>
+    <string name="enabled_servers">Enabled Servers</string>
+    <string name="select_command">Select Command</string>
+    <string name="custom_prefix">Custom: %1$s</string>
+    <string name="custom_widget_cmd">Custom Widget Command</string>
+    <string name="custom_widget_cmd_desc">Enter the command to run when tapping the Play button on the widget.</string>
+    <string name="ssh_command">SSH Command</string>
+    <string name="ssh_cmd_placeholder">e.g. ./start_bot.sh</string>
+    <string name="online_caps">ONLINE</string>
+    <string name="offline_caps">OFFLINE</string>
+
+    <!-- Privacy Mode -->
+    <string name="privacy_mode">Privacy Mode</string>
+    <string name="privacy_mode_desc">Hide part of IP addresses when displaying them</string>
+    <string name="quick_commands">Quick Commands</string>
+
+    <!-- Connections / Auto-reconnect -->
+    <string name="auto_reconnect">Auto-reconnect</string>
+    <string name="auto_reconnect_desc">Reconnect automatically when the connection drops</string>
+    <string name="reconnecting_msg">Connection lost. Reconnecting in %1$d s…</string>
+
+    <!-- Biometric lock -->
+    <string name="biometric_lock">Biometric lock</string>
+    <string name="biometric_lock_desc">Require fingerprint to unlock the app</string>
+    <string name="app_locked">App locked</string>
+    <string name="app_locked_subtitle">Unlock with your fingerprint to continue</string>
+    <string name="unlock">Unlock</string>
+    <string name="biometric_not_available">Biometrics are not available on this device</string>
+    <string name="retry">Try again</string>
+
+    <!-- Logins -->
+    <string name="manage_logins">Logins</string>
+    <string name="add_login">Add Login</string>
+    <string name="login_label">Label (e.g. root, deploy)</string>
+    <string name="sftp_start_path">SFTP Start Folder</string>
+    <string name="sftp_start_path_hint">SFTP start: %1$s</string>
+    <string name="sftp_start_path_hint2">Where SFTP opens first. Empty = home folder (or last visited).</string>
+    <string name="no_logins">No additional logins yet. Tap + to add one.</string>
+    <string name="set_default_login">Set as default login</string>
+    <string name="delete_login_title">Delete login?</string>
+    <string name="delete_login_msg">Delete login "%1$s"?</string>
+    <string name="select_login">Select login</string>
+    <string name="main_login_label">Main login (%1$s)</string>
+</resources>

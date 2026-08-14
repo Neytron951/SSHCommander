@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Базовая тема приложения, наследуется от AppCompat для поддержки смены локали -->
+    <style name="Theme.SSHCommander" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <!-- Настройки Material 3 будут применяться через Compose -->
+    </style>
+</resources>

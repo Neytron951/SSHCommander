@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+    <style>
+        body, html { margin: 0; padding: 0; height: 100%; background: #000000; overflow: hidden; }
+        #terminal { height: 100vh; width: 100vw; }
+        .xterm-viewport { overflow-y: auto !important; }
+    </style>
+</head>
+<body>
+    <div id="terminal"></div>
+    <script>
+        const term = new Terminal({
+            cursorBlink: true,
+            theme: { background: '#000000', foreground: '#00FF00' },
+            fontFamily: 'monospace',
+            fontSize: 14,
+            allowProposedApi: true,
+            convertEol: true
+        });
+        term.open(document.getElementById('terminal'));
+
+        window.addEventListener('resize', () => term.refresh(0, term.rows - 1));
+
+        term.onData(data => {
+            if (window.Android) { window.Android.sendInput(data); }
+        });
+
+        function writeData(data) { term.write(data); }
+        function setFontSize(size) { term.options.fontSize = size; }
+
+        function setTheme(bgColor, textColor) {
+            term.options.theme = {
+                background: bgColor,
+                foreground: textColor
+            };
+            document.body.style.background = bgColor;
+        }
+
+        // Notify Android that we are ready
+        if (window.Android) { window.Android.onTerminalReady(); }
+    </script>
+</body>
+</html>

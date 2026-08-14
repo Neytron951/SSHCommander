@@ -1,0 +1,48 @@
+# Compiled files
+*.class
+*.dex
+*.apk
+*.ap_
+*.aab
+*.jar
+
+# Android Studio / IntelliJ IDEA
+*.iml
+.idea/
+.gradle/
+.local.properties
+local.properties
+
+# Build output
+build/
+app/build/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Kotlin
+.kotlin/
+.continue/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Keystore
+keystore/
+keystore.properties
+*.jks
+*.keystore
+
+# Logs
+*.log
+
+# Backup files
+*~
+*.bak
+*.tmp
+
+# Gradle wrapper (keep gradle-wrapper.jar but ignore rest)
+.gradle/
+gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.jar
