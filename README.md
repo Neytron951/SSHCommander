@@ -1,6 +1,7 @@
 <img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" width="128" height="128" align="left" style="margin-right: 15px;"/>
 
-<span style="font-size: 128px; font-weight: 900;">SSH COMMANDER</span>
+
+# SSH COMMANDER
 
 ---
 
