@@ -2,7 +2,6 @@
 
 # SSH COMMANDER
 
----
 
 **SSH Commander** — a powerful SSH/SFTP client with terminal, widgets, and biometric authentication.
 
