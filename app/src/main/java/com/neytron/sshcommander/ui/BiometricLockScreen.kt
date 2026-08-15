@@ -25,6 +25,7 @@ import com.neytron.sshcommander.security.BiometricUtils
 @Composable
 fun BiometricLockScreen(
     activity: FragmentActivity,
+    triggerKey: Int = 0,
     onUnlocked: () -> Unit
 ) {
     val context = LocalContext.current
@@ -33,6 +34,11 @@ fun BiometricLockScreen(
 
     fun triggerPrompt() {
         if (pendingPrompt) return
+        // If the prompt can't actually be shown right now (e.g. the activity
+        // is stopping/stopped), don't mark it pending — otherwise the flag
+        // sticks true and the Unlock button stops working until the app fully
+        // restarts. The triggerKey LaunchedEffect re-fires on the next resume.
+        if (!BiometricUtils.canShowNow(activity)) return
         pendingPrompt = true
         errorMessage = null
         BiometricUtils.showBiometricPrompt(
@@ -51,9 +57,10 @@ fun BiometricLockScreen(
         )
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(triggerKey) {
         // Give the window a moment to fully resume before showing the prompt.
         kotlinx.coroutines.delay(300)
+        pendingPrompt = false
         triggerPrompt()
     }
 
@@ -99,10 +106,6 @@ fun BiometricLockScreen(
             Spacer(modifier = Modifier.height(32.dp))
             Button(onClick = { triggerPrompt() }, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.unlock))
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            TextButton(onClick = { triggerPrompt() }) {
-                Text(stringResource(R.string.retry))
             }
         }
     }

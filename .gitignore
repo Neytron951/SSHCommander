@@ -10,15 +10,15 @@
 *.iml
 .idea/
 .gradle/
-.local.properties
 local.properties
-
-# Build output
-build/
-app/build/
 captures/
 .externalNativeBuild/
 .cxx/
+
+# Build output
+build/
+out/
+release/
 
 # Kotlin
 .kotlin/
@@ -27,22 +27,27 @@ captures/
 # OS files
 .DS_Store
 Thumbs.db
+Desktop.ini
 
-# Keystore
+# Keystore & signing
 keystore/
 keystore.properties
 *.jks
 *.keystore
 
-# Logs
+# Logs & memory dumps
 *.log
+*.hprof
 
 # Backup files
 *~
 *.bak
 *.tmp
 
-# Gradle wrapper (keep gradle-wrapper.jar but ignore rest)
-.gradle/
+# Editors
+.vscode/
+.fleet/
+
+# Gradle wrapper (keep gradle-wrapper.jar)
 gradle/wrapper/gradle-wrapper.jar
 !gradle/wrapper/gradle-wrapper.jar

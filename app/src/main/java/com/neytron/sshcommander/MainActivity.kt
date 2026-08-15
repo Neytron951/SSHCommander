@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -98,6 +99,7 @@ fun SSHCommanderApp(activity: AppCompatActivity) {
     // returns from the background. Overlaid on top of the nav graph so the
     // user's place is preserved across an unlock.
     var isLocked by rememberSaveable { mutableStateOf(false) }
+    var lockTrigger by remember { mutableIntStateOf(0) }
     val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
 
     // On cold start, lock if the feature is enabled (waits for the real
@@ -115,8 +117,17 @@ fun SSHCommanderApp(activity: AppCompatActivity) {
 
     androidx.compose.runtime.DisposableEffect(lifecycleOwner, biometricLockEnabled) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-            if (event == androidx.lifecycle.Lifecycle.Event.ON_STOP && biometricLockEnabled) {
-                isLocked = true
+            when (event) {
+                androidx.lifecycle.Lifecycle.Event.ON_STOP -> {
+                    if (biometricLockEnabled) isLocked = true
+                }
+                // Re-trigger the biometric prompt every time the app returns to
+                // the foreground (screen off/on). Android dismisses the prompt
+                // when the activity stops, so we must re-show it on resume.
+                androidx.lifecycle.Lifecycle.Event.ON_RESUME -> {
+                    if (isLocked) lockTrigger++
+                }
+                else -> {}
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -204,7 +215,11 @@ fun SSHCommanderApp(activity: AppCompatActivity) {
 
         // Biometric lock overlay sits on top of everything.
         if (isLocked) {
-            BiometricLockScreen(activity = activity, onUnlocked = { isLocked = false })
+            BiometricLockScreen(
+                activity = activity,
+                triggerKey = lockTrigger,
+                onUnlocked = { isLocked = false }
+            )
         }
     }
 }

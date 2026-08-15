@@ -1,0 +1,2254 @@
+package com.neytron.sshcommander
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Computer
+import androidx.compose.material.icons.filled.CreateNewFolder
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Dns
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.VerticalDivider
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerInputScope
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import com.neytron.sshcommander.data.AppSettings
+import com.neytron.sshcommander.data.ConnectionProfile
+import com.neytron.sshcommander.data.CustomCommand
+import com.neytron.sshcommander.data.DataBackupManager
+import com.neytron.sshcommander.data.Server
+import com.neytron.sshcommander.data.ServerFolder
+import com.neytron.sshcommander.data.ServerLogin
+import com.neytron.sshcommander.data.ServerRepository
+import com.neytron.sshcommander.sftp.SftpController
+import com.neytron.sshcommander.sftp.SftpSessionFactory
+import com.neytron.sshcommander.terminal.TerminalController
+import com.neytron.sshcommander.terminal.TerminalSessionFactory
+import com.neytron.sshcommander.ui.AppStrings
+import com.neytron.sshcommander.ui.IconUtils
+import com.neytron.sshcommander.ui.PlatformInputStream
+import com.neytron.sshcommander.ui.PrivacyUtils
+import com.neytron.sshcommander.ui.SftpView
+import com.neytron.sshcommander.ui.TerminalView
+import com.neytron.sshcommander.ui.platformToast
+import com.neytron.sshcommander.ui.rememberSavePicker
+import com.neytron.sshcommander.ui.rememberUploadPicker
+import com.neytron.sshcommander.ui.theme.SSHCommanderTheme
+import kotlinx.coroutines.launch
+
+/** Root composable shared by Android and Windows. */
+@Composable
+fun App(
+    terminalSessionFactory: TerminalSessionFactory? = null,
+    sftpSessionFactory: SftpSessionFactory? = null,
+    serverRepository: ServerRepository? = null,
+    settings: AppSettings? = null,
+    appVersion: String = "",
+    initialServerId: Int? = null,
+    backupManager: DataBackupManager? = null
+) {
+    // Keep the runtime string catalog in sync with the persisted language.
+    val language by (settings?.language?.collectAsState(initial = "en")
+        ?: remember { mutableStateOf("en") })
+    LaunchedEffect(language) { AppStrings.language = language }
+
+    val themeMode by (settings?.themeMode?.collectAsState(initial = "system")
+        ?: remember { mutableStateOf("system") })
+    val darkTheme = when (themeMode) {
+        "light" -> false
+        "dark" -> true
+        else -> isSystemInDarkTheme()
+    }
+
+    SSHCommanderTheme(darkTheme = darkTheme) {
+        SSHCommanderLayout(
+            terminalSessionFactory, sftpSessionFactory, serverRepository,
+            settings, appVersion, initialServerId, backupManager
+        )
+    }
+}
+
+/**
+ * Adaptive layout:
+ * - Wide window (desktop): master-detail — servers on the left, terminal/SFTP on the right.
+ * - Narrow window (phone): single-column stack (servers list fills the screen).
+ */
+@Composable
+fun SSHCommanderLayout(
+    terminalSessionFactory: TerminalSessionFactory?,
+    sftpSessionFactory: SftpSessionFactory? = null,
+    serverRepository: ServerRepository? = null,
+    settings: AppSettings? = null,
+    appVersion: String = "",
+    initialServerId: Int? = null,
+    backupManager: DataBackupManager? = null
+) {
+    var selectedServerId by remember { mutableIntStateOf(initialServerId ?: 0) }
+    var selectedPane by remember { mutableStateOf(PaneType.Terminal) }
+    val servers = remember { mutableStateListOf<Server>() }
+    val passwords = remember { mutableStateMapOf<Int, String>() }
+    val folders = remember { mutableStateListOf<ServerFolder>() }
+    var showConnectDialog by remember { mutableStateOf(false) }
+    var editingServer by remember { mutableStateOf<Server?>(null) }
+    var showLoginsFor by remember { mutableStateOf<Server?>(null) }
+    var serverToDelete by remember { mutableStateOf<Server?>(null) }
+    var folderToDelete by remember { mutableStateOf<ServerFolder?>(null) }
+    var folderNameDialog by remember { mutableStateOf<FolderNameDialogState?>(null) }
+    var showSettingsDialog by remember { mutableStateOf(false) }
+    var showAboutDialog by remember { mutableStateOf(false) }
+    var showManageCommandsDialog by remember { mutableStateOf(false) }
+    var dataLoaded by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    // Folder list loaded from the repository (for grouping + the server dialog).
+    LaunchedEffect(serverRepository) {
+        serverRepository?.allFolders?.collect {
+            folders.clear()
+            folders.addAll(it)
+        }
+    }
+
+    // Custom commands loaded from the repository (shared with the phone UI).
+    val customCommands = remember { mutableStateListOf<CustomCommand>() }
+    LaunchedEffect(serverRepository) {
+        serverRepository?.getAllCustomCommands()?.collect {
+            customCommands.clear()
+            customCommands.addAll(it)
+        }
+    }
+
+    // Terminal styling from settings so the desktop console matches the phone.
+    val termBgHex by (settings?.termBgColor?.collectAsState(initial = "#000000")
+        ?: remember { mutableStateOf("#000000") })
+    val termTextHex by (settings?.termTextColor?.collectAsState(initial = "#00FF00")
+        ?: remember { mutableStateOf("#00FF00") })
+    val termFontSizePx by (settings?.termFontSizePx?.collectAsState(initial = 14f)
+        ?: remember { mutableStateOf(14f) })
+    val rebootConfirmMode by (settings?.rebootConfirm?.collectAsState(initial = "always")
+        ?: remember { mutableStateOf("always") })
+    val privacyMode by (settings?.privacyMode?.collectAsState(initial = false)
+        ?: remember { mutableStateOf(false) })
+
+    // Desktop layout settings (menu-bar toggles + pane widths).
+    val showServerListSetting by (settings?.showServerList?.collectAsState(initial = true)
+        ?: remember { mutableStateOf(true) })
+    val showCommandPanelSetting by (settings?.showCommandPanel?.collectAsState(initial = true)
+        ?: remember { mutableStateOf(true) })
+    val showTopBarSetting by (settings?.showTopBar?.collectAsState(initial = true)
+        ?: remember { mutableStateOf(true) })
+    val savedServerPaneWidth by (settings?.serverPaneWidthPx?.collectAsState(initial = 280)
+        ?: remember { mutableStateOf(280) })
+    val savedCommandPaneWidth by (settings?.commandPaneWidthPx?.collectAsState(initial = 190)
+        ?: remember { mutableStateOf(190) })
+
+    // Live (draggable) pane widths, synced from persisted settings.
+    var serverPaneWidth by remember { mutableIntStateOf(savedServerPaneWidth) }
+    var commandPaneWidth by remember { mutableIntStateOf(savedCommandPaneWidth) }
+    LaunchedEffect(savedServerPaneWidth) { serverPaneWidth = savedServerPaneWidth }
+    LaunchedEffect(savedCommandPaneWidth) { commandPaneWidth = savedCommandPaneWidth }
+
+    // Logins for the selected server (used to switch active credentials).
+    val logins = remember { mutableStateListOf<ServerLogin>() }
+    val loginPasswords = remember { mutableStateMapOf<Int, String>() }
+    LaunchedEffect(serverRepository, selectedServerId) {
+        logins.clear()
+        val repo = serverRepository ?: return@LaunchedEffect
+        val target = servers.firstOrNull { it.id == selectedServerId } ?: return@LaunchedEffect
+        repo.getLoginsForServer(target.id).collect { list ->
+            logins.clear()
+            logins.addAll(list)
+            list.forEach { l ->
+                if (l.id !in loginPasswords) {
+                    loginPasswords[l.id] = repo.getLoginPassword(l.id) ?: ""
+                }
+            }
+        }
+    }
+
+    // Load persisted servers once the repository is available.
+    LaunchedEffect(serverRepository) {
+        val repo = serverRepository
+        if (repo != null) {
+            val stored = repo.getServers()
+            servers.clear()
+            servers.addAll(stored)
+            // Preload passwords so switching servers works without re-entering.
+            stored.forEach { s ->
+                val pw = repo.getPassword(s.id)
+                if (pw != null) passwords[s.id] = pw
+            }
+            if (servers.isNotEmpty()) {
+                selectedServerId = initialServerId?.takeIf { id -> servers.any { it.id == id } } ?: servers.first().id
+            }
+        }
+        dataLoaded = true
+    }
+
+    val selectedServer = servers.firstOrNull { it.id == selectedServerId }
+        ?: Server(id = 0, name = "No server", host = "", port = 22, username = "")
+
+    // Active credentials: an explicitly chosen login, else the default, else the server's own.
+    var selectedLoginId by remember { mutableStateOf<Int?>(null) }
+    val activeLogin = remember(logins, selectedLoginId, selectedServerId) {
+        when {
+            selectedLoginId != null -> logins.firstOrNull { it.id == selectedLoginId }
+            else -> logins.firstOrNull { it.isDefault } ?: logins.firstOrNull()
+        }
+    }
+    val activeUsername = activeLogin?.username ?: selectedServer.username
+    val activePassword = if (activeLogin != null) (loginPasswords[activeLogin.id] ?: "") else (passwords[selectedServer.id] ?: "")
+
+    // Create a terminal session for the selected server. The factory is a
+    // platform hook (desktop provides a real JSch-backed session; Android can
+    // pass one later or keep its own ViewModel-driven flow).
+    val terminalSession = remember(selectedServerId, activeLogin) {
+        if (selectedServer.host.isEmpty()) {
+            null
+        } else {
+            terminalSessionFactory?.create(
+                selectedServer,
+                ConnectionProfile(
+                    username = activeUsername,
+                    password = activePassword
+                )
+            )
+        }
+    }
+    DisposableEffect(terminalSession) {
+        terminalSession?.connect()
+        onDispose { terminalSession?.close() }
+    }
+
+    // SFTP controller for the selected server (shares the SSH connection).
+    val sftpSession = remember(selectedServerId, activeLogin) {
+        if (selectedServer.host.isEmpty()) {
+            null
+        } else {
+            sftpSessionFactory?.create(
+                selectedServer,
+                ConnectionProfile(
+                    username = activeUsername,
+                    password = activePassword
+                )
+            )
+        }
+    }
+    DisposableEffect(sftpSession) {
+        sftpSession?.connect()
+        onDispose { sftpSession?.close() }
+    }
+
+    // --- Import / export (File menu) ------------------------------------
+    val savePicker = rememberSavePicker { target ->
+        if (target != null) {
+            scope.launch {
+                try {
+                    val backup = backupManager ?: return@launch
+                    val json = backup.exportJson()
+                    target.openOutput()?.let { out ->
+                        val bytes = json.toByteArray()
+                        out.write(bytes, 0, bytes.size)
+                        out.close()
+                    }
+                    platformToast(AppStrings.exportSuccess)
+                } catch (e: Exception) {
+                    platformToast(String.format(AppStrings.errorPrefix, e.message ?: ""))
+                }
+            }
+        }
+    }
+    val uploadPicker = rememberUploadPicker { files ->
+        files.firstOrNull()?.let { f ->
+            scope.launch {
+                try {
+                    val backup = backupManager ?: return@launch
+                    val text = f.openInput()?.let { readAllText(it) } ?: ""
+                    backup.importJson(text)
+                    // Refresh the in-memory server list from the repository.
+                    val repo = serverRepository
+                    if (repo != null) {
+                        val stored = repo.getServers()
+                        servers.clear()
+                        servers.addAll(stored)
+                        stored.forEach { s ->
+                            if (s.id !in passwords) {
+                                passwords[s.id] = repo.getPassword(s.id) ?: ""
+                            }
+                        }
+                    }
+                    platformToast(AppStrings.importSuccess)
+                } catch (e: Exception) {
+                    platformToast(String.format(AppStrings.errorPrefix, e.message ?: ""))
+                }
+            }
+        }
+    }
+    val onExport = { savePicker("sshcommander_backup.json") }
+    val onImport = { uploadPicker() }
+
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val wide = maxWidth >= 720.dp
+
+        if (wide) {
+            Column(Modifier.fillMaxSize()) {
+                // Menu bar: File (Import/Export JSON) + View (element toggles).
+                DesktopMenuBar(
+                    showServerList = showServerListSetting,
+                    showCommandPanel = showCommandPanelSetting,
+                    showTopBar = showTopBarSetting,
+                    onToggleServerList = { scope.launch { settings?.setShowServerList(it) } },
+                    onToggleCommandPanel = { scope.launch { settings?.setShowCommandPanel(it) } },
+                    onToggleTopBar = { scope.launch { settings?.setShowTopBar(it) } },
+                    onExport = onExport,
+                    onImport = onImport
+                )
+                Row(Modifier.fillMaxSize()) {
+                    // Left: server list (optional + resizable)
+                    if (showServerListSetting) {
+                        ServerListPane(
+                            servers = servers,
+                            folders = folders,
+                            selectedId = selectedServerId,
+                            onSelect = { selectedServerId = it },
+                            onAddServer = { editingServer = null; showConnectDialog = true },
+                            onEditServer = { editingServer = it; showConnectDialog = true },
+                            onDeleteServer = { serverToDelete = it },
+                            onManageLogins = { showLoginsFor = it },
+                            onAddFolder = { folderNameDialog = FolderNameDialogState.Add },
+                            onRenameFolder = { folder -> folderNameDialog = FolderNameDialogState.Rename(folder) },
+                            onDeleteFolder = { folderToDelete = it },
+                            modifier = Modifier
+                                .width(serverPaneWidth.dp)
+                                .fillMaxHeight()
+                        )
+                        ResizableDivider(
+                            onDrag = { delta ->
+                                serverPaneWidth = (serverPaneWidth + delta).toInt().coerceIn(160, 600)
+                            },
+                            onDragEnd = { scope.launch { settings?.setServerPaneWidthPx(serverPaneWidth) } }
+                        )
+                    }
+                    // Right: interaction pane
+                    InteractionPane(
+                        server = selectedServer,
+                        pane = selectedPane,
+                        onPaneChange = { selectedPane = it },
+                        terminalSession = terminalSession,
+                        sftpController = sftpSession,
+                        customCommands = customCommands,
+                        logins = logins,
+                        activeLoginId = activeLogin?.id,
+                        onSelectLogin = { loginId -> selectedLoginId = loginId },
+                        onManageLogins = { showLoginsFor = selectedServer.takeIf { it.host.isNotEmpty() } },
+                        showTopBar = showTopBarSetting,
+                        showCommandPanel = showCommandPanelSetting,
+                        commandPaneWidth = commandPaneWidth,
+                        onCommandPaneResize = { delta ->
+                            commandPaneWidth = (commandPaneWidth + delta).toInt().coerceIn(120, 420)
+                        },
+                        onCommandPaneResizeEnd = { scope.launch { settings?.setCommandPaneWidthPx(commandPaneWidth) } },
+                        termBgHex = termBgHex,
+                        termTextHex = termTextHex,
+                        termFontSizePx = termFontSizePx,
+                        rebootConfirmMode = rebootConfirmMode,
+                        privacyMode = privacyMode,
+                        onOpenSettings = { showSettingsDialog = true },
+                        onOpenAbout = { showAboutDialog = true },
+                        onManageCommands = { showManageCommandsDialog = true },
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                    )
+                }
+            }
+        } else {
+            // Narrow: just the server list for now (phone flow is a later phase).
+            ServerListPane(
+                servers = servers,
+                folders = folders,
+                selectedId = selectedServerId,
+                onSelect = { selectedServerId = it },
+                onAddServer = { editingServer = null; showConnectDialog = true },
+                onEditServer = { editingServer = it; showConnectDialog = true },
+                onDeleteServer = { serverToDelete = it },
+                onManageLogins = { showLoginsFor = it },
+                onAddFolder = { folderNameDialog = FolderNameDialogState.Add },
+                onRenameFolder = { folder -> folderNameDialog = FolderNameDialogState.Rename(folder) },
+                onDeleteFolder = { folderToDelete = it },
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+    }
+
+    // --- Dialogs ---------------------------------------------------------
+
+    if (showConnectDialog) {
+        val editing = editingServer
+        val editingPassword = editing?.let { passwords[it.id] ?: "" } ?: ""
+        ServerDialog(
+            server = editing,
+            initialPassword = editingPassword,
+            folders = folders,
+            onSave = { newServer, password ->
+                val repo = serverRepository
+                scope.launch {
+                    if (editing != null) {
+                        // Update existing server in place.
+                        repo?.updateServer(newServer.copy(id = editing.id), password)
+                        val idx = servers.indexOfFirst { it.id == editing.id }
+                        if (idx >= 0) servers[idx] = newServer.copy(id = editing.id)
+                        passwords[editing.id] = password
+                    } else if (repo != null) {
+                        // Persist through the repository so the id is assigned by
+                        // the storage layer and servers survive app restarts.
+                        val savedId = repo.insertServer(newServer, password)
+                        servers.add(newServer.copy(id = savedId))
+                        passwords[savedId] = password
+                        selectedServerId = savedId
+                    } else {
+                        // No repository (Android placeholder): in-memory only.
+                        val newId = (servers.maxOfOrNull { it.id } ?: 0) + 1
+                        passwords[newId] = password
+                        servers.add(newServer.copy(id = newId))
+                        selectedServerId = newId
+                    }
+                    showConnectDialog = false
+                    editingServer = null
+                }
+            },
+            onManageLogins = editing?.takeIf { it.host.isNotEmpty() }?.let { {
+                showConnectDialog = false
+                editingServer = null
+                showLoginsFor = it
+            } },
+            onDismiss = {
+                showConnectDialog = false
+                editingServer = null
+            }
+        )
+    }
+
+    showLoginsFor?.let { target ->
+        ManageLoginsDialog(
+            server = target,
+            repository = serverRepository,
+            onDismiss = { showLoginsFor = null }
+        )
+    }
+
+    serverToDelete?.let { target ->
+        AlertDialog(
+            onDismissRequest = { serverToDelete = null },
+            title = { Text(AppStrings.deleteServer, fontWeight = FontWeight.Bold) },
+            text = { Text(String.format(deleteServerConfirmMsg(), target.name)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    val repo = serverRepository
+                    scope.launch {
+                        repo?.deleteServer(target.id)
+                        servers.removeAll { it.id == target.id }
+                        passwords.remove(target.id)
+                        if (selectedServerId == target.id) {
+                            selectedServerId = servers.firstOrNull()?.id ?: 0
+                        }
+                    }
+                    serverToDelete = null
+                }) { Text(AppStrings.delete, color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { serverToDelete = null }) { Text(AppStrings.cancel) }
+            }
+        )
+    }
+
+    folderToDelete?.let { target ->
+        AlertDialog(
+            onDismissRequest = { folderToDelete = null },
+            title = { Text(AppStrings.deleteServer, fontWeight = FontWeight.Bold) },
+            text = { Text(String.format(AppStrings.deleteFolderConfirm, target.name)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    val repo = serverRepository
+                    scope.launch {
+                        repo?.deleteFolder(target.id)
+                        // Servers in the folder moved to unfiled; refresh local list.
+                        val stored = repo?.getServers()
+                        if (stored != null) {
+                            servers.clear()
+                            servers.addAll(stored)
+                        }
+                    }
+                    folderToDelete = null
+                }) { Text(AppStrings.delete, color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { folderToDelete = null }) { Text(AppStrings.cancel) }
+            }
+        )
+    }
+
+    folderNameDialog?.let { state ->
+        FolderNameDialog(
+            initialName = (state as? FolderNameDialogState.Rename)?.folder?.name ?: "",
+            title = if (state is FolderNameDialogState.Rename) AppStrings.rename else AppStrings.newFolder,
+            onConfirm = { name ->
+                val repo = serverRepository
+                scope.launch {
+                    when (state) {
+                        is FolderNameDialogState.Add -> repo?.insertFolder(name)
+                        is FolderNameDialogState.Rename -> repo?.updateFolder(state.folder.copy(name = name))
+                    }
+                }
+                folderNameDialog = null
+            },
+            onDismiss = { folderNameDialog = null }
+        )
+    }
+
+    if (showSettingsDialog) {
+        DesktopSettingsDialog(
+            settings = settings,
+            onDismiss = { showSettingsDialog = false }
+        )
+    }
+
+    if (showAboutDialog) {
+        AboutDialog(
+            appVersion = appVersion,
+            onDismiss = { showAboutDialog = false }
+        )
+    }
+
+    if (showManageCommandsDialog) {
+        ManageCommandsDialog(
+            repository = serverRepository,
+            onDismiss = { showManageCommandsDialog = false }
+        )
+    }
+}
+
+private fun deleteServerConfirmMsg(): String =
+    if (AppStrings.language == "ru") "Удалить сервер \"%1\$s\"? Все логины будут удалены."
+    else "Delete server \"%1\$s\"? All its logins will be deleted."
+
+enum class PaneType { Terminal, Sftp }
+
+@Composable
+private fun ServerListPane(
+    servers: List<Server>,
+    folders: List<ServerFolder> = emptyList(),
+    selectedId: Int,
+    onSelect: (Int) -> Unit,
+    onAddServer: () -> Unit,
+    onEditServer: (Server) -> Unit = {},
+    onDeleteServer: (Server) -> Unit = {},
+    onManageLogins: (Server) -> Unit = {},
+    onAddFolder: () -> Unit = {},
+    onRenameFolder: (ServerFolder) -> Unit = {},
+    onDeleteFolder: (ServerFolder) -> Unit = {},
+    modifier: Modifier = Modifier
+) {
+    Surface(modifier = modifier, color = MaterialTheme.colorScheme.surfaceVariant) {
+        Column {
+            // Folders start expanded; toggles are remembered per folder id.
+            val expandedFolders = remember { mutableStateMapOf<Int, Boolean>() }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                Text(
+                    text = AppStrings.servers,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                // Add folder button (folder icon).
+                IconButton(onClick = onAddFolder) {
+                    Icon(
+                        imageVector = Icons.Default.CreateNewFolder,
+                        contentDescription = AppStrings.newFolder,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                IconButton(onClick = onAddServer) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = AppStrings.addServer,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+            if (servers.isEmpty()) {
+                // Empty state: guide the user to add their first server.
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Нет серверов.\nНажмите +, чтобы добавить.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
+            } else {
+                val unfiled = servers.filter { it.folderId == null }
+                LazyColumn(Modifier.fillMaxSize()) {
+                    // Unfiled servers first (no folder header).
+                    items(unfiled, key = { it.id }) { server ->
+                        ServerRow(
+                            server = server,
+                            selected = server.id == selectedId,
+                            onClick = { onSelect(server.id) },
+                            onEdit = { onEditServer(server) },
+                            onDelete = { onDeleteServer(server) },
+                            onManageLogins = { onManageLogins(server) }
+                        )
+                    }
+                    // Then one collapsible group per folder.
+                    folders.forEach { folder ->
+                        val inFolder = servers.filter { it.folderId == folder.id }
+                        val expanded = expandedFolders[folder.id] ?: true
+                        item(key = "folder-${folder.id}") {
+                            FolderHeader(
+                                folder = folder,
+                                count = inFolder.size,
+                                expanded = expanded,
+                                onToggle = { expandedFolders[folder.id] = !expanded },
+                                onRename = { onRenameFolder(folder) },
+                                onDelete = { onDeleteFolder(folder) }
+                            )
+                        }
+                        if (expanded) {
+                            items(inFolder, key = { it.id }) { server ->
+                                ServerRow(
+                                    server = server,
+                                    selected = server.id == selectedId,
+                                    onClick = { onSelect(server.id) },
+                                    onEdit = { onEditServer(server) },
+                                    onDelete = { onDeleteServer(server) },
+                                    onManageLogins = { onManageLogins(server) }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Collapsible folder group header with rename/delete actions. */
+@Composable
+private fun FolderHeader(
+    folder: ServerFolder,
+    count: Int,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    onRename: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onToggle)
+            .padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp)
+    ) {
+        Icon(
+            imageVector = if (expanded) Icons.Default.ExpandMore else Icons.Default.ChevronRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp)
+        )
+        Icon(
+            imageVector = Icons.Default.Folder,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(horizontal = 8.dp).size(16.dp)
+        )
+        Text(
+            text = folder.name,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.weight(1f),
+            maxLines = 1
+        )
+        if (count > 0) {
+            Text(
+                text = count.toString(),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(end = 4.dp)
+            )
+        }
+        IconButton(onClick = onRename, modifier = Modifier.size(28.dp)) {
+            Icon(Icons.Default.Edit, contentDescription = AppStrings.rename, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))
+        }
+        IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
+            Icon(Icons.Default.Delete, contentDescription = AppStrings.delete, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(14.dp))
+        }
+    }
+}
+
+@Composable
+private fun ServerRow(
+    server: Server,
+    selected: Boolean,
+    onClick: () -> Unit,
+    onEdit: () -> Unit = {},
+    onDelete: () -> Unit = {},
+    onManageLogins: () -> Unit = {}
+) {
+    val containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer
+                         else MaterialTheme.colorScheme.surfaceVariant
+    Card(
+        onClick = onClick,
+        colors = CardDefaults.cardColors(containerColor = containerColor),
+        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp)
+        ) {
+            Icon(
+                imageVector = IconUtils.getIcon(server.iconName),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(end = 12.dp)
+            )
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = server.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "${server.username}@${server.host}:${server.port}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            // Row actions (edit / delete / logins) — visible on selection.
+            if (selected) {
+                IconButton(onClick = onEdit, modifier = Modifier.size(28.dp)) {
+                    Icon(Icons.Default.Edit, contentDescription = AppStrings.editServer, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                }
+                IconButton(onClick = onManageLogins, modifier = Modifier.size(28.dp)) {
+                    Icon(Icons.Default.Person, contentDescription = AppStrings.manageLogins, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                }
+                IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
+                    Icon(Icons.Default.Delete, contentDescription = AppStrings.deleteServer, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InteractionPane(
+    server: Server,
+    pane: PaneType,
+    onPaneChange: (PaneType) -> Unit,
+    terminalSession: TerminalController?,
+    sftpController: SftpController? = null,
+    customCommands: List<CustomCommand> = emptyList(),
+    logins: List<ServerLogin> = emptyList(),
+    activeLoginId: Int? = null,
+    onSelectLogin: (Int?) -> Unit = {},
+    onManageLogins: () -> Unit = {},
+    showTopBar: Boolean = true,
+    showCommandPanel: Boolean = true,
+    commandPaneWidth: Int = 190,
+    onCommandPaneResize: (Float) -> Unit = {},
+    onCommandPaneResizeEnd: () -> Unit = {},
+    termBgHex: String = "#000000",
+    termTextHex: String = "#00FF00",
+    termFontSizePx: Float = 14f,
+    rebootConfirmMode: String = "always",
+    privacyMode: Boolean = false,
+    onOpenSettings: () -> Unit = {},
+    onOpenAbout: () -> Unit = {},
+    onManageCommands: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
+    // Shared so the terminal can be re-focused after clicking command buttons
+    // (a Button click steals keyboard focus and keystrokes would stop
+    // reaching the terminal otherwise).
+    val terminalFocusRequester = remember { FocusRequester() }
+
+    Surface(modifier = modifier, color = MaterialTheme.colorScheme.background) {
+        Column(Modifier.fillMaxSize()) {
+            // Top bar: server info + login switch + pane switcher + app actions
+            if (showTopBar) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(server.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(
+                            if (privacyMode) "${activeUsername(server, activeLoginId, logins)}@${PrivacyUtils.maskHost(server.host)}"
+                            else "${activeUsername(server, activeLoginId, logins)}@${server.host}:${server.port}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    // Login selector (only if the server has extra logins).
+                    if (logins.isNotEmpty()) {
+                        LoginSwitcher(
+                            logins = logins,
+                            serverUsername = server.username,
+                            activeLoginId = activeLoginId,
+                            onSelect = onSelectLogin,
+                            onManageLogins = onManageLogins
+                        )
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    PaneSwitcher(pane, onPaneChange)
+                    Spacer(Modifier.width(8.dp))
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(Icons.Default.Settings, contentDescription = AppStrings.settings)
+                    }
+                    IconButton(onClick = onOpenAbout) {
+                        Icon(Icons.Default.Info, contentDescription = AppStrings.aboutApp)
+                    }
+                }
+                HorizontalDivider()
+            }
+            // Content area
+            when (pane) {
+                PaneType.Terminal -> if (terminalSession != null) {
+                    Row(Modifier.fillMaxSize()) {
+                        TerminalView(
+                            terminalScreen = terminalSession.terminalScreen,
+                            terminalRevision = terminalSession.terminalRevision,
+                            isLoading = terminalSession.isLoading,
+                            controller = terminalSession,
+                            bgColor = parseHexColor(termBgHex),
+                            textColor = parseHexColor(termTextHex),
+                            fontSizeSp = termFontSizePx,
+                            focusRequester = terminalFocusRequester,
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (showCommandPanel) {
+                            ResizableDivider(
+                                onDrag = onCommandPaneResize,
+                                onDragEnd = onCommandPaneResizeEnd,
+                                orientation = ResizeOrientation.Horizontal
+                            )
+                            CommandPanel(
+                                customCommands = customCommands,
+                                rebootConfirmMode = rebootConfirmMode,
+                                onExecute = {
+                                    terminalSession.executeCommand(it)
+                                    terminalFocusRequester.requestFocus()
+                                },
+                                onManageCommands = onManageCommands,
+                                modifier = Modifier.width(commandPaneWidth.dp).fillMaxHeight()
+                            )
+                        }
+                    }
+                } else {
+                    TerminalPreview(server)
+                }
+                PaneType.Sftp -> SftpView(sftpController)
+            }
+        }
+    }
+}
+
+/** Converts a "#RRGGBB" / "#AARRGGBB" hex string to a Compose [Color]. */
+internal fun parseHexColor(hex: String): Color {
+    return try {
+        val cleaned = hex.removePrefix("#")
+        val argb = when (cleaned.length) {
+            6 -> (0xFF000000L or cleaned.toLong(16)).toInt()
+            8 -> cleaned.toLong(16).toInt()
+            else -> 0xFF000000.toInt()
+        }
+        Color(argb)
+    } catch (e: Exception) {
+        Color.Black
+    }
+}
+
+/** Reads the whole [PlatformInputStream] into a UTF-8 string and closes it. */
+private fun readAllText(input: PlatformInputStream): String {
+    val buffer = java.io.ByteArrayOutputStream()
+    val chunk = ByteArray(8192)
+    while (true) {
+        val n = input.read(chunk, 0, chunk.size)
+        if (n <= 0) break
+        buffer.write(chunk, 0, n)
+    }
+    input.close()
+    return String(buffer.toByteArray(), Charsets.UTF_8)
+}
+
+/**
+ * Quick-command rail shown to the right of the terminal: base commands plus
+ * the user's custom commands (matching the phone's quick-commands row, but
+ * arranged as a vertical list as requested for the desktop layout).
+ */
+@Composable
+private fun CommandPanel(
+    customCommands: List<CustomCommand>,
+    rebootConfirmMode: String,
+    onExecute: (String) -> Unit,
+    onManageCommands: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
+    var pendingCommand by remember { mutableStateOf<String?>(null) }
+
+    val baseCommands = listOf(
+        "ls -la" to AppStrings.cmdList,
+        "top" to AppStrings.cmdTop,
+        "df -h" to AppStrings.cmdDisk,
+        "free -m" to AppStrings.cmdRam,
+        "uptime" to AppStrings.cmdUptime,
+        "ps aux" to AppStrings.cmdProcesses,
+        "dmesg" to AppStrings.cmdLogs
+    )
+
+    fun run(cmd: CustomCommand) {
+        if (cmd.isDangerous && rebootConfirmMode != "never") {
+            pendingCommand = cmd.command
+        } else {
+            onExecute(cmd.command)
+        }
+    }
+
+    Column(
+        modifier = modifier.background(MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Text(
+            text = AppStrings.quickCommands,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+        )
+        HorizontalDivider()
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            item {
+                Text(
+                    text = AppStrings.commands,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            items(baseCommands) { (cmd, label) ->
+                OutlinedButton(
+                    onClick = { onExecute(cmd) },
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Text(label, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                }
+            }
+            item {
+                Text(
+                    text = AppStrings.manageCommands,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+            items(customCommands) { cmd ->
+                Button(
+                    onClick = { run(cmd) },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = parseHexColor(cmd.colorHex).let { c ->
+                            if (c == Color.Black) MaterialTheme.colorScheme.primary else c
+                        }
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Text(cmd.name, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                }
+            }
+            item {
+                OutlinedButton(
+                    onClick = onManageCommands,
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        AppStrings.newCommand,
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+    }
+
+    pendingCommand?.let { command ->
+        AlertDialog(
+            onDismissRequest = { pendingCommand = null },
+            title = { Text(AppStrings.confirmExecution) },
+            text = { Text(String.format(AppStrings.executeConfirmMsg, command)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    onExecute(command)
+                    pendingCommand = null
+                }) { Text(AppStrings.execute) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingCommand = null }) { Text(AppStrings.cancel) }
+            }
+        )
+    }
+}
+
+@Composable
+private fun PaneSwitcher(selected: PaneType, onSelect: (PaneType) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        PaneTab("Terminal", selected == PaneType.Terminal) { onSelect(PaneType.Terminal) }
+        PaneTab("SFTP", selected == PaneType.Sftp) { onSelect(PaneType.Sftp) }
+    }
+}
+
+@Composable
+private fun PaneTab(label: String, selected: Boolean, onClick: () -> Unit) {
+    val bg = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(6.dp),
+        color = bg
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+        )
+    }
+}
+
+/**
+ * Fallback view shown when no real terminal session is available
+ * (e.g. no server selected yet).
+ */
+@Composable
+private fun TerminalPreview(server: Server) {
+    val consoleBg = Color(0xFF0D1117)
+    val consoleFg = Color(0xFFC9D1D9)
+    val green = Color(0xFF3FB950)
+
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(consoleBg)
+            .padding(16.dp)
+    ) {
+        Column {
+            if (server.host.isNotEmpty()) {
+                Text(
+                    text = "ssh ${server.username}@${server.host}",
+                    color = green,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 13.sp
+                )
+                Text(
+                    text = "SSH Commander desktop — терминал в разработке",
+                    color = consoleFg,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 13.sp
+                )
+            } else {
+                Text(
+                    text = "Добавьте сервер слева, чтобы подключиться.",
+                    color = consoleFg,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 13.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+/** Username to display, honoring the active login selection. */
+private fun activeUsername(server: Server, activeLoginId: Int?, logins: List<ServerLogin>): String {
+    val login = logins.firstOrNull { it.id == activeLoginId }
+    return login?.username ?: server.username
+}
+
+/** Small dropdown to switch between a server's logins (like the phone's). */
+@Composable
+private fun LoginSwitcher(
+    logins: List<ServerLogin>,
+    serverUsername: String,
+    activeLoginId: Int?,
+    onSelect: (Int?) -> Unit,
+    onManageLogins: () -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val active = logins.firstOrNull { it.id == activeLoginId }
+    Box {
+        OutlinedButton(onClick = { expanded = true }) {
+            Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(
+                if (active != null) active.label
+                else String.format(AppStrings.mainLoginLabel, serverUsername),
+                maxLines = 1
+            )
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            // Main (server) login
+            DropdownMenuItem(
+                text = { Text(String.format(AppStrings.mainLoginLabel, serverUsername)) },
+                onClick = { onSelect(null); expanded = false },
+                leadingIcon = {
+                    if (activeLoginId == null) {
+                        Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    }
+                }
+            )
+            logins.forEach { login ->
+                DropdownMenuItem(
+                    text = { Text(login.label) },
+                    onClick = { onSelect(login.id); expanded = false },
+                    leadingIcon = {
+                        if (login.id == activeLoginId) {
+                            Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                )
+            }
+            HorizontalDivider()
+            DropdownMenuItem(
+                text = { Text(AppStrings.manageLogins) },
+                onClick = { expanded = false; onManageLogins() }
+            )
+        }
+    }
+}
+
+/** Which way a [ResizableDivider] drags the sibling pane. */
+private enum class ResizeOrientation { Horizontal, Vertical }
+
+/**
+ * A thin draggable strip used to resize adjacent panes. Drags report deltas
+ * so the caller can clamp and persist the new width/height.
+ */
+@Composable
+private fun ResizableDivider(
+    onDrag: (Float) -> Unit,
+    onDragEnd: () -> Unit,
+    orientation: ResizeOrientation = ResizeOrientation.Horizontal,
+    modifier: Modifier = Modifier
+) {
+    val base = if (orientation == ResizeOrientation.Horizontal) Modifier.width(5.dp) else Modifier.fillMaxWidth().height(5.dp)
+    Box(
+        modifier = modifier
+            .then(base)
+            .background(MaterialTheme.colorScheme.outlineVariant)
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures(
+                    onDragEnd = { onDragEnd() },
+                    onDragCancel = { onDragEnd() }
+                ) { change, dragAmount ->
+                    change.consume()
+                    onDrag(dragAmount)
+                }
+            }
+    )
+}
+
+/**
+ * Top menu bar: File (Import/Export JSON) + View (element visibility toggles).
+ * Mirrors the desktop-native menu conventions while staying in Compose.
+ */
+@Composable
+private fun DesktopMenuBar(
+    showServerList: Boolean,
+    showCommandPanel: Boolean,
+    showTopBar: Boolean,
+    onToggleServerList: (Boolean) -> Unit,
+    onToggleCommandPanel: (Boolean) -> Unit,
+    onToggleTopBar: (Boolean) -> Unit,
+    onExport: () -> Unit,
+    onImport: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var fileExpanded by remember { mutableStateOf(false) }
+    var viewExpanded by remember { mutableStateOf(false) }
+
+    Surface(modifier = modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceVariant) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            // File menu
+            Box {
+                TextButton(onClick = { fileExpanded = true; viewExpanded = false }) {
+                    Text(if (AppStrings.language == "ru") "Файл" else "File", fontWeight = FontWeight.Medium)
+                }
+                DropdownMenu(expanded = fileExpanded, onDismissRequest = { fileExpanded = false }) {
+                    DropdownMenuItem(
+                        text = { Text(AppStrings.exportData) },
+                        onClick = { fileExpanded = false; onExport() }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(AppStrings.importData) },
+                        onClick = { fileExpanded = false; onImport() }
+                    )
+                }
+            }
+            // View menu
+            Box {
+                TextButton(onClick = { viewExpanded = true; fileExpanded = false }) {
+                    Text(if (AppStrings.language == "ru") "Вид" else "View", fontWeight = FontWeight.Medium)
+                }
+                DropdownMenu(expanded = viewExpanded, onDismissRequest = { viewExpanded = false }) {
+                    DropdownMenuItem(
+                        text = { Text(if (AppStrings.language == "ru") "Список серверов" else "Server list") },
+                        leadingIcon = {
+                            Checkbox(
+                                checked = showServerList,
+                                onCheckedChange = null
+                            )
+                        },
+                        onClick = { onToggleServerList(!showServerList) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(if (AppStrings.language == "ru") "Панель команд" else "Command panel") },
+                        leadingIcon = {
+                            Checkbox(
+                                checked = showCommandPanel,
+                                onCheckedChange = null
+                            )
+                        },
+                        onClick = { onToggleCommandPanel(!showCommandPanel) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(if (AppStrings.language == "ru") "Верхняя панель" else "Top bar") },
+                        leadingIcon = {
+                            Checkbox(
+                                checked = showTopBar,
+                                onCheckedChange = null
+                            )
+                        },
+                        onClick = { onToggleTopBar(!showTopBar) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ServerDialog(
+    server: Server?,
+    initialPassword: String,
+    folders: List<ServerFolder> = emptyList(),
+    onSave: (Server, String) -> Unit,
+    onManageLogins: (() -> Unit)? = null,
+    onDismiss: () -> Unit
+) {
+    val isEdit = server != null
+    var name by remember { mutableStateOf(server?.name ?: "") }
+    var host by remember { mutableStateOf(server?.host ?: "") }
+    var port by remember { mutableStateOf((server?.port ?: 22).toString()) }
+    var username by remember { mutableStateOf(server?.username ?: "") }
+    var password by remember { mutableStateOf(initialPassword) }
+    var sftpStartPath by remember { mutableStateOf(server?.sftpStartPath ?: "") }
+    var iconName by remember { mutableStateOf(server?.iconName ?: "Default") }
+    var folderId by remember { mutableStateOf(server?.folderId) }
+
+    fun submit() {
+        val trimmedHost = host.trim()
+        val trimmedName = name.trim().ifEmpty { trimmedHost }
+        val trimmedUser = username.trim()
+        if (trimmedHost.isEmpty() || trimmedUser.isEmpty()) return
+        onSave(
+            Server(
+                id = server?.id ?: 0,
+                name = trimmedName,
+                host = trimmedHost,
+                port = port.toIntOrNull() ?: 22,
+                username = trimmedUser,
+                iconName = iconName,
+                sftpStartPath = sftpStartPath.trim().ifEmpty { null },
+                folderId = folderId
+            ),
+            password
+        )
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (isEdit) AppStrings.editServer else AppStrings.addServer, fontWeight = FontWeight.Bold) },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text(AppStrings.serverName) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = host,
+                    onValueChange = { host = it },
+                    label = { Text(AppStrings.hostIp) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = port,
+                        onValueChange = { port = it },
+                        label = { Text(AppStrings.port) },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = username,
+                        onValueChange = { username = it },
+                        label = { Text(AppStrings.username) },
+                        singleLine = true,
+                        modifier = Modifier.weight(2f)
+                    )
+                }
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text(AppStrings.password) },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = sftpStartPath,
+                    onValueChange = { sftpStartPath = it },
+                    label = { Text(AppStrings.sftpStartPath) },
+                    placeholder = { Text("/") },
+                    supportingText = { Text(AppStrings.sftpStartPathHint2) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Folder selector (server grouping).
+                FolderDropdown(
+                    folders = folders,
+                    selectedId = folderId,
+                    onSelect = { folderId = it }
+                )
+
+                Text(AppStrings.chooseIcon, style = MaterialTheme.typography.titleSmall)
+                // Icon picker grid (mirrors the mobile AddEditServerScreen).
+                Box(modifier = Modifier.height(120.dp)) {
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(72.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        gridItems(IconUtils.availableIcons) { option ->
+                            val isSelected = iconName == option.name
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier
+                                    .border(
+                                        width = if (isSelected) 2.dp else 0.dp,
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+                                    .clickable { iconName = option.name }
+                                    .padding(6.dp)
+                            ) {
+                                Icon(
+                                    option.icon,
+                                    contentDescription = option.label,
+                                    tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = option.label,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (isEdit && onManageLogins != null) {
+                    OutlinedButton(onClick = onManageLogins, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Default.Person, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
+                        Text(AppStrings.manageLogins)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = ::submit) {
+                Text(if (isEdit) AppStrings.save else AppStrings.addServer)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(AppStrings.cancel) }
+        }
+    )
+}
+
+/** Which action a [FolderNameDialog] performs on confirm. */
+private sealed class FolderNameDialogState {
+    data object Add : FolderNameDialogState()
+    data class Rename(val folder: ServerFolder) : FolderNameDialogState()
+}
+
+/** Small text-input dialog for creating/renaming a folder. */
+@Composable
+private fun FolderNameDialog(
+    initialName: String,
+    title: String,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var name by remember { mutableStateOf(initialName) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title, fontWeight = FontWeight.Bold) },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text(AppStrings.folderNamePlaceholder) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(name.trim()) },
+                enabled = name.isNotBlank()
+            ) {
+                Text(if (initialName.isEmpty()) AppStrings.create else AppStrings.rename)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(AppStrings.cancel) }
+        }
+    )
+}
+
+/** Dropdown to pick a folder (or "No folder") when editing a server. */
+@Composable
+private fun FolderDropdown(
+    folders: List<ServerFolder>,
+    selectedId: Int?,
+    onSelect: (Int?) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedName = folders.firstOrNull { it.id == selectedId }?.name ?: AppStrings.noFolder
+    Column {
+        Text(AppStrings.folders, style = MaterialTheme.typography.titleSmall)
+        Box {
+            OutlinedButton(
+                onClick = { expanded = true },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.Folder, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(selectedName, maxLines = 1, modifier = Modifier.weight(1f))
+                Icon(Icons.Default.KeyboardArrowDown, contentDescription = null)
+            }
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                DropdownMenuItem(
+                    text = { Text(AppStrings.noFolder) },
+                    onClick = { onSelect(null); expanded = false },
+                    leadingIcon = {
+                        if (selectedId == null) {
+                            Icon(Icons.Default.Folder, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                )
+                folders.forEach { folder ->
+                    DropdownMenuItem(
+                        text = { Text(folder.name, maxLines = 1) },
+                        onClick = { onSelect(folder.id); expanded = false },
+                        leadingIcon = {
+                            if (folder.id == selectedId) {
+                                Icon(Icons.Default.Folder, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Desktop dialog to manage a server's logins (add/edit/delete/set default).
+ * Mirrors the phone ManageLoginsScreen.
+ */
+@Composable
+private fun ManageLoginsDialog(
+    server: Server,
+    repository: ServerRepository?,
+    onDismiss: () -> Unit
+) {
+    val scope = rememberCoroutineScope()
+    val logins = remember { mutableStateListOf<ServerLogin>() }
+    var editing by remember { mutableStateOf<ServerLogin?>(null) }
+    var adding by remember { mutableStateOf(false) }
+    var loginToDelete by remember { mutableStateOf<ServerLogin?>(null) }
+    var editingPassword by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(repository, server.id) {
+        logins.clear()
+        repository?.getLoginsForServer(server.id)?.collect {
+            logins.clear()
+            logins.addAll(it)
+        }
+    }
+
+    // Load the stored password when opening the edit dialog (suspend access).
+    LaunchedEffect(editing) {
+        editingPassword = editing?.let { repository?.getLoginPassword(it.id) }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(AppStrings.manageLogins, fontWeight = FontWeight.Bold) },
+        text = {
+            Column {
+                Text(
+                    String.format(AppStrings.mainLoginLabel, server.username),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                if (logins.isEmpty()) {
+                    Text(
+                        AppStrings.noLogins,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth().height(280.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        items(logins, key = { it.id }) { login ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        login.label,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Text(
+                                        login.username,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                if (login.isDefault) {
+                                    Text(
+                                        if (AppStrings.language == "ru") "по умолч." else "default",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(end = 8.dp)
+                                    )
+                                } else {
+                                    TextButton(onClick = {
+                                        scope.launch {
+                                            repository?.updateLogin(login.copy(isDefault = true), null)
+                                            // Clear default from other logins.
+                                            logins.filter { it.id != login.id && it.isDefault }.forEach { other ->
+                                                repository?.updateLogin(other.copy(isDefault = false), null)
+                                            }
+                                        }
+                                    }) {
+                                        Text(
+                                            if (AppStrings.language == "ru") "по умолч." else "default",
+                                            style = MaterialTheme.typography.labelSmall
+                                        )
+                                    }
+                                }
+                                IconButton(onClick = { editing = login }) {
+                                    Icon(Icons.Default.Edit, contentDescription = AppStrings.edit, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                IconButton(onClick = { loginToDelete = login }) {
+                                    Icon(Icons.Default.Delete, contentDescription = AppStrings.delete, tint = MaterialTheme.colorScheme.error)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Row {
+                Button(onClick = { adding = true }) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Spacer(Modifier.width(4.dp))
+                    Text(AppStrings.addLogin)
+                }
+                Spacer(Modifier.width(8.dp))
+                TextButton(onClick = onDismiss) { Text(AppStrings.dismiss) }
+            }
+        }
+    )
+
+    if (adding || editing != null) {
+        val target = editing
+        LoginEditDialog(
+            initialLabel = target?.label ?: "",
+            initialUsername = target?.username ?: "",
+            initialPassword = editingPassword ?: "",
+            initialSftpPath = target?.sftpStartPath ?: "",
+            onDismiss = { adding = false; editing = null },
+            onConfirm = { label, username, password, sftpPath ->
+                scope.launch {
+                    if (target != null) {
+                        repository?.updateLogin(
+                            target.copy(
+                                label = label,
+                                username = username,
+                                sftpStartPath = sftpPath.ifBlank { null }
+                            ),
+                            password
+                        )
+                    } else {
+                        repository?.insertLogin(
+                            ServerLogin(
+                                serverId = server.id,
+                                label = label,
+                                username = username,
+                                sftpStartPath = sftpPath.ifBlank { null },
+                                isDefault = logins.isEmpty()
+                            ),
+                            password
+                        )
+                    }
+                }
+                adding = false
+                editing = null
+            }
+        )
+    }
+
+    loginToDelete?.let { login ->
+        AlertDialog(
+            onDismissRequest = { loginToDelete = null },
+            title = { Text(AppStrings.deleteLoginTitle) },
+            text = { Text(String.format(AppStrings.deleteLoginMsg, login.label)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    scope.launch { repository?.deleteLogin(login) }
+                    loginToDelete = null
+                }) { Text(AppStrings.delete, color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { loginToDelete = null }) { Text(AppStrings.cancel) }
+            }
+        )
+    }
+}
+
+/** Single login editor (label, username, password, SFTP start path). */
+@Composable
+private fun LoginEditDialog(
+    initialLabel: String = "",
+    initialUsername: String = "",
+    initialPassword: String = "",
+    initialSftpPath: String = "",
+    onDismiss: () -> Unit,
+    onConfirm: (label: String, username: String, password: String, sftpPath: String) -> Unit
+) {
+    var label by remember { mutableStateOf(initialLabel) }
+    var username by remember { mutableStateOf(initialUsername) }
+    var password by remember { mutableStateOf(initialPassword) }
+    var sftpPath by remember { mutableStateOf(initialSftpPath) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(AppStrings.addLogin, fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = label,
+                    onValueChange = { label = it },
+                    label = { Text(AppStrings.loginLabel) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = username,
+                    onValueChange = { username = it },
+                    label = { Text(AppStrings.username) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text(AppStrings.password) },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = sftpPath,
+                    onValueChange = { sftpPath = it },
+                    label = { Text(AppStrings.sftpStartPath) },
+                    placeholder = { Text("/") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                val trimmedLabel = label.trim()
+                val trimmedUser = username.trim()
+                if (trimmedLabel.isEmpty() || trimmedUser.isEmpty()) return@Button
+                onConfirm(trimmedLabel, trimmedUser, password, sftpPath.trim())
+            }) { Text(AppStrings.save) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(AppStrings.cancel) }
+        }
+    )
+}
+
+/**
+ * Desktop settings dialog. Mirrors the phone SettingsScreen but adapted to a
+ * dialog: theme, language, terminal colors, privacy mode and auto-reconnect.
+ */
+@Composable
+private fun DesktopSettingsDialog(
+    settings: AppSettings?,
+    onDismiss: () -> Unit
+) {
+    val scope = rememberCoroutineScope()
+
+    val themeMode by (settings?.themeMode?.collectAsState(initial = "system")
+        ?: remember { mutableStateOf("system") })
+    val language by (settings?.language?.collectAsState(initial = "en")
+        ?: remember { mutableStateOf("en") })
+    val termBgHex by (settings?.termBgColor?.collectAsState(initial = "#000000")
+        ?: remember { mutableStateOf("#000000") })
+    val termTextHex by (settings?.termTextColor?.collectAsState(initial = "#00FF00")
+        ?: remember { mutableStateOf("#00FF00") })
+    val privacyMode by (settings?.privacyMode?.collectAsState(initial = false)
+        ?: remember { mutableStateOf(false) })
+    val autoReconnect by (settings?.autoReconnect?.collectAsState(initial = true)
+        ?: remember { mutableStateOf(true) })
+
+    // Keep identical to the phone SettingsScreen presets for color parity.
+    val presetBgColors = listOf("#000000", "#1A1A1B", "#2D2D2D", "#FFFFFF", "#F5F5F5", "#002B36", "#073642")
+    val presetTextColors = listOf("#00FF00", "#008000", "#FFFFFF", "#000000", "#FFD700", "#FFA500", "#FF0000", "#268BD2")
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(AppStrings.settings, fontWeight = FontWeight.Bold) },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Theme
+                SettingsBlockTitle(AppStrings.theme)
+                RadioButtonOption(AppStrings.themeLight, themeMode == "light") {
+                    scope.launch { settings?.setThemeMode("light") }
+                }
+                RadioButtonOption(AppStrings.themeDark, themeMode == "dark") {
+                    scope.launch { settings?.setThemeMode("dark") }
+                }
+                RadioButtonOption(AppStrings.themeSystem, themeMode == "system") {
+                    scope.launch { settings?.setThemeMode("system") }
+                }
+
+                // Language
+                SettingsBlockTitle(AppStrings.languageLabel)
+                RadioButtonOption(AppStrings.langEn, language == "en") {
+                    scope.launch { settings?.setLanguage("en"); AppStrings.language = "en" }
+                }
+                RadioButtonOption(AppStrings.langRu, language == "ru") {
+                    scope.launch { settings?.setLanguage("ru"); AppStrings.language = "ru" }
+                }
+
+                // Terminal colors
+                SettingsBlockTitle(AppStrings.terminalStyle)
+                Text(AppStrings.backgroundColor, style = MaterialTheme.typography.labelMedium)
+                ColorChipRow(presetBgColors, termBgHex) {
+                    scope.launch { settings?.setTermBgColor(it) }
+                }
+                Text(AppStrings.textColor, style = MaterialTheme.typography.labelMedium)
+                ColorChipRow(presetTextColors, termTextHex) {
+                    scope.launch { settings?.setTermTextColor(it) }
+                }
+
+                // Privacy mode
+                SettingsBlockTitle(AppStrings.privacyMode)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(AppStrings.privacyMode, style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            AppStrings.privacyModeDesc,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = privacyMode,
+                        onCheckedChange = { scope.launch { settings?.setPrivacyMode(it) } }
+                    )
+                }
+
+                // Auto-reconnect
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(AppStrings.autoReconnect, style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            AppStrings.autoReconnectDesc,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = autoReconnect,
+                        onCheckedChange = { scope.launch { settings?.setAutoReconnect(it) } }
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(AppStrings.dismiss) }
+        }
+    )
+}
+
+@Composable
+private fun SettingsBlockTitle(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.primary
+    )
+}
+
+@Composable
+private fun RadioButtonOption(label: String, selected: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RadioButton(selected = selected, onClick = onClick)
+        Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(start = 4.dp))
+    }
+}
+
+@Composable
+private fun ColorChipRow(colors: List<String>, selectedColor: String, onSelect: (String) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        colors.forEach { colorHex ->
+            val isSelected = colorHex.equals(selectedColor, ignoreCase = true)
+            Surface(
+                onClick = { onSelect(colorHex) },
+                color = parseHexColor(colorHex),
+                shape = RoundedCornerShape(20.dp),
+                border = androidx.compose.foundation.BorderStroke(
+                    width = if (isSelected) 3.dp else 1.dp,
+                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+                ),
+                modifier = Modifier.size(32.dp)
+            ) {}
+        }
+    }
+}
+
+/** Simple About dialog with the app version. */
+@Composable
+private fun AboutDialog(
+    appVersion: String,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(AppStrings.appName, fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    String.format(AppStrings.aboutVersion, appVersion.ifBlank { "1.1" }),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                HorizontalDivider()
+                AppStrings.aboutTextLines.forEach { line ->
+                    Text(line, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(AppStrings.dismiss) }
+        }
+    )
+}
+
+/**
+ * Desktop dialog to add / edit / delete / reorder the user's custom quick
+ * commands. Mirrors the phone ManageCommandsScreen functionality so both
+ * platforms share the same command repository.
+ */
+@Composable
+private fun ManageCommandsDialog(
+    repository: ServerRepository?,
+    onDismiss: () -> Unit
+) {
+    val scope = rememberCoroutineScope()
+    val commands = remember { mutableStateListOf<CustomCommand>() }
+    var showAddDialog by remember { mutableStateOf(false) }
+    var commandToEdit by remember { mutableStateOf<CustomCommand?>(null) }
+
+    LaunchedEffect(repository) {
+        repository?.getAllCustomCommands()?.collect {
+            commands.clear()
+            commands.addAll(it)
+        }
+    }
+
+    fun moveUp(index: Int) {
+        if (index > 0 && repository != null) {
+            val current = commands[index]
+            val previous = commands[index - 1]
+            scope.launch {
+                repository.updateCustomCommand(current.copy(orderIndex = previous.orderIndex))
+                repository.updateCustomCommand(previous.copy(orderIndex = current.orderIndex))
+            }
+        }
+    }
+
+    fun moveDown(index: Int) {
+        if (index < commands.size - 1 && repository != null) {
+            val current = commands[index]
+            val next = commands[index + 1]
+            scope.launch {
+                repository.updateCustomCommand(current.copy(orderIndex = next.orderIndex))
+                repository.updateCustomCommand(next.copy(orderIndex = current.orderIndex))
+            }
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(AppStrings.manageCommands, fontWeight = FontWeight.Bold) },
+        text = {
+            if (commands.isEmpty()) {
+                Text(
+                    if (AppStrings.language == "ru") "Нет своих команд" else "No custom commands yet",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth().height(320.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    itemsIndexed(commands) { index, command ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .clickable { commandToEdit = command }
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(14.dp)
+                                    .clip(CircleShape)
+                                    .background(parseHexColor(command.colorHex))
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(command.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                                Text(
+                                    command.command,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1
+                                )
+                            }
+                            IconButton(
+                                onClick = { moveUp(index) },
+                                enabled = index > 0
+                            ) { Icon(Icons.Default.KeyboardArrowUp, contentDescription = null) }
+                            IconButton(
+                                onClick = { moveDown(index) },
+                                enabled = index < commands.size - 1
+                            ) { Icon(Icons.Default.KeyboardArrowDown, contentDescription = null) }
+                            IconButton(onClick = {
+                                scope.launch { repository?.deleteCustomCommand(command) }
+                            }) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Row {
+                Button(onClick = { showAddDialog = true }) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Spacer(Modifier.width(4.dp))
+                    Text(AppStrings.newCommand)
+                }
+                Spacer(Modifier.width(8.dp))
+                TextButton(onClick = onDismiss) { Text(AppStrings.dismiss) }
+            }
+        }
+    )
+
+    if (showAddDialog) {
+        val primary = MaterialTheme.colorScheme.primary
+        val initialColor = String.format(
+            "#%06X",
+            ((primary.red * 255).toInt() shl 16) or
+                ((primary.green * 255).toInt() shl 8) or
+                (primary.blue * 255).toInt()
+        )
+        AddCommandDialogDesktop(
+            initialColorHex = initialColor,
+            onDismiss = { showAddDialog = false },
+            onConfirm = { name, cmd, isDangerous, colorHex ->
+                scope.launch {
+                    repository?.insertCustomCommand(
+                        CustomCommand(
+                            name = name,
+                            command = cmd,
+                            iconName = "default",
+                            colorHex = colorHex,
+                            orderIndex = commands.size,
+                            isDangerous = isDangerous
+                        )
+                    )
+                }
+                showAddDialog = false
+            }
+        )
+    }
+
+    commandToEdit?.let { editing ->
+        AddCommandDialogDesktop(
+            initialName = editing.name,
+            initialCommand = editing.command,
+            initialIsDangerous = editing.isDangerous,
+            initialColorHex = editing.colorHex,
+            onDismiss = { commandToEdit = null },
+            onConfirm = { name, cmd, isDangerous, colorHex ->
+                scope.launch {
+                    repository?.updateCustomCommand(
+                        editing.copy(
+                            name = name,
+                            command = cmd,
+                            isDangerous = isDangerous,
+                            colorHex = colorHex
+                        )
+                    )
+                }
+                commandToEdit = null
+            }
+        )
+    }
+}
+
+/** Add/edit dialog for a single custom command (desktop flavour). */
+@Composable
+private fun AddCommandDialogDesktop(
+    initialName: String = "",
+    initialCommand: String = "",
+    initialIsDangerous: Boolean = false,
+    initialColorHex: String = "#2196F3",
+    onDismiss: () -> Unit,
+    onConfirm: (String, String, Boolean, String) -> Unit
+) {
+    var name by remember { mutableStateOf(initialName) }
+    var cmd by remember { mutableStateOf(initialCommand) }
+    var isDangerous by remember { mutableStateOf(initialIsDangerous) }
+    var colorHex by remember { mutableStateOf(initialColorHex) }
+
+    val presetColors = listOf(
+        "#F44336", "#E91E63", "#9C27B0", "#673AB7",
+        "#3F51B5", "#2196F3", "#03A9F4", "#00BCD4",
+        "#009688", "#4CAF50", "#8BC34A", "#CDDC39",
+        "#FFEB3B", "#FFC107", "#FF9800", "#FF5722",
+        "#795548", "#9E9E9E", "#607D8B", "#000000"
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (initialName.isEmpty()) AppStrings.newCommand else AppStrings.edit, fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text(AppStrings.serverName) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = cmd,
+                    onValueChange = { cmd = it },
+                    label = { Text(AppStrings.commands) },
+                    placeholder = { Text(AppStrings.cmdPlaceholderExample) },
+                    modifier = Modifier.fillMaxWidth().height(110.dp)
+                )
+
+                Text(
+                    if (AppStrings.language == "ru") "Цвет кнопки" else "Button Color",
+                    style = MaterialTheme.typography.labelLarge
+                )
+                ColorChipRow(presetColors, colorHex) { colorHex = it }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = isDangerous, onCheckedChange = { isDangerous = it })
+                    Text(AppStrings.requiresBio)
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onConfirm(name, cmd, isDangerous, colorHex) }) {
+                Text(AppStrings.save)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(AppStrings.cancel) }
+        }
+    )
+}

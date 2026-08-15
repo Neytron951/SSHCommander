@@ -1,5 +1,7 @@
 [versions]
 agp = "8.7.2"
+compose-multiplatform = "1.7.3"
+kotlinx-coroutines = "1.9.0"
 coreKtx = "1.15.0"
 junit = "4.13.2"
 junitVersion = "1.2.1"
@@ -46,10 +48,28 @@ androidx-biometric = { group = "androidx.biometric", name = "biometric", version
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work" }
 gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
+jsch = { group = "com.jcraft", name = "jsch", version = "0.1.55" }
+
+# Compose Multiplatform libraries
+compose-ui = { module = "org.jetbrains.compose.ui:ui" }
+compose-foundation = { module = "org.jetbrains.compose.foundation:foundation" }
+compose-material3 = { module = "org.jetbrains.compose.material3:material3" }
+compose-material-icons-extended = { module = "org.jetbrains.compose.material:material-icons-extended" }
+compose-lifecycle-viewmodel = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose", version = "2.8.4" }
+compose-ui-tooling = { module = "org.jetbrains.compose.ui:ui-tooling" }
+compose-ui-tooling-preview = { module = "org.jetbrains.compose.ui:ui-tooling-preview" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
+kotlinx-coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "kotlinx-coroutines" }
+jna = { group = "net.java.dev.jna", name = "jna", version = "5.15.0" }
+jna-platform = { group = "net.java.dev.jna", name = "jna-platform", version = "5.15.0" }
 yandex-mobileads = { group = "com.yandex.android", name = "mobileads", version.ref = "yandexAds" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
+android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "compose-multiplatform" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
