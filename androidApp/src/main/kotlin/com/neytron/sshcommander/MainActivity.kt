@@ -26,6 +26,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.neytron.sshcommander.data.SettingsManager
+import com.neytron.sshcommander.data.TerminalScreenStore
 import com.neytron.sshcommander.ui.*
 import com.neytron.sshcommander.ui.theme.SSHCommanderTheme
 import kotlinx.coroutines.flow.first
@@ -138,7 +139,14 @@ fun PhoneApp(
                 ServerListScreen(
                     onAddServer = { navController.navigate("add_edit_server") },
                     onEditServer = { serverId -> navController.navigate("add_edit_server?serverId=$serverId") },
-                    onServerClick = { serverId -> navController.navigate("server_control/$serverId") },
+                    onServerClick = { serverId ->
+                        // Reuse an open session for the server, or start a new one.
+                        val sessionId = TerminalScreenStore.findForServer(serverId)
+                            ?: TerminalScreenStore.createSession(serverId)
+                        navController.navigate("server_control/$serverId/$sessionId") {
+                            launchSingleTop = true
+                        }
+                    },
                     onSettingsClick = { navController.navigate("settings") }
                 )
             }
@@ -159,16 +167,44 @@ fun PhoneApp(
                 )
             }
             composable(
-                route = "server_control/{serverId}",
-                arguments = listOf(navArgument("serverId") { type = NavType.IntType })
+                route = "server_control/{serverId}/{sessionId}",
+                arguments = listOf(
+                    navArgument("serverId") { type = NavType.IntType },
+                    navArgument("sessionId") { type = NavType.IntType }
+                )
             ) { backStackEntry ->
                 val serverId = backStackEntry.arguments?.getInt("serverId") ?: -1
+                val sessionId = backStackEntry.arguments?.getInt("sessionId") ?: -1
                 ServerControlScreen(
                     serverId = serverId,
+                    sessionId = sessionId,
                     onNavigateBack = { navController.popBackStack() },
                     onManageCommands = { navController.navigate("manage_commands") },
                     onManageLogins = { navController.navigate("manage_logins/$serverId") },
-                    onNavigateToSftp = { navController.navigate("sftp_explorer/$serverId") }
+                    onNavigateToSftp = { navController.navigate("sftp_explorer/$serverId") },
+                    onSwitchSession = { sid ->
+                        // Switch tabs: replace the current server_control entry
+                        // so the back stack does not grow.
+                        val targetServerId = TerminalScreenStore.serverOf(sid)
+                        if (targetServerId != null) {
+                            navController.navigate("server_control/$targetServerId/$sid") {
+                                launchSingleTop = true
+                                popUpTo("server_control/{serverId}/{sessionId}") { inclusive = true }
+                            }
+                        }
+                    },
+                    onAddSession = { targetServerId ->
+                        // "+" always starts a brand-new session, even for a server
+                        // that already has one open.
+                        val newSessionId = TerminalScreenStore.createSession(targetServerId)
+                        navController.navigate("server_control/$targetServerId/$newSessionId") {
+                            launchSingleTop = true
+                            popUpTo("server_control/{serverId}/{sessionId}") { inclusive = true }
+                        }
+                    },
+                    onCloseSession = { _ ->
+                        navController.popBackStack()
+                    }
                 )
             }
             composable(
@@ -217,7 +253,9 @@ fun PhoneApp(
         // Widget "open server" intent: jump straight to the control screen.
         LaunchedEffect(initialServerId) {
             if (initialServerId != null) {
-                navController.navigate("server_control/$initialServerId") {
+                val sessionId = TerminalScreenStore.findForServer(initialServerId)
+                    ?: TerminalScreenStore.createSession(initialServerId)
+                navController.navigate("server_control/$initialServerId/$sessionId") {
                     launchSingleTop = true
                 }
             }

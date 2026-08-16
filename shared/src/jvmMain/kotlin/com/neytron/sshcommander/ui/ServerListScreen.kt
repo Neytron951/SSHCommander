@@ -3,6 +3,7 @@ package com.neytron.sshcommander.ui
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -17,17 +18,22 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -47,6 +53,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.neytron.sshcommander.data.Server
+import com.neytron.sshcommander.data.ServerFolder
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -66,6 +73,11 @@ fun ServerListScreen(
 
     var selectedServer by remember { mutableStateOf<Server?>(null) }
     var showMenu by remember { mutableStateOf(false) }
+    // Folder dialogs: create (new), rename (existing) and delete (confirm).
+    var showFolderDialog by remember { mutableStateOf(false) }
+    var folderToRename by remember { mutableStateOf<ServerFolder?>(null) }
+    var folderDialogName by remember { mutableStateOf("") }
+    var folderToDelete by remember { mutableStateOf<ServerFolder?>(null) }
 
     LaunchedEffect(servers) {
         viewModel.checkStatuses(servers)
@@ -82,6 +94,12 @@ fun ServerListScreen(
             TopAppBar(
                 title = { Text(AppStrings.appName) },
                 actions = {
+                    IconButton(onClick = {
+                        folderDialogName = ""
+                        showFolderDialog = true
+                    }) {
+                        Icon(Icons.Default.CreateNewFolder, contentDescription = AppStrings.newFolder)
+                    }
                     IconButton(onClick = onSettingsClick) {
                         Icon(Icons.Default.Settings, contentDescription = AppStrings.settings)
                     }
@@ -128,12 +146,18 @@ fun ServerListScreen(
 
             folders.forEach { folder ->
                 val inFolder = servers.filter { it.folderId == folder.id }
-                if (inFolder.isNotEmpty()) {
-                    item(key = "folder-${folder.id}") {
-                        FolderListHeader(name = folder.name, count = inFolder.size)
-                    }
-                    inFolder.forEach { emitServer(it) }
+                item(key = "folder-${folder.id}") {
+                    FolderListHeader(
+                        name = folder.name,
+                        count = inFolder.size,
+                        onRename = {
+                            folderDialogName = folder.name
+                            folderToRename = folder
+                        },
+                        onDelete = { folderToDelete = folder }
+                    )
                 }
+                inFolder.forEach { emitServer(it) }
             }
         }
     }
@@ -165,11 +189,78 @@ fun ServerListScreen(
             }
         )
     }
+
+    if (showFolderDialog || folderToRename != null) {
+        val editing = folderToRename
+        AlertDialog(
+            onDismissRequest = {
+                showFolderDialog = false
+                folderToRename = null
+            },
+            title = { Text(if (editing != null) AppStrings.rename else AppStrings.newFolder, fontWeight = FontWeight.Bold) },
+            text = {
+                OutlinedTextField(
+                    value = folderDialogName,
+                    onValueChange = { folderDialogName = it },
+                    placeholder = { Text(AppStrings.folderNamePlaceholder) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val name = folderDialogName.trim()
+                    if (name.isNotEmpty()) {
+                        if (editing != null) {
+                            viewModel.renameFolder(editing.id, name)
+                        } else {
+                            viewModel.insertFolder(name)
+                        }
+                    }
+                    showFolderDialog = false
+                    folderToRename = null
+                }) { Text(if (editing != null) AppStrings.save else AppStrings.create) }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showFolderDialog = false
+                    folderToRename = null
+                }) { Text(AppStrings.cancel) }
+            }
+        )
+    }
+
+    folderToDelete?.let { target ->
+        AlertDialog(
+            onDismissRequest = { folderToDelete = null },
+            title = { Text(AppStrings.delete, fontWeight = FontWeight.Bold) },
+            text = { Text(String.format(AppStrings.deleteFolderConfirm, target.name)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.deleteFolder(target.id)
+                    folderToDelete = null
+                }) {
+                    Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                    Spacer(Modifier.width(4.dp))
+                    Text(AppStrings.delete, color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { folderToDelete = null }) { Text(AppStrings.cancel) }
+            }
+        )
+    }
 }
 
 /** Simple section header shown above a folder's servers on the phone list. */
 @Composable
-private fun FolderListHeader(name: String, count: Int) {
+private fun FolderListHeader(
+    name: String,
+    count: Int,
+    onRename: () -> Unit,
+    onDelete: () -> Unit
+) {
+    var menuExpanded by remember { mutableStateOf(false) }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -189,11 +280,42 @@ private fun FolderListHeader(name: String, count: Int) {
             fontWeight = FontWeight.Bold,
             modifier = Modifier.weight(1f)
         )
-        Text(
-            text = count.toString(),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        if (count > 0) {
+            Text(
+                text = count.toString(),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        // Folder actions: rename / delete.
+        Box {
+            IconButton(onClick = { menuExpanded = true }, modifier = Modifier.size(28.dp)) {
+                Icon(
+                    Icons.Default.MoreVert,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                DropdownMenuItem(
+                    text = { Text(AppStrings.rename) },
+                    leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                    onClick = {
+                        menuExpanded = false
+                        onRename()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text(AppStrings.delete, color = MaterialTheme.colorScheme.error) },
+                    leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                    onClick = {
+                        menuExpanded = false
+                        onDelete()
+                    }
+                )
+            }
+        }
     }
 }
 
@@ -240,7 +362,7 @@ fun ServerCard(
             Surface(
                 modifier = Modifier.size(12.dp),
                 shape = CircleShape,
-                color = if (isOnline) Color.Green else Color.Red
+                color = if (isOnline) Color(0xFF4CAF50) else Color(0xFF9AA4AF)
             ) {}
         }
     }

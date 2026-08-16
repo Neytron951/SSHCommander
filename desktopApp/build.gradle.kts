@@ -25,7 +25,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi, org.jetbrains.compose.desktop.application.dsl.TargetFormat.Exe)
             packageName = "SSHCommander"
-            packageVersion = "1.2.0"
+            packageVersion = "1.3.0"
             description = "SSH/SFTP client for Windows"
             vendor = "Neytron"
             windows {

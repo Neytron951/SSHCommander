@@ -5,6 +5,8 @@
 *.ap_
 *.aab
 *.jar
+*.msi
+*.exe
 
 # Android Studio / IntelliJ IDEA
 *.iml

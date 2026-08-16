@@ -22,7 +22,8 @@ class SshViewModel(
     private val connectionManager = SshConnectionManager(hostKeyStore = RepositoryHostKeyStore(repository))
 
     var currentServer by mutableStateOf<Server?>(null)
-    val terminalScreen = TerminalScreen()
+    var sessionId by mutableIntStateOf(-1)
+    var terminalScreen = TerminalScreen()
     var terminalRevision by mutableIntStateOf(0)
     var isLoading by mutableStateOf(false)
     var sshError by mutableStateOf<SshError?>(null)
@@ -59,11 +60,16 @@ class SshViewModel(
         }
     }
 
-    fun setServer(server: Server) {
-        if (currentServer?.id != server.id) {
+    fun setServer(server: Server, sessionId: Int) {
+        if (currentServer?.id != server.id || this.sessionId != sessionId) {
+            // Save the buffer of the session we're leaving, then restore (or
+            // create) the buffer for the target session. Sessions persist across
+            // navigation until they are explicitly closed.
+            currentServer?.let { if (this.sessionId > 0) TerminalScreenStore.save(this.sessionId, terminalScreen) }
             stopExecution()
             currentServer = server
-            terminalScreen.clear()
+            this.sessionId = sessionId
+            terminalScreen = TerminalScreenStore.get(sessionId) ?: TerminalScreen()
             terminalRevision++
             selectedLogin = null
             loadHistory(server.id)
@@ -398,7 +404,32 @@ class SshViewModel(
 
     override fun onCleared() {
         super.onCleared()
+        // Keep the terminal buffer alive after this screen is popped so the
+        // session can be restored when the user comes back to this server.
+        if (sessionId > 0) TerminalScreenStore.save(sessionId, terminalScreen)
         stopExecution()
+    }
+
+    /**
+     * Closes an open session: drops its buffer and, if it was the last session
+     * for that server, disconnects the shared SSH connection so nothing leaks
+     * after the app finishes with it.
+     */
+    fun closeSession(sessionId: Int) {
+        val serverId = TerminalScreenStore.serverOf(sessionId)
+        TerminalScreenStore.remove(sessionId)
+        if (this.sessionId == sessionId) {
+            stopExecution()
+            currentServer = null
+            this.sessionId = -1
+            terminalScreen = TerminalScreen()
+        }
+        val server = serverId
+        if (server != null && !TerminalScreenStore.hasSessionForServer(server)) {
+            viewModelScope.launch {
+                SshConnectionManager.closeSession(server)
+            }
+        }
     }
 
     fun updateTerminalFontSize(newSize: Float) {

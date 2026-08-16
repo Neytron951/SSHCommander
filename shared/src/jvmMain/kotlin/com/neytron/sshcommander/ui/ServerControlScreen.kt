@@ -1,23 +1,28 @@
 package com.neytron.sshcommander.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
@@ -43,9 +48,12 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.neytron.sshcommander.data.Server
+import com.neytron.sshcommander.data.TerminalScreenStore
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -54,10 +62,14 @@ import kotlinx.coroutines.launch
 @Composable
 fun ServerControlScreen(
     serverId: Int,
+    sessionId: Int,
     onNavigateBack: () -> Unit,
     onManageCommands: () -> Unit,
     onManageLogins: () -> Unit,
-    onNavigateToSftp: () -> Unit
+    onNavigateToSftp: () -> Unit,
+    onSwitchSession: (Int) -> Unit = {},
+    onAddSession: (Int) -> Unit = {},
+    onCloseSession: (Int) -> Unit = {}
 ) {
     val deps = LocalAppDeps.current
     val viewModel: SshViewModel = viewModel { SshViewModel(deps.repository, deps.settings) }
@@ -107,11 +119,29 @@ fun ServerControlScreen(
         "dmesg" to AppStrings.cmdLogs
     )
 
-    LaunchedEffect(serverId) {
+    LaunchedEffect(serverId, sessionId) {
         val server = deps.repository.getServerById(serverId)
         if (server != null) {
-            viewModel.setServer(server)
+            viewModel.setServer(server, sessionId)
         }
+    }
+
+    // All servers, used for the session tab labels and the "+" picker.
+    val allServers = remember { mutableStateListOf<Server>() }
+    LaunchedEffect(Unit) {
+        allServers.clear()
+        allServers.addAll(deps.repository.getServers())
+    }
+
+    // Open sessions (from the shared store) + current, so the tab row stays in
+    // sync when a session is closed on this screen. Sessions are keyed by a
+    // unique session id so the same server can appear in several tabs.
+    var sessionsVersion by remember { mutableIntStateOf(0) }
+    val currentServerId = viewModel.currentServer?.id ?: -1
+    val openSessions = remember(sessionsVersion, currentServerId) {
+        val map = TerminalScreenStore.openSessions().toMutableMap()
+        if (sessionId > 0 && !map.containsKey(sessionId)) map[sessionId] = currentServerId
+        map
     }
 
     // Handle back press to show confirmation
@@ -208,6 +238,24 @@ fun ServerControlScreen(
                 .fillMaxSize()
                 .imePadding()
         ) {
+            // Session tabs: one tab per open session, "+" to add, "×" to close.
+            SessionTabRow(
+                openSessions = openSessions,
+                allServers = allServers,
+                currentSessionId = sessionId,
+                onSelect = { sid ->
+                    if (sid != sessionId) onSwitchSession(sid)
+                },
+                onClose = { sid ->
+                    viewModel.closeSession(sid)
+                    if (sid == sessionId) onCloseSession(sid) else sessionsVersion++
+                },
+                onAddServer = { id ->
+                    // "+" always starts a brand-new session, even if one already
+                    // exists for the chosen server.
+                    onAddSession(id)
+                }
+            )
             // Quick & Base Commands Row (collapsed by default in landscape,
             // can be toggled from the top bar)
             if (quickCommandsVisible) {
@@ -637,5 +685,110 @@ private fun colorFromHex(hex: String, fallback: Color): Color {
         Color(argb)
     } catch (e: Exception) {
         fallback
+    }
+}
+
+/**
+ * Horizontal strip of open sessions (one chip per session). Tap to switch,
+ * "×" to close, "+" to open a fresh session for a server.
+ */
+@Composable
+private fun SessionTabRow(
+    openSessions: Map<Int, Int>,
+    allServers: List<Server>,
+    currentSessionId: Int,
+    onSelect: (Int) -> Unit,
+    onClose: (Int) -> Unit,
+    onAddServer: (Int) -> Unit
+) {
+    var addMenuExpanded by remember { mutableStateOf(false) }
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 6.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 6.dp, vertical = 6.dp)
+        ) {
+            openSessions.entries.sortedBy { it.key }.forEach { (sid, serverId) ->
+                val name = allServers.firstOrNull { it.id == serverId }?.name ?: "#$serverId"
+                val selected = sid == currentSessionId
+                Surface(
+                    onClick = { onSelect(sid) },
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (selected) MaterialTheme.colorScheme.primaryContainer
+                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                    border = if (selected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                    else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .height(42.dp)
+                            .width(150.dp)
+                            .padding(start = 12.dp, end = 4.dp)
+                    ) {
+                        Text(
+                            name,
+                            style = MaterialTheme.typography.titleSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(onClick = { onClose(sid) }, modifier = Modifier.size(26.dp)) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = AppStrings.closeSession,
+                                tint = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.width(6.dp))
+            }
+            Box {
+                Surface(
+                    onClick = { addMenuExpanded = true },
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier
+                            .height(42.dp)
+                            .width(44.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = AppStrings.addSession,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+                DropdownMenu(expanded = addMenuExpanded, onDismissRequest = { addMenuExpanded = false }) {
+                    allServers.forEach { s ->
+                        DropdownMenuItem(
+                            text = { Text(s.name) },
+                            onClick = {
+                                addMenuExpanded = false
+                                onAddServer(s.id)
+                            }
+                        )
+                    }
+                }
+            }
+        }
     }
 }

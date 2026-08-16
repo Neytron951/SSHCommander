@@ -1,6 +1,7 @@
 package com.neytron.sshcommander
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -20,12 +21,14 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -33,6 +36,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Delete
@@ -88,6 +92,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.TextUnit
@@ -165,7 +170,6 @@ fun SSHCommanderLayout(
     initialServerId: Int? = null,
     backupManager: DataBackupManager? = null
 ) {
-    var selectedServerId by remember { mutableIntStateOf(initialServerId ?: 0) }
     var selectedPane by remember { mutableStateOf(PaneType.Terminal) }
     val servers = remember { mutableStateListOf<Server>() }
     val passwords = remember { mutableStateMapOf<Int, String>() }
@@ -181,6 +185,89 @@ fun SSHCommanderLayout(
     var showManageCommandsDialog by remember { mutableStateOf(false) }
     var dataLoaded by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+
+    // --- Open sessions (tabs) ---------------------------------------------
+    // Each tab owns a live terminal + SFTP connection. Sessions are NOT closed
+    // when you switch servers or tabs — they persist until the tab is closed
+    // (×) or the app exits.
+    val sessions = remember { mutableStateListOf<SessionTab>() }
+    var activeSessionId by remember { mutableIntStateOf(-1) }
+    var nextSessionId by remember { mutableIntStateOf(1) }
+
+    // Logins/passwords for the currently active server (login switcher).
+    val logins = remember { mutableStateListOf<ServerLogin>() }
+    val loginPasswords = remember { mutableStateMapOf<Int, String>() }
+
+    // The currently visible session and its server.
+    val activeSession = sessions.firstOrNull { it.id == activeSessionId }
+    val selectedServerId = activeSession?.serverId ?: 0
+    val selectedServer = servers.firstOrNull { it.id == selectedServerId }
+        ?: Server(id = 0, name = "No server", host = "", port = 22, username = "")
+    // null login = the server's own (main) login, as in the phone app.
+    val selectedLoginId = activeSession?.loginId
+
+    // Build and start the connection for a session. Closing only happens when
+    // the tab is closed, so other sessions keep running in the background.
+    fun connectSession(tab: SessionTab, loginId: Int?) {
+        val server = servers.firstOrNull { it.id == tab.serverId } ?: return
+        if (server.host.isEmpty()) return
+        tab.loginId = loginId
+        val login = if (loginId != null) logins.firstOrNull { it.id == loginId } else null
+        val username = login?.username ?: server.username
+        val password = if (login != null) (loginPasswords[login.id] ?: "") else (passwords[server.id] ?: "")
+        val profile = ConnectionProfile(username, password)
+        tab.terminal?.close()
+        tab.terminal = if (server.host.isEmpty()) null else terminalSessionFactory?.create(server, profile)
+        tab.sftp?.close()
+        tab.sftp = sftpSessionFactory?.create(server, profile)
+        tab.terminal?.connect()
+        tab.sftp?.connect()
+    }
+
+    // Open (or activate) a session for a server. Clicking a server in the list
+    // brings its existing session back instead of starting a new connection.
+    fun openSession(server: Server) {
+        if (server.host.isEmpty()) return
+        val existing = sessions.firstOrNull { it.serverId == server.id }
+        if (existing != null) {
+            activeSessionId = existing.id
+            return
+        }
+        val tab = SessionTab(id = nextSessionId++, serverId = server.id, server = server, loginId = null)
+        sessions.add(tab)
+        activeSessionId = tab.id
+    }
+
+    // "+" button: open another session for the currently active server.
+    fun addSession() {
+        val server = selectedServer
+        if (server.host.isEmpty()) return
+        val tab = SessionTab(id = nextSessionId++, serverId = server.id, server = server, loginId = null)
+        sessions.add(tab)
+        activeSessionId = tab.id
+    }
+
+    // Close a tab: terminate its connection and remove it.
+    fun closeSession(tabId: Int) {
+        val idx = sessions.indexOfFirst { it.id == tabId }
+        if (idx < 0) return
+        val tab = sessions.removeAt(idx)
+        tab.terminal?.close()
+        tab.sftp?.close()
+        if (activeSessionId == tabId) {
+            activeSessionId = sessions.lastOrNull()?.id ?: -1
+        }
+    }
+
+    // When the app window closes, tear down every remaining connection.
+    DisposableEffect(Unit) {
+        onDispose {
+            sessions.forEach {
+                it.terminal?.close()
+                it.sftp?.close()
+            }
+        }
+    }
 
     // Folder list loaded from the repository (for grouping + the server dialog).
     LaunchedEffect(serverRepository) {
@@ -229,25 +316,31 @@ fun SSHCommanderLayout(
     LaunchedEffect(savedServerPaneWidth) { serverPaneWidth = savedServerPaneWidth }
     LaunchedEffect(savedCommandPaneWidth) { commandPaneWidth = savedCommandPaneWidth }
 
-    // Logins for the selected server (used to switch active credentials).
-    val logins = remember { mutableStateListOf<ServerLogin>() }
-    val loginPasswords = remember { mutableStateMapOf<Int, String>() }
+    // Logins for the active server (login switcher). The loaded flag is reset
+    // synchronously when the server changes so the connect effect waits for it.
+    val loginsLoaded = remember(selectedServerId, serverRepository) { mutableStateOf(false) }
     LaunchedEffect(serverRepository, selectedServerId) {
         logins.clear()
-        val repo = serverRepository ?: return@LaunchedEffect
-        val target = servers.firstOrNull { it.id == selectedServerId } ?: return@LaunchedEffect
-        repo.getLoginsForServer(target.id).collect { list ->
-            logins.clear()
-            logins.addAll(list)
-            list.forEach { l ->
-                if (l.id !in loginPasswords) {
-                    loginPasswords[l.id] = repo.getLoginPassword(l.id) ?: ""
+        val repo = serverRepository
+        val target = if (repo != null) servers.firstOrNull { it.id == selectedServerId } else null
+        if (repo != null && target != null) {
+            repo.getLoginsForServer(target.id).collect { list ->
+                logins.clear()
+                logins.addAll(list)
+                list.forEach { l ->
+                    if (l.id !in loginPasswords) {
+                        loginPasswords[l.id] = repo.getLoginPassword(l.id) ?: ""
+                    }
                 }
+                loginsLoaded.value = true
             }
+        } else {
+            loginsLoaded.value = true
         }
     }
 
-    // Load persisted servers once the repository is available.
+    // Load persisted servers once the repository is available, then open a
+    // session for the first/initial server.
     LaunchedEffect(serverRepository) {
         val repo = serverRepository
         if (repo != null) {
@@ -260,64 +353,23 @@ fun SSHCommanderLayout(
                 if (pw != null) passwords[s.id] = pw
             }
             if (servers.isNotEmpty()) {
-                selectedServerId = initialServerId?.takeIf { id -> servers.any { it.id == id } } ?: servers.first().id
+                val firstId = initialServerId?.takeIf { id -> servers.any { it.id == id } } ?: servers.first().id
+                openSession(servers.first { it.id == firstId })
             }
         }
         dataLoaded = true
     }
 
-    val selectedServer = servers.firstOrNull { it.id == selectedServerId }
-        ?: Server(id = 0, name = "No server", host = "", port = 22, username = "")
-
-    // Active credentials: an explicitly chosen login, else the default, else the server's own.
-    var selectedLoginId by remember { mutableStateOf<Int?>(null) }
-    val activeLogin = remember(logins, selectedLoginId, selectedServerId) {
-        when {
-            selectedLoginId != null -> logins.firstOrNull { it.id == selectedLoginId }
-            else -> logins.firstOrNull { it.isDefault } ?: logins.firstOrNull()
-        }
-    }
-    val activeUsername = activeLogin?.username ?: selectedServer.username
-    val activePassword = if (activeLogin != null) (loginPasswords[activeLogin.id] ?: "") else (passwords[selectedServer.id] ?: "")
-
-    // Create a terminal session for the selected server. The factory is a
-    // platform hook (desktop provides a real JSch-backed session; Android can
-    // pass one later or keep its own ViewModel-driven flow).
-    val terminalSession = remember(selectedServerId, activeLogin) {
-        if (selectedServer.host.isEmpty()) {
-            null
-        } else {
-            terminalSessionFactory?.create(
-                selectedServer,
-                ConnectionProfile(
-                    username = activeUsername,
-                    password = activePassword
-                )
-            )
-        }
-    }
-    DisposableEffect(terminalSession) {
-        terminalSession?.connect()
-        onDispose { terminalSession?.close() }
-    }
-
-    // SFTP controller for the selected server (shares the SSH connection).
-    val sftpSession = remember(selectedServerId, activeLogin) {
-        if (selectedServer.host.isEmpty()) {
-            null
-        } else {
-            sftpSessionFactory?.create(
-                selectedServer,
-                ConnectionProfile(
-                    username = activeUsername,
-                    password = activePassword
-                )
-            )
-        }
-    }
-    DisposableEffect(sftpSession) {
-        sftpSession?.connect()
-        onDispose { sftpSession?.close() }
+    // Connect a newly opened session once its logins are loaded. Already-open
+    // sessions are left untouched (this is what keeps them alive).
+    LaunchedEffect(activeSessionId, selectedServerId, loginsLoaded.value) {
+        val tab = sessions.firstOrNull { it.id == activeSessionId } ?: return@LaunchedEffect
+        if (tab.terminal != null || selectedServerId == 0) return@LaunchedEffect
+        if (!loginsLoaded.value && serverRepository != null) return@LaunchedEffect
+        val loginId = tab.loginId
+            ?: logins.firstOrNull { it.isDefault }?.id
+            ?: logins.firstOrNull()?.id
+        connectSession(tab, loginId)
     }
 
     // --- Import / export (File menu) ------------------------------------
@@ -384,6 +436,15 @@ fun SSHCommanderLayout(
                     onExport = onExport,
                     onImport = onImport
                 )
+                if (sessions.isNotEmpty()) {
+                    SessionTabBar(
+                        sessions = sessions,
+                        activeSessionId = activeSessionId,
+                        onSelect = { activeSessionId = it },
+                        onClose = { closeSession(it) },
+                        onAdd = { addSession() }
+                    )
+                }
                 Row(Modifier.fillMaxSize()) {
                     // Left: server list (optional + resizable)
                     if (showServerListSetting) {
@@ -391,7 +452,9 @@ fun SSHCommanderLayout(
                             servers = servers,
                             folders = folders,
                             selectedId = selectedServerId,
-                            onSelect = { selectedServerId = it },
+                            onSelect = { serverId ->
+                                servers.firstOrNull { it.id == serverId }?.let { openSession(it) }
+                            },
                             onAddServer = { editingServer = null; showConnectDialog = true },
                             onEditServer = { editingServer = it; showConnectDialog = true },
                             onDeleteServer = { serverToDelete = it },
@@ -399,6 +462,7 @@ fun SSHCommanderLayout(
                             onAddFolder = { folderNameDialog = FolderNameDialogState.Add },
                             onRenameFolder = { folder -> folderNameDialog = FolderNameDialogState.Rename(folder) },
                             onDeleteFolder = { folderToDelete = it },
+                            privacyMode = privacyMode,
                             modifier = Modifier
                                 .width(serverPaneWidth.dp)
                                 .fillMaxHeight()
@@ -415,12 +479,16 @@ fun SSHCommanderLayout(
                         server = selectedServer,
                         pane = selectedPane,
                         onPaneChange = { selectedPane = it },
-                        terminalSession = terminalSession,
-                        sftpController = sftpSession,
+                        terminalSession = activeSession?.terminal,
+                        sftpController = activeSession?.sftp,
                         customCommands = customCommands,
                         logins = logins,
-                        activeLoginId = activeLogin?.id,
-                        onSelectLogin = { loginId -> selectedLoginId = loginId },
+                        activeLoginId = selectedLoginId,
+                        onSelectLogin = { loginId ->
+                            // Reconnect the active session with the new login
+                            // (keeps the tab alive).
+                            sessions.firstOrNull { it.id == activeSessionId }?.let { connectSession(it, loginId) }
+                        },
                         onManageLogins = { showLoginsFor = selectedServer.takeIf { it.host.isNotEmpty() } },
                         showTopBar = showTopBarSetting,
                         showCommandPanel = showCommandPanelSetting,
@@ -432,6 +500,9 @@ fun SSHCommanderLayout(
                         termBgHex = termBgHex,
                         termTextHex = termTextHex,
                         termFontSizePx = termFontSizePx,
+                        onFontSizeChange = { newSize ->
+                            scope.launch { settings?.setTermFontSizePx(newSize) }
+                        },
                         rebootConfirmMode = rebootConfirmMode,
                         privacyMode = privacyMode,
                         onOpenSettings = { showSettingsDialog = true },
@@ -449,7 +520,9 @@ fun SSHCommanderLayout(
                 servers = servers,
                 folders = folders,
                 selectedId = selectedServerId,
-                onSelect = { selectedServerId = it },
+                onSelect = { serverId ->
+                    servers.firstOrNull { it.id == serverId }?.let { openSession(it) }
+                },
                 onAddServer = { editingServer = null; showConnectDialog = true },
                 onEditServer = { editingServer = it; showConnectDialog = true },
                 onDeleteServer = { serverToDelete = it },
@@ -457,6 +530,7 @@ fun SSHCommanderLayout(
                 onAddFolder = { folderNameDialog = FolderNameDialogState.Add },
                 onRenameFolder = { folder -> folderNameDialog = FolderNameDialogState.Rename(folder) },
                 onDeleteFolder = { folderToDelete = it },
+                privacyMode = privacyMode,
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -480,19 +554,20 @@ fun SSHCommanderLayout(
                         val idx = servers.indexOfFirst { it.id == editing.id }
                         if (idx >= 0) servers[idx] = newServer.copy(id = editing.id)
                         passwords[editing.id] = password
+                        sessions.forEach { if (it.serverId == editing.id) it.server = newServer.copy(id = editing.id) }
                     } else if (repo != null) {
                         // Persist through the repository so the id is assigned by
                         // the storage layer and servers survive app restarts.
                         val savedId = repo.insertServer(newServer, password)
                         servers.add(newServer.copy(id = savedId))
                         passwords[savedId] = password
-                        selectedServerId = savedId
+                        openSession(newServer.copy(id = savedId))
                     } else {
                         // No repository (Android placeholder): in-memory only.
                         val newId = (servers.maxOfOrNull { it.id } ?: 0) + 1
                         passwords[newId] = password
                         servers.add(newServer.copy(id = newId))
-                        selectedServerId = newId
+                        openSession(newServer.copy(id = newId))
                     }
                     showConnectDialog = false
                     editingServer = null
@@ -530,8 +605,14 @@ fun SSHCommanderLayout(
                         repo?.deleteServer(target.id)
                         servers.removeAll { it.id == target.id }
                         passwords.remove(target.id)
-                        if (selectedServerId == target.id) {
-                            selectedServerId = servers.firstOrNull()?.id ?: 0
+                        // Close any sessions that pointed at the deleted server.
+                        sessions.filter { it.serverId == target.id }.forEach {
+                            it.terminal?.close()
+                            it.sftp?.close()
+                        }
+                        sessions.removeAll { it.serverId == target.id }
+                        if (activeSessionId !in sessions.map { it.id }) {
+                            activeSessionId = sessions.lastOrNull()?.id ?: -1
                         }
                     }
                     serverToDelete = null
@@ -615,6 +696,112 @@ private fun deleteServerConfirmMsg(): String =
 
 enum class PaneType { Terminal, Sftp }
 
+/**
+ * One open terminal/SFTP session. Holds the live controllers so the connection
+ * survives tab switches and is only closed when the tab (×) or the app exits.
+ */
+private class SessionTab(
+    val id: Int,
+    val serverId: Int,
+    server: Server,
+    loginId: Int?,
+    terminal: TerminalController? = null,
+    sftp: SftpController? = null
+) {
+    var server by mutableStateOf(server)
+    var loginId by mutableStateOf(loginId)
+    var terminal by mutableStateOf(terminal)
+    var sftp by mutableStateOf(sftp)
+}
+
+@Composable
+private fun SessionTabBar(
+    sessions: List<SessionTab>,
+    activeSessionId: Int,
+    onSelect: (Int) -> Unit,
+    onClose: (Int) -> Unit,
+    onAdd: () -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 10.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 8.dp, vertical = 8.dp)
+        ) {
+            sessions.forEach { tab ->
+                val selected = tab.id == activeSessionId
+                Surface(
+                    onClick = { onSelect(tab.id) },
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (selected) MaterialTheme.colorScheme.primaryContainer
+                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                    border = if (selected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                    else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                    modifier = Modifier.padding(end = 8.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .height(44.dp)
+                            .width(190.dp)
+                            .padding(start = 14.dp, end = 6.dp)
+                    ) {
+                        Text(
+                            tab.server.name,
+                            style = MaterialTheme.typography.titleSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(
+                            onClick = { onClose(tab.id) },
+                            modifier = Modifier.size(26.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = AppStrings.closeSession,
+                                tint = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
+            }
+            // "+" button styled to match the chips, same fixed size.
+            Surface(
+                onClick = onAdd,
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier
+                        .height(44.dp)
+                        .width(48.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = AppStrings.addSession,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun ServerListPane(
     servers: List<Server>,
@@ -628,6 +815,7 @@ private fun ServerListPane(
     onAddFolder: () -> Unit = {},
     onRenameFolder: (ServerFolder) -> Unit = {},
     onDeleteFolder: (ServerFolder) -> Unit = {},
+    privacyMode: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Surface(modifier = modifier, color = MaterialTheme.colorScheme.surfaceVariant) {
@@ -688,7 +876,8 @@ private fun ServerListPane(
                             onClick = { onSelect(server.id) },
                             onEdit = { onEditServer(server) },
                             onDelete = { onDeleteServer(server) },
-                            onManageLogins = { onManageLogins(server) }
+                            onManageLogins = { onManageLogins(server) },
+                            privacyMode = privacyMode
                         )
                     }
                     // Then one collapsible group per folder.
@@ -713,7 +902,8 @@ private fun ServerListPane(
                                     onClick = { onSelect(server.id) },
                                     onEdit = { onEditServer(server) },
                                     onDelete = { onDeleteServer(server) },
-                                    onManageLogins = { onManageLogins(server) }
+                                    onManageLogins = { onManageLogins(server) },
+                                    privacyMode = privacyMode
                                 )
                             }
                         }
@@ -734,12 +924,19 @@ private fun FolderHeader(
     onRename: () -> Unit,
     onDelete: () -> Unit
 ) {
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 10.dp, vertical = 2.dp)
+    ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onToggle)
-            .padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp)
+            .padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp)
     ) {
         Icon(
             imageVector = if (expanded) Icons.Default.ExpandMore else Icons.Default.ChevronRight,
@@ -775,6 +972,7 @@ private fun FolderHeader(
             Icon(Icons.Default.Delete, contentDescription = AppStrings.delete, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(14.dp))
         }
     }
+    }
 }
 
 @Composable
@@ -784,17 +982,19 @@ private fun ServerRow(
     onClick: () -> Unit,
     onEdit: () -> Unit = {},
     onDelete: () -> Unit = {},
-    onManageLogins: () -> Unit = {}
+    onManageLogins: () -> Unit = {},
+    privacyMode: Boolean = false
 ) {
     val containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer
                          else MaterialTheme.colorScheme.surfaceVariant
     Card(
         onClick = onClick,
         colors = CardDefaults.cardColors(containerColor = containerColor),
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (selected) 2.dp else 0.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .padding(horizontal = 10.dp, vertical = 5.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -813,7 +1013,11 @@ private fun ServerRow(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "${server.username}@${server.host}:${server.port}",
+                    text = if (privacyMode) {
+                        "${server.username}@${PrivacyUtils.maskHost(server.host)}"
+                    } else {
+                        "${server.username}@${server.host}:${server.port}"
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -854,6 +1058,7 @@ private fun InteractionPane(
     termBgHex: String = "#000000",
     termTextHex: String = "#00FF00",
     termFontSizePx: Float = 14f,
+    onFontSizeChange: (Float) -> Unit = {},
     rebootConfirmMode: String = "always",
     privacyMode: Boolean = false,
     onOpenSettings: () -> Unit = {},
@@ -919,6 +1124,7 @@ private fun InteractionPane(
                             bgColor = parseHexColor(termBgHex),
                             textColor = parseHexColor(termTextHex),
                             fontSizeSp = termFontSizePx,
+                            onFontSizeChange = onFontSizeChange,
                             focusRequester = terminalFocusRequester,
                             modifier = Modifier.weight(1f)
                         )

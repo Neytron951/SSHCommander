@@ -29,6 +29,28 @@ class ServerListViewModel(
         }
     }
 
+    /** Creates a new folder; returns the new folder id (or -1 on failure). */
+    fun insertFolder(name: String, onResult: (Int) -> Unit = {}) {
+        viewModelScope.launch {
+            val id = repository.insertFolder(name)
+            onResult(id)
+        }
+    }
+
+    /** Renames an existing folder. */
+    fun renameFolder(folderId: Int, newName: String) {
+        viewModelScope.launch {
+            repository.updateFolder(com.neytron.sshcommander.data.ServerFolder(id = folderId, name = newName))
+        }
+    }
+
+    /** Deletes a folder. Its servers stay in the list (folderId is dropped). */
+    fun deleteFolder(folderId: Int) {
+        viewModelScope.launch {
+            repository.deleteFolder(folderId)
+        }
+    }
+
     /**
      * Checks TCP reachability on the server's SSH port (22 by default).
      * A guard prevents overlapping checks so repeated calls (e.g. periodic

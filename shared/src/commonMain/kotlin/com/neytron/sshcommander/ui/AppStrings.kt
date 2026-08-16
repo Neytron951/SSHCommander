@@ -222,6 +222,9 @@ object AppStrings {
     val deleteLoginMsg get() = s.deleteLoginMsg
     val selectLogin get() = s.selectLogin
     val mainLoginLabel get() = s.mainLoginLabel
+    val addSession get() = s.addSession
+    val closeSession get() = s.closeSession
+    val sessionTabs get() = s.sessionTabs
 
     data class Strings(
         val appName: String, val servers: String, val addServer: String, val editServer: String,
@@ -272,7 +275,8 @@ object AppStrings {
         val manageLogins: String, val addLogin: String, val loginLabel: String,
         val sftpStartPath: String, val sftpStartPathHint: String, val sftpStartPathHint2: String,
         val noLogins: String, val setDefaultLogin: String, val deleteLoginTitle: String,
-        val deleteLoginMsg: String, val selectLogin: String, val mainLoginLabel: String
+        val deleteLoginMsg: String, val selectLogin: String, val mainLoginLabel: String,
+        val addSession: String, val closeSession: String, val sessionTabs: String
     )
 
     val en = Strings(
@@ -349,7 +353,8 @@ object AppStrings {
         noLogins = "No additional logins yet. Tap + to add one.",
         setDefaultLogin = "Set as default login", deleteLoginTitle = "Delete login?",
         deleteLoginMsg = "Delete login \"%1\$s\"?", selectLogin = "Select login",
-        mainLoginLabel = "Main login (%1\$s)"
+        mainLoginLabel = "Main login (%1\$s)",
+        addSession = "New Session", closeSession = "Close Session", sessionTabs = "Sessions"
     )
 
     val ru = Strings(
@@ -430,6 +435,7 @@ object AppStrings {
         noLogins = "Дополнительных логинов нет. Нажмите +, чтобы добавить.",
         setDefaultLogin = "Сделать логином по умолчанию", deleteLoginTitle = "Удалить логин?",
         deleteLoginMsg = "Удалить логин \"%1\$s\"?", selectLogin = "Выбрать логин",
-        mainLoginLabel = "Основной логин (%1\$s)"
+        mainLoginLabel = "Основной логин (%1\$s)",
+        addSession = "Новая сессия", closeSession = "Закрыть сессию", sessionTabs = "Сессии"
     )
 }

@@ -52,10 +52,21 @@ internal class ScreenBuffer(rows: Int, cols: Int) {
 
     fun putChar(ch: Char) {
         when (ch) {
-            '\n' -> { cursorRow++; if (cursorRow >= rows) { scrollUp(cursorRow - rows + 1); cursorRow = rows - 1 } }
+            '\n' -> {
+                // Never let cursorRow leave [0, rows-1] — even transiently. feed()
+                // runs on a background thread while render() reads on the UI
+                // thread, so a temporary rows value would crash render as
+                // "Index 400 out of bounds for length 400".
+                if (cursorRow + 1 >= rows) {
+                    scrollUp(cursorRow + 1 - rows + 1)
+                    cursorRow = rows - 1
+                } else {
+                    cursorRow++
+                }
+            }
             '\r' -> cursorCol = 0
             '\b', '\u0008' -> cursorCol = (cursorCol - 1).coerceAtLeast(0)
-            '\t' -> cursorCol = ((cursorCol / 8) + 1) * 8
+            '\t' -> cursorCol = (((cursorCol / 8) + 1) * 8).coerceAtMost(cols - 1)
             '\u0007' -> {} // BEL
             else -> {
                 val cell = cells[cursorRow][cursorCol]
@@ -65,8 +76,12 @@ internal class ScreenBuffer(rows: Int, cols: Int) {
                 cursorCol++
                 if (cursorCol >= cols) {
                     cursorCol = 0
-                    cursorRow++
-                    if (cursorRow >= rows) { scrollUp(cursorRow - rows + 1); cursorRow = rows - 1 }
+                    if (cursorRow + 1 >= rows) {
+                        scrollUp(cursorRow + 1 - rows + 1)
+                        cursorRow = rows - 1
+                    } else {
+                        cursorRow++
+                    }
                 }
             }
         }
@@ -173,7 +188,11 @@ internal class ScreenBuffer(rows: Int, cols: Int) {
     }
 
     fun render(defaultColor: Color): AnnotatedString {
-        val curRow = cursorRow
+        // feed() runs on a background thread while render() is called from the
+        // UI thread, so clamp defensively against any out-of-range transient
+        // state (would otherwise surface as "Index 400 out of bounds...").
+        val curRow = cursorRow.coerceIn(0, rows - 1)
+        val curCol = cursorCol.coerceIn(0, cols - 1)
         var lastRow = rows - 1
         while (lastRow >= 0 && !cells[lastRow].any { it.char != ' ' }) lastRow--
         // Never trim the cursor row away, even if it's blank.
@@ -183,7 +202,7 @@ internal class ScreenBuffer(rows: Int, cols: Int) {
             for (r in 0..renderLastRow) {
                 var lastCol = -1
                 for (c in 0 until cols) if (cells[r][c].char != ' ') lastCol = c
-                if (r == curRow) lastCol = maxOf(lastCol, cursorCol)
+                if (r == curRow) lastCol = maxOf(lastCol, curCol)
 
                 var currentFg = Int.MIN_VALUE
                 var currentBold = false

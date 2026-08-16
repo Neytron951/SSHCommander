@@ -33,6 +33,10 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.key.utf16CodePoint
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.isCtrlPressed
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
@@ -55,6 +59,7 @@ fun TerminalView(
     bgColor: Color = Color(0xFF0D1117),
     textColor: Color = Color(0xFFC9D1D9),
     fontSizeSp: Float = 13f,
+    onFontSizeChange: (Float) -> Unit = {},
     modifier: Modifier = Modifier,
     focusRequester: FocusRequester? = null
 ) {
@@ -78,6 +83,26 @@ fun TerminalView(
         modifier = modifier
             .fillMaxSize()
             .background(bgColor)
+            .pointerInput(onFontSizeChange) {
+                // Ctrl + mouse wheel → zoom the terminal font (desktop). Uses the
+                // Initial pass so we can consume the scroll before the inner
+                // verticalScroll modifier would turn it into page scrolling.
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        if (event.type == PointerEventType.Scroll &&
+                            event.keyboardModifiers.isCtrlPressed
+                        ) {
+                            val delta = event.changes.firstOrNull()?.scrollDelta?.y ?: 0f
+                            if (delta != 0f) {
+                                val step = if (delta > 0) 1f else -1f
+                                onFontSizeChange((fontSizeSp + step).coerceIn(6f, 40f))
+                                event.changes.forEach { it.consume() }
+                            }
+                        }
+                    }
+                }
+            }
             .clickable(
                 interactionSource = interactionSource,
                 indication = null
