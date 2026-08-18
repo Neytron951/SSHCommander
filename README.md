@@ -6,7 +6,7 @@
 
 **SSH Commander** — a powerful SSH/SFTP client with terminal, widgets, and biometric authentication.
 
-> **Current version:** 1.3 — sessions & tabs, folder management, desktop UI polish
+> **Current version:** 1.4 — SFTP file preview & selection, Terminal+SFTP split view, Windows installers (MSI/EXE)
 
 ![App Screenshot](ScreenShots/screenshot.png)
 
@@ -33,6 +33,14 @@ SSH Commander is a powerful and user-friendly cross-platform client for remote s
 - Upload and download files, create folders, rename and delete
 - File search, show hidden files, multi-select
 - Configurable startup folder for quick access
+- **File preview without download** — text, JSON and images open instantly; binaries (EXE/RAR/ZIP/MSI) are blocked
+- **Selection mechanics:** single click — select, Ctrl+click — multi-select, Shift+click — range, double-click — preview / open folder, right-click — context menu with download
+- **Choose the download folder** instead of silently saving to the home directory
+- **Manual path entry** with the keyboard (e.g. `/var/www/site`)
+
+### Split View (Terminal + SFTP)
+- Split the window 50/50 with a draggable divider — resize panes by dragging the border
+- Quick-commands panel is available in split mode too
 
 ### Quick Commands & Widgets
 - Ready-to-use commands: df -h, free -m, htop, uptime, ps aux, tail -f
@@ -56,7 +64,7 @@ SSH Commander is a powerful and user-friendly cross-platform client for remote s
 ## Platforms
 
 - **Android** — full-featured mobile client with home-screen widgets and biometric lock
-- **Windows** — desktop client with resizable panes, menu bar, and import/export
+- **Windows** — desktop client with resizable panes, Terminal+SFTP split view, menu bar, and import/export. Installs to **Program Files** with a **Start Menu** shortcut, so Windows finds the app by search / in the app list.
 
 ## Requirements
 
@@ -81,6 +89,10 @@ cd SSHCommander
 # Windows desktop app (MSI or EXE installer)
 ./gradlew :desktopApp:packageMsi
 ./gradlew :desktopApp:packageExe
+
+# Or build both installers with the interactive script (asks for name/version)
+# and puts ready .msi / .exe into the dist\ folder
+build-windows.bat
 
 # Windows desktop app — unpacked folder
 ./gradlew :desktopApp:createDistributable
