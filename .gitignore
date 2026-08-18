@@ -7,6 +7,8 @@
 *.jar
 *.msi
 *.exe
+*.deb
+*.rpm
 
 # Android Studio / IntelliJ IDEA
 *.iml

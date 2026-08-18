@@ -6,11 +6,11 @@
 
 **SSH Commander** — a powerful SSH/SFTP client with terminal, widgets, and biometric authentication.
 
-> **Current version:** 1.4 — SFTP file preview & selection, Terminal+SFTP split view, Windows installers (MSI/EXE)
+> **Current version:** 1.4 — SFTP file preview & selection, Terminal+SFTP split view, Windows & Linux support.
 
 ![App Screenshot](ScreenShots/screenshot.png)
 
-SSH Commander is a powerful and user-friendly cross-platform client for remote server management via SSH and SFTP — available on **Android** and **Windows**. Built for system administrators, DevOps engineers, and anyone who works with remote servers.
+SSH Commander is a powerful and user-friendly cross-platform client for remote server management via SSH and SFTP — available on **Android**, **Windows**, and **Linux**. Built for system administrators, DevOps engineers, and anyone who works with remote servers.
 
 ## Features
 
@@ -64,19 +64,21 @@ SSH Commander is a powerful and user-friendly cross-platform client for remote s
 ## Platforms
 
 - **Android** — full-featured mobile client with home-screen widgets and biometric lock
-- **Windows** — desktop client with resizable panes, Terminal+SFTP split view, menu bar, and import/export. Installs to **Program Files** with a **Start Menu** shortcut, so Windows finds the app by search / in the app list.
+- **Windows** — desktop client with resizable panes, Terminal+SFTP split view, and MSI/EXE installers.
+- **Linux** — desktop client for Linux systems (tested on Debian/Ubuntu), supports DEB and RPM packages.
 
 ## Requirements
 
 - **Android 7.0** (API level 24) or higher
-- **Windows 10** or higher (for the desktop version)
+- **Windows 10** or higher
+- **Linux** (modern distributions like Ubuntu 22.04+, Debian 11+, etc.)
 
 ## Installation
 
 ### From GitHub Releases
 1. Go to [Releases](https://github.com/Neytron951/SSHCommander/releases)
-2. Download the latest `.apk` for Android or `.msi` / `.exe` for Windows
-3. Install (allow installation from unknown sources on Android)
+2. Download the latest `.apk` (Android), `.msi`/`.exe` (Windows), or `.deb`/`.rpm` (Linux)
+3. Install
 
 ### From Source
 ```bash
@@ -99,6 +101,15 @@ build-windows.bat
 
 # Run desktop app for development
 ./gradlew :desktopAppWindows:run
+./gradlew :desktopAppLinux:run
+
+# Build Linux packages (DEB or RPM)
+./gradlew :desktopAppLinux:packageDeb
+./gradlew :desktopAppLinux:packageRpm
+
+# Or use the build script for Linux
+chmod +x build-linux.sh
+./build-linux.sh
 
 # Tests
 ./gradlew :shared:desktopTest
