@@ -27,6 +27,12 @@ interface SftpController {
     /** Downloads [remoteFile] from [remoteDir] into the local directory [destinationDirPath]. */
     suspend fun download(remoteDir: String, remoteFile: RemoteFile, destinationDirPath: String): Boolean
 
+    /**
+     * Reads up to [maxBytes] from the beginning of a remote file and returns
+     * them as raw bytes (used for basic previews). Returns null on error.
+     */
+    suspend fun readRemoteFile(remotePath: String, maxBytes: Int): ByteArray?
+
     /** Uploads a local file (by path) into [remoteDir]. */
     suspend fun upload(localFilePath: String, remoteDir: String): Boolean
 

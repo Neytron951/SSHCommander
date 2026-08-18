@@ -53,3 +53,4 @@ keystore.properties
 # Gradle wrapper (keep gradle-wrapper.jar)
 gradle/wrapper/gradle-wrapper.jar
 !gradle/wrapper/gradle-wrapper.jar
+dist/

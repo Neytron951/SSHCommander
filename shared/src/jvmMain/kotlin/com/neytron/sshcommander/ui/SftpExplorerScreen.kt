@@ -50,6 +50,7 @@ fun SftpExplorerScreen(
     var showExitConfirmation by remember { mutableStateOf(false) }
     var showNewFolderDialog by remember { mutableStateOf(false) }
     var fileToRename by remember { mutableStateOf<RemoteFile?>(null) }
+    var fileToPreview by remember { mutableStateOf<RemoteFile?>(null) }
 
     // Navigation and Action Handlers
     val uploadPicker = rememberUploadPicker { viewModel.uploadFiles(it) }
@@ -177,11 +178,18 @@ fun SftpExplorerScreen(
                                 }
                             },
                             onLongClick = { if (!isTransitioning) viewModel.toggleSelection(file) },
+                            onDoubleClick = {
+                                if (!isTransitioning) {
+                                    if (file.isDirectory) viewModel.loadDirectory(file.path)
+                                    else fileToPreview = file
+                                }
+                            },
                             onDownload = {
                                 pendingDownload = file
                                 savePicker(file.name)
                             },
                             onRename = { fileToRename = file },
+                            onPreview = { fileToPreview = file },
                             onDelete = { viewModel.deleteFile(file) }
                         )
                     }
@@ -235,6 +243,14 @@ fun SftpExplorerScreen(
                         viewModel.renameFile(file, newName)
                         fileToRename = null
                     }
+                )
+            }
+
+            fileToPreview?.let { file ->
+                FilePreviewDialog(
+                    readRemoteFile = { path, maxBytes -> viewModel.readRemoteFile(path, maxBytes) },
+                    file = file,
+                    onDismiss = { fileToPreview = null }
                 )
             }
 
@@ -403,8 +419,10 @@ fun FileItem(
     isInSelectionMode: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
+    onDoubleClick: () -> Unit,
     onDownload: () -> Unit,
     onRename: () -> Unit,
+    onPreview: () -> Unit,
     onDelete: () -> Unit
 ) {
     val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f) else Color.Transparent
@@ -413,7 +431,7 @@ fun FileItem(
     ListItem(
         modifier = Modifier
             .background(backgroundColor)
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick, onDoubleClick = onDoubleClick),
         leadingContent = {
             Box {
                 Icon(
@@ -448,6 +466,13 @@ fun FileItem(
                     Box {
                         IconButton(onClick = { showMenu = true }) { Icon(Icons.Default.MoreVert, null) }
                         DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                            if (!file.isDirectory) {
+                                DropdownMenuItem(
+                                    text = { Text(AppStrings.preview) },
+                                    onClick = { showMenu = false; onPreview() },
+                                    leadingIcon = { Icon(Icons.Default.Preview, null) }
+                                )
+                            }
                             DropdownMenuItem(
                                 text = { Text(AppStrings.rename) },
                                 onClick = { showMenu = false; onRename() },

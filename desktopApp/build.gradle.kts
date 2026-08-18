@@ -13,6 +13,10 @@ val jpackageJdk: String = javaToolchains.launcherFor {
     vendor.set(JvmVendorSpec.ADOPTIUM)
 }.get().metadata.installationPath.asFile.absolutePath
 
+// Overridable via -PappName=MyApp / -PappVersion=1.4.0 (used by build-windows.bat).
+val appName: String = (project.findProperty("appName") as? String)?.takeIf { it.isNotBlank() } ?: "SSHCommander"
+val appVersion: String = (project.findProperty("appVersion") as? String)?.takeIf { it.isNotBlank() } ?: "1.4.0"
+
 dependencies {
     implementation(project(":shared"))
     implementation(compose.desktop.currentOs)
@@ -24,12 +28,17 @@ compose.desktop {
         javaHome = jpackageJdk
         nativeDistributions {
             targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi, org.jetbrains.compose.desktop.application.dsl.TargetFormat.Exe)
-            packageName = "SSHCommander"
-            packageVersion = "1.3.0"
+            packageName = appName
+            packageVersion = appVersion
             description = "SSH/SFTP client for Windows"
             vendor = "Neytron"
             windows {
                 iconFile.set(project.file("src/main/resources/icon.ico"))
+                // Per-machine install to Program Files + Start Menu shortcut so
+                // Windows Search / Start can find the app after installation.
+                perUserInstall = false
+                menu = true
+                menuGroup = appName
             }
         }
     }

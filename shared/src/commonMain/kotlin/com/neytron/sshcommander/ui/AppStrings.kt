@@ -225,6 +225,20 @@ object AppStrings {
     val addSession get() = s.addSession
     val closeSession get() = s.closeSession
     val sessionTabs get() = s.sessionTabs
+    val copyText get() = s.copyText
+    val selectAll get() = s.selectAll
+    val clearSelection get() = s.clearSelection
+    val preview get() = s.preview
+    val download get() = s.download
+    val copyPath get() = s.copyPath
+    val open get() = s.open
+    val fileInfo get() = s.fileInfo
+    val previewUnavailable get() = s.previewUnavailable
+    val fileType get() = s.fileType
+    val fileSize get() = s.fileSize
+    val modified get() = s.modified
+    val permissions get() = s.permissions
+    val folder get() = s.folder
 
     data class Strings(
         val appName: String, val servers: String, val addServer: String, val editServer: String,
@@ -276,7 +290,11 @@ object AppStrings {
         val sftpStartPath: String, val sftpStartPathHint: String, val sftpStartPathHint2: String,
         val noLogins: String, val setDefaultLogin: String, val deleteLoginTitle: String,
         val deleteLoginMsg: String, val selectLogin: String, val mainLoginLabel: String,
-        val addSession: String, val closeSession: String, val sessionTabs: String
+        val addSession: String, val closeSession: String, val sessionTabs: String,
+        val copyText: String, val selectAll: String, val clearSelection: String,
+        val preview: String, val download: String, val copyPath: String, val open: String,
+        val fileInfo: String, val previewUnavailable: String, val fileType: String,
+        val fileSize: String, val modified: String, val permissions: String, val folder: String
     )
 
     val en = Strings(
@@ -354,7 +372,12 @@ object AppStrings {
         setDefaultLogin = "Set as default login", deleteLoginTitle = "Delete login?",
         deleteLoginMsg = "Delete login \"%1\$s\"?", selectLogin = "Select login",
         mainLoginLabel = "Main login (%1\$s)",
-        addSession = "New Session", closeSession = "Close Session", sessionTabs = "Sessions"
+        addSession = "New Session", closeSession = "Close Session", sessionTabs = "Sessions",
+        copyText = "Copy", selectAll = "Select All", clearSelection = "Clear selection",
+        preview = "Preview", download = "Download", copyPath = "Copy path", open = "Open",
+        fileInfo = "File info", previewUnavailable = "Preview is not available for this file type",
+        fileType = "Type", fileSize = "Size", modified = "Modified", permissions = "Permissions",
+        folder = "Folder"
     )
 
     val ru = Strings(
@@ -436,6 +459,12 @@ object AppStrings {
         setDefaultLogin = "Сделать логином по умолчанию", deleteLoginTitle = "Удалить логин?",
         deleteLoginMsg = "Удалить логин \"%1\$s\"?", selectLogin = "Выбрать логин",
         mainLoginLabel = "Основной логин (%1\$s)",
-        addSession = "Новая сессия", closeSession = "Закрыть сессию", sessionTabs = "Сессии"
+        addSession = "Новая сессия", closeSession = "Закрыть сессию", sessionTabs = "Сессии",
+        copyText = "Копировать", selectAll = "Выбрать всё", clearSelection = "Снять выделение",
+        preview = "Предпросмотр", download = "Скачать", copyPath = "Копировать путь",
+        open = "Открыть", fileInfo = "Информация о файле",
+        previewUnavailable = "Предпросмотр недоступен для этого типа файлов",
+        fileType = "Тип", fileSize = "Размер", modified = "Изменён",
+        permissions = "Права доступа", folder = "Папка"
     )
 }

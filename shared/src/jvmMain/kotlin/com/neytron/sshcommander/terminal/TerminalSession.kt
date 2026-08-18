@@ -80,8 +80,17 @@ class TerminalSession(
 
                 val channel = session.openChannel("shell") as ChannelShell
                 channel.setPty(true)
-                channel.setPtyType("xterm")
-                channel.setPtySize(TerminalDimensions.COLS, 30, 0, 0)
+                // The PTY term string is what OpenSSH uses to set TERM for the
+                // remote shell. "xterm" alone made many servers start the shell as
+                // "dumb"/dash, which disables readline — arrow keys then echo
+                // "^[[A" garbage instead of navigating. xterm-256color keeps
+                // readline/history working for non-root logins too.
+                channel.setPtyType("xterm-256color")
+                // Provide real pixel dimensions as well — some shells also use the
+                // pty size to decide on line-wrapping/readline behavior.
+                channel.setPtySize(TerminalDimensions.COLS, 30, 640, 400)
+                // Belt-and-braces: forwarded for servers that honor sshd SetEnv.
+                channel.setEnv("TERM", "xterm-256color")
 
                 val inputStream: InputStream = channel.inputStream
                 channelOutputStream = channel.outputStream

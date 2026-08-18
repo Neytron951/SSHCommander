@@ -214,6 +214,32 @@ class SftpViewModel(private val repository: ServerRepository) : ViewModel() {
         }
     }
 
+    /**
+     * Reads up to [maxBytes] from the beginning of a remote file (used for
+     * basic in-memory previews). Returns null on error.
+     */
+    suspend fun readRemoteFile(remotePath: String, maxBytes: Int): ByteArray? {
+        if (!ensureConnected()) return null
+        val channel = sftpChannel ?: return null
+        return withContext(Dispatchers.IO) {
+            try {
+                val input = channel.get(remotePath)
+                input.use { stream ->
+                    val buffer = ByteArray(maxBytes)
+                    var total = 0
+                    while (total < maxBytes) {
+                        val n = stream.read(buffer, total, maxBytes - total)
+                        if (n <= 0) break
+                        total += n
+                    }
+                    if (total == 0) null else buffer.copyOf(total)
+                }
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
+
     fun downloadFile(file: RemoteFile, target: PlatformTransferFile) {
         viewModelScope.launch(Dispatchers.IO) {
             if (!ensureConnected()) return@launch

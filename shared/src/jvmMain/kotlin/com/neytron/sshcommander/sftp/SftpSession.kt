@@ -133,6 +133,21 @@ class SftpSession(
             }
         }
 
+    override suspend fun readRemoteFile(remotePath: String, maxBytes: Int): ByteArray? =
+        withContext(Dispatchers.IO) {
+            try {
+                val channel = currentChannel ?: return@withContext null
+                val input = channel.get(normalize(remotePath))
+                val buffer = ByteArray(maxBytes)
+                val total = input.read(buffer)
+                input.close()
+                if (total <= 0) null else buffer.copyOf(total)
+            } catch (e: Exception) {
+                _error.value = e.message ?: "Failed to read file"
+                null
+            }
+        }
+
     override suspend fun upload(localFilePath: String, remoteDir: String): Boolean = withContext(Dispatchers.IO) {
         try {
             val channel = currentChannel ?: return@withContext false
@@ -184,6 +199,7 @@ class SftpSession(
 
     private fun normalize(path: String): String {
         val cleaned = path.trim().replace('\\', '/')
-        return if (cleaned.startsWith('/')) cleaned else "/$cleaned"
+        val single = cleaned.replace(Regex("/+"), "/")
+        return if (single.startsWith('/')) single else "/$single"
     }
 }

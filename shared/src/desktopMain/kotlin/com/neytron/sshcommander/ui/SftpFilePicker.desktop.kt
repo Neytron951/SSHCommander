@@ -18,3 +18,16 @@ internal actual fun uploadFile(onFileSelected: (String) -> Unit) {
     }
 }
 
+/**
+ * Opens a native folder chooser (directory-only) and invokes [onFolderSelected]
+ * with the chosen directory, or no-op on cancel.
+ */
+internal actual fun downloadFolder(onFolderSelected: (String) -> Unit) {
+    val chooser = javax.swing.JFileChooser()
+    chooser.dialogTitle = "Select download folder"
+    chooser.fileSelectionMode = javax.swing.JFileChooser.DIRECTORIES_ONLY
+    if (chooser.showDialog(Frame(), "Download here") == javax.swing.JFileChooser.APPROVE_OPTION) {
+        onFolderSelected(chooser.selectedFile.absolutePath)
+    }
+}
+

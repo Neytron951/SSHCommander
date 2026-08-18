@@ -5,6 +5,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,6 +30,9 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -45,12 +49,14 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -91,6 +97,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.PointerInputScope
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
@@ -115,6 +122,7 @@ import com.neytron.sshcommander.ui.AppStrings
 import com.neytron.sshcommander.ui.IconUtils
 import com.neytron.sshcommander.ui.PlatformInputStream
 import com.neytron.sshcommander.ui.PrivacyUtils
+import com.neytron.sshcommander.ui.resizeHoverCursor
 import com.neytron.sshcommander.ui.SftpView
 import com.neytron.sshcommander.ui.TerminalView
 import com.neytron.sshcommander.ui.platformToast
@@ -420,7 +428,14 @@ fun SSHCommanderLayout(
     val onExport = { savePicker("sshcommander_backup.json") }
     val onImport = { uploadPicker() }
 
-    BoxWithConstraints(Modifier.fillMaxSize()) {
+    // A theme background on the root keeps every gap between rounded
+    // surfaces (tab bar margins, card padding, etc.) themed instead of
+    // showing the raw white window background in dark mode.
+    BoxWithConstraints(
+        Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
         val wide = maxWidth >= 720.dp
 
         if (wide) {
@@ -434,7 +449,9 @@ fun SSHCommanderLayout(
                     onToggleCommandPanel = { scope.launch { settings?.setShowCommandPanel(it) } },
                     onToggleTopBar = { scope.launch { settings?.setShowTopBar(it) } },
                     onExport = onExport,
-                    onImport = onImport
+                    onImport = onImport,
+                    onOpenSettings = { showSettingsDialog = true },
+                    onOpenAbout = { showAboutDialog = true }
                 )
                 if (sessions.isNotEmpty()) {
                     SessionTabBar(
@@ -494,7 +511,10 @@ fun SSHCommanderLayout(
                         showCommandPanel = showCommandPanelSetting,
                         commandPaneWidth = commandPaneWidth,
                         onCommandPaneResize = { delta ->
-                            commandPaneWidth = (commandPaneWidth + delta).toInt().coerceIn(120, 420)
+                            // The divider sits on the LEFT edge of the command
+                            // panel (terminal | divider | panel), so dragging it
+                            // left must widen the panel: invert the drag delta.
+                            commandPaneWidth = (commandPaneWidth - delta).toInt().coerceIn(120, 420)
                         },
                         onCommandPaneResizeEnd = { scope.launch { settings?.setCommandPaneWidthPx(commandPaneWidth) } },
                         termBgHex = termBgHex,
@@ -505,8 +525,6 @@ fun SSHCommanderLayout(
                         },
                         rebootConfirmMode = rebootConfirmMode,
                         privacyMode = privacyMode,
-                        onOpenSettings = { showSettingsDialog = true },
-                        onOpenAbout = { showAboutDialog = true },
                         onManageCommands = { showManageCommandsDialog = true },
                         modifier = Modifier
                             .weight(1f)
@@ -694,7 +712,7 @@ private fun deleteServerConfirmMsg(): String =
     if (AppStrings.language == "ru") "Удалить сервер \"%1\$s\"? Все логины будут удалены."
     else "Delete server \"%1\$s\"? All its logins will be deleted."
 
-enum class PaneType { Terminal, Sftp }
+enum class PaneType { Terminal, Sftp, Split }
 
 /**
  * One open terminal/SFTP session. Holds the live controllers so the connection
@@ -1061,8 +1079,6 @@ private fun InteractionPane(
     onFontSizeChange: (Float) -> Unit = {},
     rebootConfirmMode: String = "always",
     privacyMode: Boolean = false,
-    onOpenSettings: () -> Unit = {},
-    onOpenAbout: () -> Unit = {},
     onManageCommands: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -1102,13 +1118,6 @@ private fun InteractionPane(
                         Spacer(Modifier.width(8.dp))
                     }
                     PaneSwitcher(pane, onPaneChange)
-                    Spacer(Modifier.width(8.dp))
-                    IconButton(onClick = onOpenSettings) {
-                        Icon(Icons.Default.Settings, contentDescription = AppStrings.settings)
-                    }
-                    IconButton(onClick = onOpenAbout) {
-                        Icon(Icons.Default.Info, contentDescription = AppStrings.aboutApp)
-                    }
                 }
                 HorizontalDivider()
             }
@@ -1148,6 +1157,67 @@ private fun InteractionPane(
                     }
                 } else {
                     TerminalPreview(server)
+                }
+                PaneType.Split -> {
+                    // Terminal on the left, SFTP on the right, resizable divider
+                    // between them (starts 50/50). Quick-commands panel stays
+                    // available on the far right, like in the Terminal pane.
+                    val terminalWeight = remember(terminalSession) { mutableFloatStateOf(0.5f) }
+                    var splitWidthPx by remember(terminalSession) { mutableIntStateOf(0) }
+                    Row(
+                        Modifier
+                            .fillMaxSize()
+                            .onSizeChanged { splitWidthPx = it.width }
+                    ) {
+                        if (terminalSession != null) {
+                            TerminalView(
+                                terminalScreen = terminalSession.terminalScreen,
+                                terminalRevision = terminalSession.terminalRevision,
+                                isLoading = terminalSession.isLoading,
+                                controller = terminalSession,
+                                bgColor = parseHexColor(termBgHex),
+                                textColor = parseHexColor(termTextHex),
+                                fontSizeSp = termFontSizePx,
+                                onFontSizeChange = onFontSizeChange,
+                                focusRequester = terminalFocusRequester,
+                                modifier = Modifier.weight(terminalWeight.floatValue)
+                            )
+                        } else {
+                            TerminalPreview(server, Modifier.weight(terminalWeight.floatValue))
+                        }
+                        ResizableDivider(
+                            onDrag = { delta ->
+                                if (splitWidthPx > 0) {
+                                    terminalWeight.floatValue =
+                                        (terminalWeight.floatValue + delta / splitWidthPx)
+                                            .coerceIn(0.15f, 0.85f)
+                                }
+                            },
+                            onDragEnd = {},
+                            orientation = ResizeOrientation.Horizontal
+                        )
+                        SftpView(
+                            sftpController,
+                            modifier = Modifier.weight(1f - terminalWeight.floatValue)
+                        )
+                        if (showCommandPanel) {
+                            ResizableDivider(
+                                onDrag = onCommandPaneResize,
+                                onDragEnd = onCommandPaneResizeEnd,
+                                orientation = ResizeOrientation.Horizontal
+                            )
+                            CommandPanel(
+                                customCommands = customCommands,
+                                rebootConfirmMode = rebootConfirmMode,
+                                onExecute = {
+                                    terminalSession?.executeCommand(it)
+                                    terminalFocusRequester.requestFocus()
+                                },
+                                onManageCommands = onManageCommands,
+                                modifier = Modifier.width(commandPaneWidth.dp).fillMaxHeight()
+                            )
+                        }
+                    }
                 }
                 PaneType.Sftp -> SftpView(sftpController)
             }
@@ -1315,6 +1385,10 @@ private fun PaneSwitcher(selected: PaneType, onSelect: (PaneType) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         PaneTab("Terminal", selected == PaneType.Terminal) { onSelect(PaneType.Terminal) }
         PaneTab("SFTP", selected == PaneType.Sftp) { onSelect(PaneType.Sftp) }
+        PaneTab(
+            if (AppStrings.language == "ru") "Терминал + SFTP" else "Terminal + SFTP",
+            selected == PaneType.Split
+        ) { onSelect(PaneType.Split) }
     }
 }
 
@@ -1339,13 +1413,13 @@ private fun PaneTab(label: String, selected: Boolean, onClick: () -> Unit) {
  * (e.g. no server selected yet).
  */
 @Composable
-private fun TerminalPreview(server: Server) {
+private fun TerminalPreview(server: Server, modifier: Modifier = Modifier) {
     val consoleBg = Color(0xFF0D1117)
     val consoleFg = Color(0xFFC9D1D9)
     val green = Color(0xFF3FB950)
 
     Box(
-        Modifier
+        modifier
             .fillMaxSize()
             .background(consoleBg)
             .padding(16.dp)
@@ -1449,21 +1523,61 @@ private fun ResizableDivider(
     orientation: ResizeOrientation = ResizeOrientation.Horizontal,
     modifier: Modifier = Modifier
 ) {
-    val base = if (orientation == ResizeOrientation.Horizontal) Modifier.width(5.dp) else Modifier.fillMaxWidth().height(5.dp)
+    val isHorizontal = orientation == ResizeOrientation.Horizontal
+    val base = if (isHorizontal) {
+        // Vertical strip that splits a Row horizontally. Needs fillMaxHeight()
+        // (and a generous width for a comfortable grab target), otherwise it
+        // collapses to zero height and there is nothing to drag.
+        Modifier.width(10.dp).fillMaxHeight()
+    } else {
+        Modifier.fillMaxWidth().height(10.dp)
+    }
+    val interactionSource = remember { MutableInteractionSource() }
+    val hovered by interactionSource.collectIsHoveredAsState()
+
     Box(
         modifier = modifier
             .then(base)
-            .background(MaterialTheme.colorScheme.outlineVariant)
-            .pointerInput(Unit) {
-                detectHorizontalDragGestures(
-                    onDragEnd = { onDragEnd() },
-                    onDragCancel = { onDragEnd() }
-                ) { change, dragAmount ->
-                    change.consume()
-                    onDrag(dragAmount)
+            .resizeHoverCursor()
+            .hoverable(interactionSource)
+            .background(
+                if (hovered) MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
+                else MaterialTheme.colorScheme.outlineVariant
+            )
+            .pointerInput(orientation) {
+                if (isHorizontal) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = { onDragEnd() },
+                        onDragCancel = { onDragEnd() }
+                    ) { change, dragAmount ->
+                        change.consume()
+                        onDrag(dragAmount)
+                    }
+                } else {
+                    detectVerticalDragGestures(
+                        onDragEnd = { onDragEnd() },
+                        onDragCancel = { onDragEnd() }
+                    ) { change, dragAmount ->
+                        change.consume()
+                        onDrag(dragAmount)
+                    }
                 }
-            }
-    )
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        // Visible grab line in the middle of the strip.
+        Box(
+            modifier = Modifier
+                .then(
+                    if (isHorizontal) Modifier.width(2.dp).fillMaxHeight(0.5f)
+                    else Modifier.height(2.dp).fillMaxWidth(0.5f)
+                )
+                .background(
+                    if (hovered) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.outline
+                )
+        )
+    }
 }
 
 /**
@@ -1480,17 +1594,22 @@ private fun DesktopMenuBar(
     onToggleTopBar: (Boolean) -> Unit,
     onExport: () -> Unit,
     onImport: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenAbout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var fileExpanded by remember { mutableStateOf(false) }
     var viewExpanded by remember { mutableStateOf(false) }
+    val fileMenuLabel = if (AppStrings.language == "ru") "Файл" else "File"
+    val viewMenuLabel = if (AppStrings.language == "ru") "Вид" else "View"
 
     Surface(modifier = modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceVariant) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            // File menu
+            // File menu — icon-only button (keeps the desktop style consistent with
+            // the Settings gear and About "i" icons).
             Box {
-                TextButton(onClick = { fileExpanded = true; viewExpanded = false }) {
-                    Text(if (AppStrings.language == "ru") "Файл" else "File", fontWeight = FontWeight.Medium)
+                IconButton(onClick = { fileExpanded = true; viewExpanded = false }) {
+                    Icon(Icons.Default.InsertDriveFile, contentDescription = fileMenuLabel)
                 }
                 DropdownMenu(expanded = fileExpanded, onDismissRequest = { fileExpanded = false }) {
                     DropdownMenuItem(
@@ -1503,10 +1622,10 @@ private fun DesktopMenuBar(
                     )
                 }
             }
-            // View menu
+            // View menu — icon-only button.
             Box {
-                TextButton(onClick = { viewExpanded = true; fileExpanded = false }) {
-                    Text(if (AppStrings.language == "ru") "Вид" else "View", fontWeight = FontWeight.Medium)
+                IconButton(onClick = { viewExpanded = true; fileExpanded = false }) {
+                    Icon(Icons.Default.Visibility, contentDescription = viewMenuLabel)
                 }
                 DropdownMenu(expanded = viewExpanded, onDismissRequest = { viewExpanded = false }) {
                     DropdownMenuItem(
@@ -1540,6 +1659,14 @@ private fun DesktopMenuBar(
                         onClick = { onToggleTopBar(!showTopBar) }
                     )
                 }
+            }
+            // Settings & About live on the same row as File/View.
+            Spacer(Modifier.weight(1f))
+            IconButton(onClick = onOpenSettings) {
+                Icon(Icons.Default.Settings, contentDescription = AppStrings.settings)
+            }
+            IconButton(onClick = onOpenAbout) {
+                Icon(Icons.Default.Info, contentDescription = AppStrings.aboutApp)
             }
         }
     }
