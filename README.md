@@ -87,18 +87,18 @@ cd SSHCommander
 ./gradlew :androidApp:assembleDebug
 
 # Windows desktop app (MSI or EXE installer)
-./gradlew :desktopApp:packageMsi
-./gradlew :desktopApp:packageExe
+./gradlew :desktopAppWindows:packageMsi
+./gradlew :desktopAppWindows:packageExe
 
 # Or build both installers with the interactive script (asks for name/version)
 # and puts ready .msi / .exe into the dist\ folder
 build-windows.bat
 
 # Windows desktop app — unpacked folder
-./gradlew :desktopApp:createDistributable
+./gradlew :desktopAppWindows:createDistributable
 
 # Run desktop app for development
-./gradlew :desktopApp:run
+./gradlew :desktopAppWindows:run
 
 # Tests
 ./gradlew :shared:desktopTest

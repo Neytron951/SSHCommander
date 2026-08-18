@@ -20,4 +20,5 @@ rootProject.name = "SSH Commander"
 include(":app")
 include(":shared")
 include(":androidApp")
-include(":desktopApp")
+include(":desktopAppWindows")
+include(":desktopAppLinux")

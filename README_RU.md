@@ -89,18 +89,18 @@ cd SSHCommander
 ./gradlew :androidApp:assembleDebug
 
 # Windows-десктоп (установщик MSI или EXE)
-./gradlew :desktopApp:packageMsi
-./gradlew :desktopApp:packageExe
+./gradlew :desktopAppWindows:packageMsi
+./gradlew :desktopAppWindows:packageExe
 
 # Или соберите оба установщика интерактивным скриптом
 # (спросит имя и версию, готовые .msi/.exe положит в папку dist\)
 build-windows.bat
 
 # Windows-десктоп — папка без установки
-./gradlew :desktopApp:createDistributable
+./gradlew :desktopAppWindows:createDistributable
 
 # Запуск десктопного приложения для разработки
-./gradlew :desktopApp:run
+./gradlew :desktopAppWindows:run
 
 # Тесты
 ./gradlew :shared:desktopTest
