@@ -21,19 +21,21 @@ SSH Commander is a powerful and user-friendly cross-platform client for remote s
 - Customizable font and text size for comfortable work
 - Desktop: zoom terminal text with Ctrl + mouse wheel
 
-### Sessions & Tabs
-- **Session tabs** on both Android and Windows — open as many sessions as you need
-- **Multiple sessions per server** — start a second (third, …) session for the same server with the "+" button
-- **Full session persistence** — minimize the app, switch servers or tabs; every session keeps its state until the app is closed
-- Session tabs scroll horizontally, so a large number of open sessions never becomes a problem
-- One tap closes a session and releases its connection
+### Sessions, Tabs & Workspaces
+- **Workspaces** — save your current set of open sessions (servers, logins, tab settings) and restore them all with one tap.
+- **Session tabs** on both Android and Windows — open as many sessions as you need.
+- **Multiple sessions per server** — start a second (third, …) session for the same server with the "+" button.
+- **Pinning & Colors** — pin important tabs (long press or right-click) and assign one of 5 colors for better organization (e.g., Red for Prod, Blue for Dev).
+- **Full session persistence** — minimize the app, switch servers or tabs; every session keeps its state until the app is closed.
 
 ### SFTP File Manager
-- Browse and navigate server file structure
-- Upload and download files, create folders, rename and delete
-- File search, show hidden files, multi-select
-- Configurable startup folder for quick access
-- **File preview without download** — text, JSON and images open instantly; binaries (EXE/RAR/ZIP/MSI) are blocked
+- Browse and navigate server file structure.
+- **Built-in Editor** — open and edit text files (configs, scripts) directly on the server and save back with one click.
+- **Sync Engine** — compare local and remote directories by modification time (logic prepared).
+- Upload and download files, create folders, rename and delete.
+- File search, show hidden files, multi-select.
+- Configurable startup folder for quick access.
+- **File preview without download** — text, JSON and images open instantly.
 - **Selection mechanics:** single click — select, Ctrl+click — multi-select, Shift+click — range, double-click — preview / open folder, right-click — context menu with download
 - **Choose the download folder** instead of silently saving to the home directory
 - **Manual path entry** with the keyboard (e.g. `/var/www/site`)
@@ -42,10 +44,12 @@ SSH Commander is a powerful and user-friendly cross-platform client for remote s
 - Split the window 50/50 with a draggable divider — resize panes by dragging the border
 - Quick-commands panel is available in split mode too
 
-### Quick Commands & Widgets
-- Ready-to-use commands: df -h, free -m, htop, uptime, ps aux, tail -f
-- Create custom commands with confirmation and biometric authentication for dangerous actions
-- Android home screen widget: server status (online/offline) and quick command execution
+### Command Center & Dashboard
+- **Dashboard & Monitoring** — new tab with CPU, RAM, and Disk usage widgets + real-time logs (tail -f).
+- **Advanced Quick Commands** — search by name, filter by categories, and use **variables** like `{{variable_name}}` for template-based execution.
+- Ready-to-use commands: df -h, free -m, htop, uptime, ps aux, tail -f.
+- Create custom commands with confirmation and biometric authentication for dangerous actions.
+- Android home screen widget: server status (online/offline) and quick command execution.
 
 ### Security
 - App lock with fingerprint or Face ID
