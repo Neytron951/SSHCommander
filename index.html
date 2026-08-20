@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SSH Commander — Secure SSH/SFTP Client</title>
+    <style>
+        /* RESET & BASE */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f6f8fa;
+            color: #1e293b;
+            line-height: 1.6;
+            padding: 0 20px;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 60px 0 40px;
+        }
+
+        /* ===== TERMINAL HEADER (БЕЗ МАКОВСКИХ ТОЧЕК) ===== */
+        .terminal-header {
+            background: #0d1117;
+            border-radius: 16px 16px 0 0;
+            padding: 14px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .terminal-prompt {
+            color: #58a6ff;
+            font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+            font-size: 1.05em;
+            font-weight: 500;
+            letter-spacing: 0.02em;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .terminal-prompt .user {
+            color: #ff7b72;
+        }
+
+        .terminal-prompt .at {
+            color: #8b949e;
+        }
+
+        .terminal-prompt .host {
+            color: #58a6ff;
+        }
+
+        .terminal-prompt .colon {
+            color: #8b949e;
+        }
+
+        .terminal-prompt .path {
+            color: #d2a8ff;
+        }
+
+        .terminal-prompt .cursor {
+            display: inline-block;
+            width: 10px;
+            height: 1.2em;
+            background: #f0f6fc;
+            animation: blink 1s step-end infinite;
+            margin-left: 4px;
+        }
+
+        @keyframes blink {
+            0%,
+            100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0;
+            }
+        }
+
+        .terminal-status {
+            color: #3fb950;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.9em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .terminal-status .status-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            background: #3fb950;
+            border-radius: 50%;
+            animation: pulse-green 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-green {
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.5;
+                transform: scale(0.85);
+            }
+        }
+
+        /* ===== HEADER ===== */
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            padding: 30px 30px 20px;
+            background: #ffffff;
+            border-radius: 0 0 16px 16px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.02);
+            flex-wrap: wrap;
+        }
+
+        .header img {
+            width: 72px;
+            height: 72px;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+            transition: transform 0.3s ease;
+        }
+
+        .header img:hover {
+            transform: scale(1.04) rotate(-2deg);
+        }
+
+        .header h1 {
+            font-size: 3em;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: #0a1929;
+        }
+
+        .badge {
+            display: inline-block;
+            background: #eef2f6;
+            color: #1e293b;
+            padding: 4px 18px;
+            border-radius: 30px;
+            font-size: 0.8em;
+            font-weight: 600;
+            border: 1px solid #dce1e9;
+        }
+
+        .subtitle {
+            font-size: 1.3em;
+            color: #475569;
+            padding: 0 30px 30px;
+            background: #ffffff;
+            border-radius: 0 0 16px 16px;
+            margin-bottom: 10px;
+            border-top: 1px solid #f1f4f9;
+        }
+
+        .subtitle strong {
+            color: #0a1929;
+            font-weight: 600;
+        }
+
+        /* ===== SCREENSHOT ===== */
+        .screenshot-wrapper {
+            margin: 40px 0 50px;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.06);
+            transition: box-shadow 0.4s ease, transform 0.4s ease;
+        }
+
+        .screenshot-wrapper:hover {
+            box-shadow: 0 24px 64px rgba(0, 0, 0, 0.10);
+            transform: scale(1.005);
+        }
+
+        .screenshot-wrapper img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        /* ===== FEATURES ===== */
+        .features {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin: 50px 0 55px;
+        }
+
+        .feature-card {
+            background: #ffffff;
+            border: 1px solid #e9edf2;
+            border-radius: 16px;
+            padding: 24px 28px;
+            transition: transform 0.25s ease, box-shadow 0.3s ease, opacity 0.6s ease;
+            opacity: 0;
+            transform: translateY(30px);
+        }
+
+        .feature-card.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .feature-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.04);
+        }
+
+        .feature-card h3 {
+            font-size: 1.2em;
+            font-weight: 700;
+            color: #0a1929;
+            margin-bottom: 10px;
+            letter-spacing: -0.01em;
+        }
+
+        .feature-card ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .feature-card ul li {
+            padding: 4px 0;
+            padding-left: 22px;
+            position: relative;
+            color: #334155;
+        }
+
+        .feature-card ul li::before {
+            content: ">";
+            color: #58a6ff;
+            font-weight: 600;
+            position: absolute;
+            left: 0;
+        }
+
+        /* ===== DOWNLOADS ===== */
+        .downloads {
+            background: #ffffff;
+            border: 1px solid #e9edf2;
+            border-radius: 16px;
+            padding: 40px 36px;
+            margin: 40px 0 50px;
+            text-align: center;
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+
+        .downloads.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .downloads h2 {
+            font-size: 1.8em;
+            font-weight: 700;
+            color: #0a1929;
+            margin-bottom: 6px;
+        }
+
+        .downloads .desc {
+            color: #64748b;
+            margin-bottom: 28px;
+            font-size: 1.05em;
+        }
+
+        .download-links {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 14px;
+        }
+
+        .download-links a {
+            display: inline-block;
+            background: #f1f4f9;
+            color: #0a1929;
+            padding: 12px 30px;
+            border-radius: 40px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.95em;
+            border: 1px solid #dce1e9;
+            transition: background 0.2s, border-color 0.2s, transform 0.15s;
+        }
+
+        .download-links a:hover {
+            background: #e2e8f0;
+            border-color: #b9c2cf;
+            transform: translateY(-3px);
+        }
+
+        .download-links a.primary {
+            background: #0a1929;
+            color: #ffffff;
+            border-color: #0a1929;
+        }
+
+        .download-links a.primary:hover {
+            background: #1e2f44;
+            border-color: #1e2f44;
+        }
+
+        /* ===== FOOTER ===== */
+        .footer {
+            text-align: center;
+            color: #94a3b8;
+            font-size: 0.9em;
+            border-top: 1px solid #e9edf2;
+            padding-top: 32px;
+            margin-top: 20px;
+        }
+
+        .footer a {
+            color: #0a1929;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        .footer .version {
+            display: inline-block;
+            background: #f1f4f9;
+            padding: 2px 14px;
+            border-radius: 30px;
+            font-size: 0.8em;
+            color: #475569;
+            margin-top: 6px;
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 760px) {
+            .features {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 2.4em;
+            }
+
+            .subtitle {
+                font-size: 1.15em;
+                padding: 0 20px 20px;
+            }
+
+            .header {
+                padding: 20px 20px 10px;
+            }
+
+            .header img {
+                width: 56px;
+                height: 56px;
+            }
+
+            .downloads {
+                padding: 30px 18px;
+            }
+
+            .download-links a {
+                padding: 10px 20px;
+                font-size: 0.9em;
+                width: 100%;
+                text-align: center;
+            }
+
+            .terminal-prompt {
+                font-size: 0.85em;
+            }
+
+            .terminal-status {
+                font-size: 0.8em;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 30px 0 20px;
+            }
+
+            .header h1 {
+                font-size: 1.8em;
+            }
+
+            .badge {
+                font-size: 0.7em;
+                padding: 2px 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+
+        <!-- ===== TERMINAL HEADER (БЕЗ МАКОВСКИХ ТОЧЕК) ===== -->
+        <div class="terminal-header">
+            <div class="terminal-prompt">
+                <span class="user">user</span>
+                <span class="at">@</span>
+                <span class="host">ssh-commander</span>
+                <span class="colon">:</span>
+                <span class="path">~</span>
+                <span class="cursor"></span>
+            </div>
+            <div class="terminal-status">
+                <span class="status-dot"></span>
+                <span>SSH ready</span>
+            </div>
+        </div>
+
+        <!-- ===== HEADER ===== -->
+        <div class="header">
+            <img src="androidApp/src/main/res/mipmap-xxxhdpi/ic_launcher.png" alt="SSH Commander icon" />
+            <div>
+                <h1>SSH Commander</h1>
+                <div class="badge">v1.5.0</div>
+            </div>
+        </div>
+
+        <div class="subtitle">
+            A secure SSH / SFTP client for <strong>Android</strong>, <strong>Windows</strong> and <strong>Linux</strong>.<br />
+            Terminal, tabs, real‑time monitoring, built‑in editor, biometric lock.
+        </div>
+
+        <!-- ===== SCREENSHOT ===== -->
+        <div class="screenshot-wrapper">
+            <img src="ScreenShots/screenshot.png" alt="SSH Commander screenshot" />
+        </div>
+
+        <!-- ===== FEATURES ===== -->
+        <div class="features" id="features">
+            <div class="feature-card">
+                <h3>Terminal</h3>
+                <ul>
+                    <li>Full VT100 / ANSI emulation</li>
+                    <li>Colors, block cursor, auto‑scroll</li>
+                    <li>Control key panel (ESC, arrows, TAB, Ctrl+…)</li>
+                    <li>Zoom text with Ctrl + mouse wheel</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <h3>SFTP + Editor</h3>
+                <ul>
+                    <li>Browse server file system</li>
+                    <li>Built‑in text editor for configs &amp; scripts</li>
+                    <li>Upload, download, delete, rename</li>
+                    <li>Preview files without downloading</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <h3>Monitoring</h3>
+                <ul>
+                    <li>CPU, RAM, Disk usage widgets</li>
+                    <li>Real‑time logs (tail -f)</li>
+                    <li>Quick commands with categories</li>
+                    <li>Variables for templated commands</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <h3>Workspaces &amp; Tabs</h3>
+                <ul>
+                    <li>Save and restore session layouts</li>
+                    <li>Pin important tabs</li>
+                    <li>Color‑coded tabs for environments</li>
+                    <li>Full session persistence</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- ===== DOWNLOADS ===== -->
+        <div class="downloads" id="downloads">
+            <h2>Download</h2>
+            <p class="desc">Get the latest version for your platform</p>
+            <div class="download-links">
+                <a href="https://github.com/Neytron951/SSHCommander/releases/latest" class="primary">Android APK</a>
+                <a href="https://github.com/Neytron951/SSHCommander/releases/latest">Windows MSI / EXE</a>
+                <a href="https://github.com/Neytron951/SSHCommander/releases/latest">Linux DEB / RPM</a>
+                <a href="https://github.com/Neytron951/SSHCommander">View source on GitHub</a>
+            </div>
+        </div>
+
+        <!-- ===== FOOTER ===== -->
+        <div class="footer">
+            <p>
+                SSH Commander &middot; Built for system administrators and DevOps engineers
+            </p>
+            <div class="version">Version 1.5.0 &mdash; released August 2026</div>
+            <p style="margin-top:12px;">
+                <a href="https://github.com/Neytron951/SSHCommander">GitHub</a> &middot;
+                <a href="https://github.com/Neytron951/SSHCommander/issues">Report an issue</a>
+            </p>
+        </div>
+
+    </div>
+
+    <!-- ===== INTERSECTION OBSERVER ===== -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+
+            const options = {
+                threshold: 0.2,
+                rootMargin: '0px 0px -40px 0px'
+            };
+
+            const observer = new IntersectionObserver(function(entries) {
+                entries.forEach(function(entry) {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('visible');
+                    }
+                });
+            }, options);
+
+            const cards = document.querySelectorAll('.feature-card');
+            cards.forEach(function(card) {
+                observer.observe(card);
+            });
+
+            const downloads = document.getElementById('downloads');
+            if (downloads) {
+                observer.observe(downloads);
+            }
+
+            cards.forEach(function(card) {
+                const rect = card.getBoundingClientRect();
+                const winHeight = window.innerHeight;
+                if (rect.top < winHeight * 0.8) {
+                    card.classList.add('visible');
+                }
+            });
+
+            if (downloads) {
+                const rect = downloads.getBoundingClientRect();
+                const winHeight = window.innerHeight;
+                if (rect.top < winHeight * 0.8) {
+                    downloads.classList.add('visible');
+                }
+            }
+
+        });
+    </script>
+
+</body>
+</html>
