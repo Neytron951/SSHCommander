@@ -57,6 +57,12 @@ class JsonServerRepository(
         .registerTypeAdapter(ServerFolder::class.java, InstanceCreator { _ ->
             ServerFolder(name = "")
         })
+        .registerTypeAdapter(Workspace::class.java, InstanceCreator { _ ->
+            Workspace(name = "")
+        })
+        .registerTypeAdapter(WorkspaceItem::class.java, InstanceCreator { _ ->
+            WorkspaceItem(serverId = 0)
+        })
         .create()
     private val mutex = Mutex()
     private val serversFile = File(dataDir, "servers.json")
@@ -66,12 +72,16 @@ class JsonServerRepository(
     private val commandsFile = File(dataDir, "commands.json")
     private val historyFile = File(dataDir, "history.json")
     private val foldersFile = File(dataDir, "folders.json")
+    private val workspacesFile = File(dataDir, "workspaces.json")
 
     private val _servers = MutableStateFlow<List<Server>>(emptyList())
     override val allServers: StateFlow<List<Server>> = _servers.asStateFlow()
 
     private val _folders = MutableStateFlow<List<ServerFolder>>(emptyList())
     override val allFolders: StateFlow<List<ServerFolder>> = _folders.asStateFlow()
+
+    private val _workspaces = MutableStateFlow<List<Workspace>>(emptyList())
+    override val allWorkspaces: StateFlow<List<Workspace>> = _workspaces.asStateFlow()
 
     private val _logins = MutableStateFlow<List<ServerLogin>>(emptyList())
     private val _commands = MutableStateFlow<List<CustomCommand>>(emptyList())
@@ -84,6 +94,7 @@ class JsonServerRepository(
         _logins.value = readLogins()
         _commands.value = readCommands()
         _history.value = readHistory()
+        _workspaces.value = readWorkspaces()
     }
 
     override suspend fun getServers(): List<Server> = withContext(Dispatchers.IO) {
@@ -264,6 +275,39 @@ class JsonServerRepository(
         mutex.withLock {
             _commands.update { list -> list.filterNot { it.id == command.id } }
             writeCommands(_commands.value)
+        }
+    }
+
+    override suspend fun getCommandCategories(): List<String> = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            _commands.value.mapNotNull { it.categoryName }.distinct().sorted()
+        }
+    }
+
+    // ---- Workspaces ----
+
+    override suspend fun insertWorkspace(workspace: Workspace): Int = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val current = _workspaces.value
+            val newId = (current.maxOfOrNull { it.id } ?: 0) + 1
+            val persisted = workspace.copy(id = newId)
+            _workspaces.update { current + persisted }
+            writeWorkspaces(_workspaces.value)
+            newId
+        }
+    }
+
+    override suspend fun updateWorkspace(workspace: Workspace): Unit = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            _workspaces.update { list -> list.map { if (it.id == workspace.id) workspace else it } }
+            writeWorkspaces(_workspaces.value)
+        }
+    }
+
+    override suspend fun deleteWorkspace(id: Int): Unit = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            _workspaces.update { list -> list.filterNot { it.id == id } }
+            writeWorkspaces(_workspaces.value)
         }
     }
 
@@ -490,5 +534,21 @@ class JsonServerRepository(
 
     private fun writeHistory(history: List<CommandHistoryEntity>) {
         historyFile.writeText(gson.toJson(history))
+    }
+
+    private fun readWorkspaces(): List<Workspace> {
+        if (!workspacesFile.exists()) return emptyList()
+        return try {
+            val type = object : TypeToken<List<Workspace>>() {}.type
+            val list: List<Workspace> = gson.fromJson(workspacesFile.readText(), type)
+            list ?: emptyList()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
+    }
+
+    private fun writeWorkspaces(workspaces: List<Workspace>) {
+        workspacesFile.writeText(gson.toJson(workspaces))
     }
 }

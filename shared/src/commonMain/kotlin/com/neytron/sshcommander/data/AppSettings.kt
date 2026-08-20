@@ -27,6 +27,9 @@ interface AppSettings {
     val autoReconnect: Flow<Boolean>
     val biometricLock: Flow<Boolean>
 
+    /** Whether the first-run onboarding/guide has been completed. */
+    val onboardingCompleted: Flow<Boolean> get() = flowOf(false)
+
     /** Desktop: whether the server list pane is visible. */
     val showServerList: Flow<Boolean> get() = flowOf(true)
 
@@ -56,6 +59,9 @@ interface AppSettings {
     suspend fun setPrivacyMode(enabled: Boolean)
     suspend fun setAutoReconnect(enabled: Boolean)
     suspend fun setBiometricLock(enabled: Boolean)
+
+    /** Mark the first-run onboarding as done (no-op by default). */
+    suspend fun setOnboardingCompleted(completed: Boolean) {}
 
     /** Desktop layout setters (no-op by default). */
     suspend fun setShowServerList(enabled: Boolean) {}

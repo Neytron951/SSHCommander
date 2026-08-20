@@ -17,17 +17,35 @@ import kotlinx.coroutines.flow.*
 import java.io.InputStream
 import java.io.OutputStream
 
-class SshViewModel(application: Application) : AndroidViewModel(application) {
+import com.neytron.sshcommander.terminal.TerminalController
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
+
+class SshViewModel(application: Application) : AndroidViewModel(application), TerminalController {
     private val repository = ServerRepository(application)
     private val dao = AppDatabase.getDatabase(application).serverDao()
     private val settingsManager = SettingsManager(application)
     private val connectionManager = SshConnectionManager(application)
     
     var currentServer by mutableStateOf<Server?>(null)
-    val terminalScreen = TerminalScreen()
-    var terminalRevision by mutableIntStateOf(0)
-    var isLoading by mutableStateOf(false)
-    var sshError by mutableStateOf<SshError?>(null)
+    override val terminalScreen = TerminalScreen()
+    
+    private val _terminalRevision = MutableStateFlow(0)
+    override val terminalRevision: StateFlow<Int> = _terminalRevision.asStateFlow()
+    
+    private val _isLoading = MutableStateFlow(false)
+    override val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+    
+    private val _sshError = MutableStateFlow<String?>(null)
+    override val error: StateFlow<String?> = _sshError.asStateFlow()
+    
+    private val _isConnected = MutableStateFlow(false)
+    override val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
+
+    var sshErrorObj by mutableStateOf<SshError?>(null)
     
     var selectedLogin by mutableStateOf<ServerLogin?>(null)
     val logins = mutableStateListOf<ServerLogin>()
@@ -66,18 +84,31 @@ class SshViewModel(application: Application) : AndroidViewModel(application) {
             stopExecution()
             currentServer = server
             terminalScreen.clear()
-            terminalRevision++
+            _terminalRevision.value++
             selectedLogin = null
             loadHistory(server.id)
             loadCustomCommands()
             // Load logins first, pick the default one, then connect once.
             loadLogins(server.id) { defaultLogin ->
                 selectedLogin = defaultLogin
-                connectToShell(server)
+                connect()
             }
         } else {
             loadCustomCommands()
         }
+    }
+
+    override fun connect() {
+        val server = currentServer ?: return
+        connectToShell(server)
+    }
+
+    override fun disconnect() {
+        stopExecution()
+    }
+
+    override fun close() {
+        stopExecution()
     }
 
     fun selectLogin(login: ServerLogin?) {
@@ -85,7 +116,7 @@ class SshViewModel(application: Application) : AndroidViewModel(application) {
         val server = currentServer ?: return
         selectedLogin = login
         terminalScreen.clear()
-        terminalRevision++
+        _terminalRevision.value++
         stopExecution()
         viewModelScope.launch {
             SshConnectionManager.closeSession(server.id)
@@ -183,9 +214,10 @@ class SshViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun connectToShell(server: Server) {
         shellJob?.cancel()
-        sshError = null
+        _sshError.value = null
+        sshErrorObj = null
         shellJob = viewModelScope.launch(Dispatchers.IO) {
-            isLoading = true
+            _isLoading.value = true
             var reconnectAttempt = 0
             var lastError: Exception? = null
             try {
@@ -193,8 +225,6 @@ class SshViewModel(application: Application) : AndroidViewModel(application) {
                     try {
                         reconnectAttempt = 0
                         lastError = null
-                        // Returns true if the channel closed unexpectedly (connection lost),
-                        // false when the job was cancelled by the user/navigation.
                         if (!openChannelAndRead(server)) break
                     } catch (e: Exception) {
                         lastError = e
@@ -210,18 +240,18 @@ class SshViewModel(application: Application) : AndroidViewModel(application) {
                         break
                     }
                     val delayMs = reconnectDelay(reconnectAttempt)
-                    isLoading = true // show the spinner while waiting to reconnect
+                    _isLoading.value = true
                     withContext(Dispatchers.Main) {
                         terminalScreen.feed(
                             getApplication<Application>()
                                 .getString(R.string.reconnecting_msg, delayMs / 1000) + "\n"
                         )
-                        terminalRevision++
+                        _terminalRevision.value++
                     }
                     delay(delayMs)
                 }
             } finally {
-                isLoading = false
+                _isLoading.value = false
             }
         }
     }
@@ -259,9 +289,10 @@ class SshViewModel(application: Application) : AndroidViewModel(application) {
         
         channel.connect()
         currentChannel = channel
+        _isConnected.value = true
         // Connected — stop the loading indicator. It's turned back on when a
         // reconnect attempt begins and stays on during the backoff delay.
-        isLoading = false
+        _isLoading.value = false
 
         val buffer = ByteArray(4096)
         while (currentCoroutineContext().isActive && channel.isConnected) {
@@ -271,7 +302,7 @@ class SshViewModel(application: Application) : AndroidViewModel(application) {
                 if (data.isNotEmpty()) {
                     withContext(Dispatchers.Main) {
                         terminalScreen.feed(data)
-                        terminalRevision++
+                        _terminalRevision.value++
                     }
                 }
             } else if (len == -1) break
@@ -318,13 +349,13 @@ class SshViewModel(application: Application) : AndroidViewModel(application) {
             e.message?.contains("identification") == true -> SshError.HostKeyMismatch
             else -> SshError.Unknown(e.localizedMessage)
         }
-        sshError = error
-        val errorMessage = error.getMessage(getApplication())
-        terminalScreen.feed(getApplication<Application>().getString(R.string.ssh_error_template, errorMessage))
-        terminalRevision++
+        sshErrorObj = error
+        _sshError.value = error.getMessage(getApplication())
+        terminalScreen.feed(getApplication<Application>().getString(R.string.ssh_error_template, _sshError.value))
+        _terminalRevision.value++
     }
 
-    fun sendInput(input: String) {
+    override fun sendInput(input: String) {
         viewModelScope.launch(Dispatchers.IO) {
             if (!ensureConnected()) return@launch
             try {
@@ -334,7 +365,7 @@ class SshViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun executeCommand(command: String) {
+    override fun executeCommand(command: String) {
         viewModelScope.launch(Dispatchers.IO) {
             if (!ensureConnected()) return@launch
             // In full-screen apps (nano/vim/htop) the input field inserts text
@@ -352,37 +383,37 @@ class SshViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun sendCtrlC() {
+    override fun sendCtrlC() {
         sendInput("\u0003")
     }
 
-    fun sendEscape() {
+    override fun sendEscape() {
         sendInput("\u001b")
     }
 
-    fun sendBackspace() {
+    override fun sendBackspace() {
         sendInput("\u007f")
     }
 
-    fun sendEnter() {
+    override fun sendEnter() {
         // Real terminal Enter = CR. LF (Ctrl+J) triggers "justify" in nano.
         sendInput("\r")
     }
 
-    fun sendArrowUp() { sendInput("\u001b[A") }
-    fun sendArrowDown() { sendInput("\u001b[B") }
-    fun sendArrowRight() { sendInput("\u001b[C") }
-    fun sendArrowLeft() { sendInput("\u001b[D") }
+    override fun sendArrowUp() { sendInput("\u001b[A") }
+    override fun sendArrowDown() { sendInput("\u001b[B") }
+    override fun sendArrowRight() { sendInput("\u001b[C") }
+    override fun sendArrowLeft() { sendInput("\u001b[D") }
 
     /** Sends Ctrl+[letter] — e.g. Ctrl+X exits nano. */
-    fun sendCtrlKey(letter: Char) {
+    override fun sendCtrlKey(letter: Char) {
         val ctrl = letter.lowercaseChar() - 'a' + 1
         if (ctrl in 1..26) sendInput(ctrl.toChar().toString())
     }
 
-    fun clearTerminal() {
+    override fun clearTerminal() {
         terminalScreen.clear()
-        terminalRevision++
+        _terminalRevision.value++
     }
 
     fun stopExecution() {
@@ -392,7 +423,8 @@ class SshViewModel(application: Application) : AndroidViewModel(application) {
         currentChannel?.disconnect()
         currentChannel = null
         channelOutputStream = null
-        isLoading = false
+        _isLoading.value = false
+        _isConnected.value = false
     }
 
     override fun onCleared() {

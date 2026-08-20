@@ -81,6 +81,18 @@ interface ServerRepository {
 
     suspend fun deleteCustomCommand(command: CustomCommand)
 
+    suspend fun getCommandCategories(): List<String>
+
+    // ---- Workspaces ----
+
+    val allWorkspaces: Flow<List<Workspace>>
+
+    suspend fun insertWorkspace(workspace: Workspace): Int
+
+    suspend fun updateWorkspace(workspace: Workspace)
+
+    suspend fun deleteWorkspace(id: Int)
+
     // ---- Command History ----
 
     fun getHistoryForServer(serverId: Int): Flow<List<CommandHistoryEntity>>

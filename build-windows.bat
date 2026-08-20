@@ -28,15 +28,15 @@ set "PACKAGE_NAME=!PACKAGE_NAME: =!"
 if "!PACKAGE_NAME!"=="" set "PACKAGE_NAME=SSHCommander"
 
 rem ------------------------------------------------------------
-rem  2. Р’РµСЂСЃРёСЏ РїР°РєРµС‚Р° (С„РѕСЂРјР°С‚ MAJOR.MINOR.BUILD, РЅР°РїСЂ. 1.4.0)
+rem  2. Р’РµСЂСЃРёСЏ РїР°РєРµС‚Р° (С„РѕСЂРјР°С‚ MAJOR.MINOR.BUILD, РЅР°РїСЂ. 1.5.0)
 rem ------------------------------------------------------------
 set "PACKAGE_VERSION="
-set /p "PACKAGE_VERSION=Р’РµСЂСЃРёСЏ РїР°РєРµС‚Р° [Enter = 1.4.0]: "
-if "!PACKAGE_VERSION!"=="" set "PACKAGE_VERSION=1.4.0"
+set /p "PACKAGE_VERSION=Р’РµСЂСЃРёСЏ РїР°РєРµС‚Р° [Enter = 1.5.0]: "
+if "!PACKAGE_VERSION!"=="" set "PACKAGE_VERSION=1.5.0"
 echo !PACKAGE_VERSION!| findstr /r /c:"^[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*$" >nul
 if errorlevel 1 (
     echo.
-    echo [РћРЁРР‘РљРђ] Р’РµСЂСЃРёСЏ РґРѕР»Р¶РЅР° Р±С‹С‚СЊ РІ С„РѕСЂРјР°С‚Рµ MAJOR.MINOR.BUILD, РЅР°РїСЂРёРјРµСЂ 1.4.0.
+    echo [РћРЁРР‘РљРђ] Р’РµСЂСЃРёСЏ РґРѕР»Р¶РЅР° Р±С‹С‚СЊ РІ С„РѕСЂРјР°С‚Рµ MAJOR.MINOR.BUILD, РЅР°РїСЂРёРјРµСЂ 1.5.0.
     pause
     exit /b 1
 )

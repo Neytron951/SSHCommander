@@ -110,6 +110,29 @@ class SftpSession(
         }
     }
 
+    override suspend fun listFiles(path: String): List<RemoteFile> = withContext(Dispatchers.IO) {
+        val channel = currentChannel ?: throw IllegalStateException("Not connected")
+        val norm = normalize(path)
+        val entries = channel.ls(norm)
+        val list = mutableListOf<RemoteFile>()
+        val e = entries as Vector<*>
+        for (item in e) {
+            val ce = item as? com.jcraft.jsch.ChannelSftp.LsEntry ?: continue
+            val name = ce.filename
+            if (name == "." || name == "..") continue
+            val attrs: SftpATTRS = ce.attrs
+            list.add(RemoteFile(
+                name = name,
+                path = "$norm/$name",
+                isDirectory = attrs.isDir,
+                size = attrs.size,
+                permissions = attrs.permissionsString,
+                modifiedTime = attrs.mTime * 1000L
+            ))
+        }
+        list
+    }
+
     override fun goUp() {
         val current = _currentPath.value
         if (current == "/") return
@@ -186,6 +209,31 @@ class SftpSession(
             true
         } catch (e: Exception) {
             _error.value = e.message ?: "Delete failed"
+            false
+        }
+    }
+
+    override suspend fun readRemoteText(remotePath: String): String? = withContext(Dispatchers.IO) {
+        try {
+            val channel = currentChannel ?: return@withContext null
+            val input = channel.get(normalize(remotePath))
+            val text = input.bufferedReader().readText()
+            input.close()
+            text
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    override suspend fun writeRemoteText(remotePath: String, text: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val channel = currentChannel ?: return@withContext false
+            val output = channel.put(normalize(remotePath))
+            output.write(text.toByteArray())
+            output.flush()
+            output.close()
+            true
+        } catch (e: Exception) {
             false
         }
     }

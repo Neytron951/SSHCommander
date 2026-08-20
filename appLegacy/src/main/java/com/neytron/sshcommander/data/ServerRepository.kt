@@ -79,6 +79,38 @@ class ServerRepository(private val context: Context) {
         dao.updateLoginLastSftpPath(loginId, path)
     }
 
+    // ---- Custom Commands ----
+
+    fun getAllCustomCommands(): Flow<List<CustomCommand>> = dao.getAllCustomCommands()
+
+    suspend fun insertCustomCommand(command: CustomCommand) {
+        dao.insertCustomCommand(command)
+    }
+
+    suspend fun updateCustomCommand(command: CustomCommand) {
+        dao.updateCustomCommand(command)
+    }
+
+    suspend fun deleteCustomCommand(command: CustomCommand) {
+        dao.deleteCustomCommand(command)
+    }
+
+    // ---- Workspaces ----
+
+    val allWorkspaces: Flow<List<Workspace>> = dao.getAllWorkspaces()
+
+    suspend fun insertWorkspace(workspace: Workspace): Int {
+        return dao.insertWorkspace(workspace).toInt()
+    }
+
+    suspend fun updateWorkspace(workspace: Workspace) {
+        dao.updateWorkspace(workspace)
+    }
+
+    suspend fun deleteWorkspace(id: Int) {
+        dao.deleteWorkspace(id)
+    }
+
     /**
      * Builds the authentication profile for a connection attempt.
      * If [login] is null the server's own main credentials are used.

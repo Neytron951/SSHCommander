@@ -6,6 +6,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -39,6 +40,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Computer
@@ -48,7 +52,9 @@ import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.GroupWork
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -114,17 +120,23 @@ import com.neytron.sshcommander.data.Server
 import com.neytron.sshcommander.data.ServerFolder
 import com.neytron.sshcommander.data.ServerLogin
 import com.neytron.sshcommander.data.ServerRepository
+import com.neytron.sshcommander.data.Workspace
+import com.neytron.sshcommander.data.WorkspaceItem
+import com.neytron.sshcommander.data.WorkspaceItemType
 import com.neytron.sshcommander.sftp.SftpController
 import com.neytron.sshcommander.sftp.SftpSessionFactory
 import com.neytron.sshcommander.terminal.TerminalController
 import com.neytron.sshcommander.terminal.TerminalSessionFactory
 import com.neytron.sshcommander.ui.AppStrings
 import com.neytron.sshcommander.ui.IconUtils
+import com.neytron.sshcommander.ui.OnboardingGate
+import com.neytron.sshcommander.ui.desktopTourSteps
 import com.neytron.sshcommander.ui.PlatformInputStream
 import com.neytron.sshcommander.ui.PrivacyUtils
 import com.neytron.sshcommander.ui.resizeHoverCursor
 import com.neytron.sshcommander.ui.SftpView
 import com.neytron.sshcommander.ui.TerminalView
+import com.neytron.sshcommander.ui.MonitoringDashboard
 import com.neytron.sshcommander.ui.platformToast
 import com.neytron.sshcommander.ui.rememberSavePicker
 import com.neytron.sshcommander.ui.rememberUploadPicker
@@ -191,6 +203,8 @@ fun SSHCommanderLayout(
     var showSettingsDialog by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
     var showManageCommandsDialog by remember { mutableStateOf(false) }
+    var showSaveWorkspaceDialog by remember { mutableStateOf(false) }
+    val workspaces = remember { mutableStateListOf<Workspace>() }
     var dataLoaded by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
@@ -267,6 +281,51 @@ fun SSHCommanderLayout(
         }
     }
 
+    fun openWorkspace(workspace: Workspace) {
+        // Close all UNPINNED sessions first to avoid clutter.
+        val unpinned = sessions.filter { !it.isPinned }
+        unpinned.forEach {
+            it.terminal?.close()
+            it.sftp?.close()
+        }
+        sessions.removeAll(unpinned)
+
+        var firstNewTabId = -1
+        workspace.items.forEach { item ->
+            val server = servers.firstOrNull { it.id == item.serverId } ?: return@forEach
+            val tab = SessionTab(
+                id = nextSessionId++,
+                serverId = server.id,
+                server = server,
+                loginId = item.loginId,
+                isPinned = item.isPinned,
+                tabColorHex = item.tabColorHex
+            )
+            sessions.add(tab)
+            if (firstNewTabId == -1) firstNewTabId = tab.id
+        }
+        
+        // Reset active session to the first tab of the opened workspace
+        if (firstNewTabId != -1) {
+            activeSessionId = firstNewTabId
+        }
+    }
+
+    fun saveWorkspace(name: String, colorHex: String?) {
+        val items = sessions.map { tab ->
+            WorkspaceItem(
+                serverId = tab.serverId,
+                loginId = tab.loginId,
+                type = WorkspaceItemType.TERMINAL, // Defaulting to terminal for now
+                isPinned = tab.isPinned,
+                tabColorHex = tab.tabColorHex
+            )
+        }
+        scope.launch {
+            serverRepository?.insertWorkspace(Workspace(name = name, colorHex = colorHex, items = items))
+        }
+    }
+
     // When the app window closes, tear down every remaining connection.
     DisposableEffect(Unit) {
         onDispose {
@@ -291,6 +350,14 @@ fun SSHCommanderLayout(
         serverRepository?.getAllCustomCommands()?.collect {
             customCommands.clear()
             customCommands.addAll(it)
+        }
+    }
+
+    // Workspaces loaded from the repository
+    LaunchedEffect(serverRepository) {
+        serverRepository?.allWorkspaces?.collect {
+            workspaces.clear()
+            workspaces.addAll(it)
         }
     }
 
@@ -451,7 +518,8 @@ fun SSHCommanderLayout(
                     onExport = onExport,
                     onImport = onImport,
                     onOpenSettings = { showSettingsDialog = true },
-                    onOpenAbout = { showAboutDialog = true }
+                    onOpenAbout = { showAboutDialog = true },
+                    onSaveWorkspace = { showSaveWorkspaceDialog = true }
                 )
                 if (sessions.isNotEmpty()) {
                     SessionTabBar(
@@ -459,6 +527,12 @@ fun SSHCommanderLayout(
                         activeSessionId = activeSessionId,
                         onSelect = { activeSessionId = it },
                         onClose = { closeSession(it) },
+                        onPin = { id ->
+                            sessions.firstOrNull { it.id == id }?.let { it.isPinned = !it.isPinned }
+                        },
+                        onColorChange = { id, color ->
+                            sessions.firstOrNull { it.id == id }?.let { it.tabColorHex = color }
+                        },
                         onAdd = { addSession() }
                     )
                 }
@@ -468,9 +542,14 @@ fun SSHCommanderLayout(
                         ServerListPane(
                             servers = servers,
                             folders = folders,
+                            workspaces = workspaces,
                             selectedId = selectedServerId,
                             onSelect = { serverId ->
                                 servers.firstOrNull { it.id == serverId }?.let { openSession(it) }
+                            },
+                            onOpenWorkspace = { openWorkspace(it) },
+                            onDeleteWorkspace = { id ->
+                                scope.launch { serverRepository?.deleteWorkspace(id) }
                             },
                             onAddServer = { editingServer = null; showConnectDialog = true },
                             onEditServer = { editingServer = it; showConnectDialog = true },
@@ -706,13 +785,80 @@ fun SSHCommanderLayout(
             onDismiss = { showManageCommandsDialog = false }
         )
     }
+
+    if (showSaveWorkspaceDialog) {
+        SaveWorkspaceDialog(
+            onSave = { name, color ->
+                saveWorkspace(name, color)
+                showSaveWorkspaceDialog = false
+            },
+            onDismiss = { showSaveWorkspaceDialog = false }
+        )
+    }
+
+    // First-run guide: welcome → language → tab tour (or JSON import).
+    OnboardingGate(
+        settings = settings,
+        tourSteps = desktopTourSteps(),
+        onImportJson = onImport
+    )
 }
 
 private fun deleteServerConfirmMsg(): String =
     if (AppStrings.language == "ru") "Удалить сервер \"%1\$s\"? Все логины будут удалены."
     else "Delete server \"%1\$s\"? All its logins will be deleted."
 
-enum class PaneType { Terminal, Sftp, Split }
+@Composable
+private fun SaveWorkspaceDialog(
+    onSave: (String, String?) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var colorHex by remember { mutableStateOf<String?>(null) }
+    val colors = listOf("#F44336", "#4CAF50", "#2196F3", "#FFEB3B", "#9C27B0")
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Save Workspace", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Workspace Name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text("Theme Color", style = MaterialTheme.typography.labelLarge)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    colors.forEach { hex ->
+                        val selected = colorHex == hex
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(parseHexColor(hex))
+                                .border(if (selected) 2.dp else 0.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                                .clickable { colorHex = hex }
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onSave(name.trim(), colorHex) }, enabled = name.isNotBlank()) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(AppStrings.cancel) }
+        }
+    )
+}
+
+enum class PaneType { Terminal, Sftp, Split, Dashboard }
+
+private enum class SidePaneType { Servers, Workspaces }
 
 /**
  * One open terminal/SFTP session. Holds the live controllers so the connection
@@ -724,12 +870,16 @@ private class SessionTab(
     server: Server,
     loginId: Int?,
     terminal: TerminalController? = null,
-    sftp: SftpController? = null
+    sftp: SftpController? = null,
+    isPinned: Boolean = false,
+    tabColorHex: String? = null
 ) {
     var server by mutableStateOf(server)
     var loginId by mutableStateOf(loginId)
     var terminal by mutableStateOf(terminal)
     var sftp by mutableStateOf(sftp)
+    var isPinned by mutableStateOf(isPinned)
+    var tabColorHex by mutableStateOf(tabColorHex)
 }
 
 @Composable
@@ -738,6 +888,8 @@ private fun SessionTabBar(
     activeSessionId: Int,
     onSelect: (Int) -> Unit,
     onClose: (Int) -> Unit,
+    onPin: (Int) -> Unit,
+    onColorChange: (Int, String?) -> Unit,
     onAdd: () -> Unit
 ) {
     Surface(
@@ -754,24 +906,48 @@ private fun SessionTabBar(
                 .horizontalScroll(rememberScrollState())
                 .padding(horizontal = 8.dp, vertical = 8.dp)
         ) {
-            sessions.forEach { tab ->
+            // Sort sessions: pinned first.
+            val sortedSessions = sessions.sortedWith(compareByDescending<SessionTab> { it.isPinned }.thenBy { it.id })
+
+            sortedSessions.forEach { tab ->
                 val selected = tab.id == activeSessionId
+                var showContextMenu by remember { mutableStateOf(false) }
+
                 Surface(
                     onClick = { onSelect(tab.id) },
                     shape = RoundedCornerShape(10.dp),
                     color = if (selected) MaterialTheme.colorScheme.primaryContainer
                     else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                    border = if (selected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
-                    else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                    modifier = Modifier.padding(end = 8.dp)
+                    border = when {
+                        selected -> BorderStroke(2.dp, tab.tabColorHex?.let { parseHexColor(it) } ?: MaterialTheme.colorScheme.primary)
+                        tab.tabColorHex != null -> BorderStroke(2.dp, parseHexColor(tab.tabColorHex!!).copy(alpha = 0.5f))
+                        else -> BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    },
+                    modifier = Modifier
+                        .padding(end = 8.dp)
+                        .pointerInput(tab.id) {
+                            detectTapGestures(
+                                onLongPress = { showContextMenu = true },
+                                onTap = { onSelect(tab.id) }
+                            )
+                        }
                 ) {
+                    Box {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .height(44.dp)
-                            .width(190.dp)
-                            .padding(start = 14.dp, end = 6.dp)
+                            .widthIn(min = 100.dp, max = 220.dp)
+                            .padding(start = 10.dp, end = 6.dp)
                     ) {
+                        if (tab.isPinned) {
+                            Icon(
+                                Icons.Default.PushPin,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp).padding(end = 4.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
                         Text(
                             tab.server.name,
                             style = MaterialTheme.typography.titleSmall,
@@ -791,6 +967,40 @@ private fun SessionTabBar(
                                 modifier = Modifier.size(16.dp)
                             )
                         }
+                    }
+
+                    DropdownMenu(expanded = showContextMenu, onDismissRequest = { showContextMenu = false }) {
+                        DropdownMenuItem(
+                            text = { Text(if (tab.isPinned) "Unpin" else "Pin") },
+                            leadingIcon = { Icon(if (tab.isPinned) Icons.Outlined.PushPin else Icons.Default.PushPin, null) },
+                            onClick = { onPin(tab.id); showContextMenu = false }
+                        )
+                        HorizontalDivider()
+                        Text("Tab Color", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(8.dp))
+                        val colors = listOf("#F44336", "#4CAF50", "#2196F3", "#FFEB3B", "#9C27B0")
+                        Row(modifier = Modifier.padding(horizontal = 8.dp)) {
+                            colors.forEach { hex ->
+                                Box(
+                                    modifier = Modifier
+                                        .size(24.dp)
+                                        .clip(CircleShape)
+                                        .background(parseHexColor(hex))
+                                        .clickable { onColorChange(tab.id, hex); showContextMenu = false }
+                                        .padding(4.dp)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                                    .clickable { onColorChange(tab.id, null); showContextMenu = false },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Close, null, modifier = Modifier.size(12.dp))
+                            }
+                        }
+                    }
                     }
                 }
             }
@@ -824,8 +1034,11 @@ private fun SessionTabBar(
 private fun ServerListPane(
     servers: List<Server>,
     folders: List<ServerFolder> = emptyList(),
+    workspaces: List<Workspace> = emptyList(),
     selectedId: Int,
     onSelect: (Int) -> Unit,
+    onOpenWorkspace: (Workspace) -> Unit = {},
+    onDeleteWorkspace: (Int) -> Unit = {},
     onAddServer: () -> Unit,
     onEditServer: (Server) -> Unit = {},
     onDeleteServer: (Server) -> Unit = {},
@@ -836,8 +1049,91 @@ private fun ServerListPane(
     privacyMode: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    var sidePaneType by remember { mutableStateOf(SidePaneType.Servers) }
+
     Surface(modifier = modifier, color = MaterialTheme.colorScheme.surfaceVariant) {
         Column {
+            // Tab switcher for Servers / Workspaces
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp)
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+            ) {
+                SidePaneTab(
+                    label = if (AppStrings.language == "ru") "Серверы" else "Servers",
+                    selected = sidePaneType == SidePaneType.Servers,
+                    onClick = { sidePaneType = SidePaneType.Servers },
+                    modifier = Modifier.weight(1f)
+                )
+                SidePaneTab(
+                    label = if (AppStrings.language == "ru") "Пространства" else "Workspaces",
+                    selected = sidePaneType == SidePaneType.Workspaces,
+                    onClick = { sidePaneType = SidePaneType.Workspaces },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            if (sidePaneType == SidePaneType.Servers) {
+                ServerListContent(
+                    servers = servers,
+                    folders = folders,
+                    selectedId = selectedId,
+                    onSelect = onSelect,
+                    onAddServer = onAddServer,
+                    onEditServer = onEditServer,
+                    onDeleteServer = onDeleteServer,
+                    onManageLogins = onManageLogins,
+                    onAddFolder = onAddFolder,
+                    onRenameFolder = onRenameFolder,
+                    onDeleteFolder = onDeleteFolder,
+                    privacyMode = privacyMode
+                )
+            } else {
+                WorkspaceListContent(
+                    workspaces = workspaces,
+                    onOpen = onOpenWorkspace,
+                    onDelete = onDeleteWorkspace
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SidePaneTab(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent)
+            .clickable(onClick = onClick)
+            .padding(vertical = 6.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun ServerListContent(
+    servers: List<Server>,
+    folders: List<ServerFolder>,
+    selectedId: Int,
+    onSelect: (Int) -> Unit,
+    onAddServer: () -> Unit,
+    onEditServer: (Server) -> Unit,
+    onDeleteServer: (Server) -> Unit,
+    onManageLogins: (Server) -> Unit,
+    onAddFolder: () -> Unit,
+    onRenameFolder: (ServerFolder) -> Unit,
+    onDeleteFolder: (ServerFolder) -> Unit,
+    privacyMode: Boolean
+) {
+    Column {
             // Folders start expanded; toggles are remembered per folder id.
             val expandedFolders = remember { mutableStateMapOf<Int, Boolean>() }
             Row(
@@ -923,6 +1219,56 @@ private fun ServerListPane(
                                     onManageLogins = { onManageLogins(server) },
                                     privacyMode = privacyMode
                                 )
+                            }
+                        }
+                    }
+                }
+            }
+    }
+}
+
+@Composable
+private fun WorkspaceListContent(
+    workspaces: List<Workspace>,
+    onOpen: (Workspace) -> Unit,
+    onDelete: (Int) -> Unit
+) {
+    Column {
+        Text(
+            text = if (AppStrings.language == "ru") "Рабочие пространства" else "Workspaces",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(16.dp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        if (workspaces.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(
+                    text = if (AppStrings.language == "ru") "Нет сохраненных пространств" else "No saved workspaces",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        } else {
+            LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(10.dp)) {
+                items(workspaces, key = { it.id }) { ws ->
+                    Card(
+                        onClick = { onOpen(ws) },
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = ws.colorHex?.let { BorderStroke(2.dp, parseHexColor(it)) }
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(12.dp)
+                        ) {
+                            Icon(Icons.Default.GroupWork, null, tint = ws.colorHex?.let { parseHexColor(it) } ?: MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(ws.name, style = MaterialTheme.typography.titleSmall)
+                                Text("${ws.items.size} tabs", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            IconButton(onClick = { onDelete(ws.id) }) {
+                                Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
                             }
                         }
                     }
@@ -1220,6 +1566,7 @@ private fun InteractionPane(
                     }
                 }
                 PaneType.Sftp -> SftpView(sftpController)
+                PaneType.Dashboard -> MonitoringDashboard(terminalSession)
             }
         }
     }
@@ -1267,6 +1614,9 @@ private fun CommandPanel(
     modifier: Modifier = Modifier
 ) {
     var pendingCommand by remember { mutableStateOf<String?>(null) }
+    var templateToFill by remember { mutableStateOf<String?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedCategory by remember { mutableStateOf<String?>(null) }
 
     val baseCommands = listOf(
         "ls -la" to AppStrings.cmdList,
@@ -1278,55 +1628,91 @@ private fun CommandPanel(
         "dmesg" to AppStrings.cmdLogs
     )
 
+    val categories = customCommands.mapNotNull { it.categoryName }.distinct().sorted()
+    val filteredCommands = customCommands.filter { cmd ->
+        (selectedCategory == null || cmd.categoryName == selectedCategory) &&
+        (searchQuery.isEmpty() || cmd.name.contains(searchQuery, ignoreCase = true) || cmd.command.contains(searchQuery, ignoreCase = true))
+    }
+
+    fun handleExecute(rawCmd: String) {
+        if (rawCmd.contains("{{") && rawCmd.contains("}}")) {
+            templateToFill = rawCmd
+        } else {
+            onExecute(rawCmd)
+        }
+    }
+
     fun run(cmd: CustomCommand) {
         if (cmd.isDangerous && rebootConfirmMode != "never") {
             pendingCommand = cmd.command
         } else {
-            onExecute(cmd.command)
+            handleExecute(cmd.command)
         }
     }
 
     Column(
         modifier = modifier.background(MaterialTheme.colorScheme.surfaceVariant)
     ) {
-        Text(
-            text = AppStrings.quickCommands,
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-        )
+        // Search and Categories
+        Column(Modifier.padding(8.dp)) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("Search...", fontSize = 12.sp) },
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodySmall,
+                trailingIcon = { if (searchQuery.isNotEmpty()) IconButton(onClick = { searchQuery = "" }) { Icon(Icons.Default.Close, null, modifier = Modifier.size(14.dp)) } }
+            )
+            
+            if (categories.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    CategoryChip("All", selectedCategory == null) { selectedCategory = null }
+                    categories.forEach { cat ->
+                        CategoryChip(cat, selectedCategory == cat) { selectedCategory = cat }
+                    }
+                }
+            }
+        }
+        
         HorizontalDivider()
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(8.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            item {
-                Text(
-                    text = AppStrings.commands,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            items(baseCommands) { (cmd, label) ->
-                OutlinedButton(
-                    onClick = { onExecute(cmd) },
-                    modifier = Modifier.fillMaxWidth(),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
-                ) {
-                    Text(label, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+            if (searchQuery.isEmpty() && selectedCategory == null) {
+                item {
+                    Text(
+                        text = AppStrings.commands,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                items(baseCommands) { (cmd, label) ->
+                    OutlinedButton(
+                        onClick = { onExecute(cmd) },
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Text(label, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                    }
+                }
+                item {
+                    Text(
+                        text = AppStrings.manageCommands,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
                 }
             }
-            item {
-                Text(
-                    text = AppStrings.manageCommands,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
-            }
-            items(customCommands) { cmd ->
+            
+            items(filteredCommands) { cmd ->
                 Button(
                     onClick = { run(cmd) },
                     colors = ButtonDefaults.buttonColors(
@@ -1369,7 +1755,7 @@ private fun CommandPanel(
             text = { Text(String.format(AppStrings.executeConfirmMsg, command)) },
             confirmButton = {
                 TextButton(onClick = {
-                    onExecute(command)
+                    handleExecute(command)
                     pendingCommand = null
                 }) { Text(AppStrings.execute) }
             },
@@ -1378,6 +1764,73 @@ private fun CommandPanel(
             }
         )
     }
+
+    templateToFill?.let { template ->
+        FillTemplateDialog(
+            template = template,
+            onConfirm = { filled ->
+                onExecute(filled)
+                templateToFill = null
+            },
+            onDismiss = { templateToFill = null }
+        )
+    }
+}
+
+@Composable
+private fun CategoryChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(16.dp),
+        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, if (selected) Color.Transparent else MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier.padding(vertical = 2.dp)
+    ) {
+        Text(label, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp), color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
+    }
+}
+
+@Composable
+private fun FillTemplateDialog(
+    template: String,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val vars = remember(template) {
+        val regex = Regex("\\{\\{(.*?)\\}\\}")
+        regex.findAll(template).map { it.groupValues[1] }.distinct().toList()
+    }
+    val values = remember { mutableStateMapOf<String, String>() }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Fill Variables") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                vars.forEach { v ->
+                    OutlinedTextField(
+                        value = values[v] ?: "",
+                        onValueChange = { values[v] = it },
+                        label = { Text(v) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                var filled = template
+                vars.forEach { v ->
+                    filled = filled.replace("{{$v}}", values[v] ?: "")
+                }
+                onConfirm(filled)
+            }) { Text("Run") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
 }
 
 @Composable
@@ -1385,6 +1838,7 @@ private fun PaneSwitcher(selected: PaneType, onSelect: (PaneType) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         PaneTab("Terminal", selected == PaneType.Terminal) { onSelect(PaneType.Terminal) }
         PaneTab("SFTP", selected == PaneType.Sftp) { onSelect(PaneType.Sftp) }
+        PaneTab("Monitoring", selected == PaneType.Dashboard) { onSelect(PaneType.Dashboard) }
         PaneTab(
             if (AppStrings.language == "ru") "Терминал + SFTP" else "Terminal + SFTP",
             selected == PaneType.Split
@@ -1596,6 +2050,7 @@ private fun DesktopMenuBar(
     onImport: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenAbout: () -> Unit,
+    onSaveWorkspace: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var fileExpanded by remember { mutableStateOf(false) }
@@ -1619,6 +2074,12 @@ private fun DesktopMenuBar(
                     DropdownMenuItem(
                         text = { Text(AppStrings.importData) },
                         onClick = { fileExpanded = false; onImport() }
+                    )
+                    HorizontalDivider()
+                    DropdownMenuItem(
+                        text = { Text("Save Workspace") },
+                        leadingIcon = { Icon(Icons.Default.Save, null) },
+                        onClick = { fileExpanded = false; onSaveWorkspace() }
                     )
                 }
             }
@@ -2478,12 +2939,13 @@ private fun ManageCommandsDialog(
         AddCommandDialogDesktop(
             initialColorHex = initialColor,
             onDismiss = { showAddDialog = false },
-            onConfirm = { name, cmd, isDangerous, colorHex ->
+            onConfirm = { name, cmd, cat, isDangerous, colorHex ->
                 scope.launch {
                     repository?.insertCustomCommand(
                         CustomCommand(
                             name = name,
                             command = cmd,
+                            categoryName = cat.ifBlank { null },
                             iconName = "default",
                             colorHex = colorHex,
                             orderIndex = commands.size,
@@ -2500,15 +2962,17 @@ private fun ManageCommandsDialog(
         AddCommandDialogDesktop(
             initialName = editing.name,
             initialCommand = editing.command,
+            initialCategory = editing.categoryName ?: "",
             initialIsDangerous = editing.isDangerous,
             initialColorHex = editing.colorHex,
             onDismiss = { commandToEdit = null },
-            onConfirm = { name, cmd, isDangerous, colorHex ->
+            onConfirm = { name, cmd, cat, isDangerous, colorHex ->
                 scope.launch {
                     repository?.updateCustomCommand(
                         editing.copy(
                             name = name,
                             command = cmd,
+                            categoryName = cat.ifBlank { null },
                             isDangerous = isDangerous,
                             colorHex = colorHex
                         )
@@ -2525,13 +2989,15 @@ private fun ManageCommandsDialog(
 private fun AddCommandDialogDesktop(
     initialName: String = "",
     initialCommand: String = "",
+    initialCategory: String = "",
     initialIsDangerous: Boolean = false,
     initialColorHex: String = "#2196F3",
     onDismiss: () -> Unit,
-    onConfirm: (String, String, Boolean, String) -> Unit
+    onConfirm: (String, String, String, Boolean, String) -> Unit
 ) {
     var name by remember { mutableStateOf(initialName) }
     var cmd by remember { mutableStateOf(initialCommand) }
+    var category by remember { mutableStateOf(initialCategory) }
     var isDangerous by remember { mutableStateOf(initialIsDangerous) }
     var colorHex by remember { mutableStateOf(initialColorHex) }
 
@@ -2556,6 +3022,13 @@ private fun AddCommandDialogDesktop(
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
+                    value = category,
+                    onValueChange = { category = it },
+                    label = { Text("Category (optional)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
                     value = cmd,
                     onValueChange = { cmd = it },
                     label = { Text(AppStrings.commands) },
@@ -2576,7 +3049,7 @@ private fun AddCommandDialogDesktop(
             }
         },
         confirmButton = {
-            Button(onClick = { onConfirm(name, cmd, isDangerous, colorHex) }) {
+            Button(onClick = { onConfirm(name, cmd, category, isDangerous, colorHex) }) {
                 Text(AppStrings.save)
             }
         },

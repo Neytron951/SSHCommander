@@ -70,4 +70,17 @@ interface ServerDao {
 
     @Query("UPDATE server_logins SET lastSftpPath = :path WHERE id = :loginId")
     suspend fun updateLoginLastSftpPath(loginId: Int, path: String)
+
+    // Workspaces
+    @Query("SELECT * FROM workspaces ORDER BY id ASC")
+    fun getAllWorkspaces(): Flow<List<Workspace>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertWorkspace(workspace: Workspace): Long
+
+    @Update
+    suspend fun updateWorkspace(workspace: Workspace)
+
+    @Query("DELETE FROM workspaces WHERE id = :id")
+    suspend fun deleteWorkspace(id: Int)
 }

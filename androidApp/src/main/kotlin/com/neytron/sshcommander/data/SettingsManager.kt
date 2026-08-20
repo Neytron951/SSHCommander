@@ -37,6 +37,7 @@ class SettingsManager(context: Context) : AppSettings {
         val PRIVACY_MODE = booleanPreferencesKey("privacy_mode")
         val AUTO_RECONNECT = booleanPreferencesKey("auto_reconnect")
         val BIOMETRIC_LOCK = booleanPreferencesKey("biometric_lock")
+        val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
     }
 
     override val themeMode: Flow<String> = dataStore.data.map { it[THEME_MODE] ?: "system" }
@@ -59,6 +60,7 @@ class SettingsManager(context: Context) : AppSettings {
     override val privacyMode: Flow<Boolean> = dataStore.data.map { it[PRIVACY_MODE] ?: false }
     override val autoReconnect: Flow<Boolean> = dataStore.data.map { it[AUTO_RECONNECT] ?: true }
     override val biometricLock: Flow<Boolean> = dataStore.data.map { it[BIOMETRIC_LOCK] ?: false }
+    override val onboardingCompleted: Flow<Boolean> = dataStore.data.map { it[ONBOARDING_COMPLETED] ?: false }
 
     override suspend fun setThemeMode(mode: String) { dataStore.edit { it[THEME_MODE] = mode } }
     override suspend fun setLanguage(lang: String) { dataStore.edit { it[LANGUAGE] = lang } }
@@ -79,4 +81,5 @@ class SettingsManager(context: Context) : AppSettings {
     override suspend fun setPrivacyMode(enabled: Boolean) { dataStore.edit { it[PRIVACY_MODE] = enabled } }
     override suspend fun setAutoReconnect(enabled: Boolean) { dataStore.edit { it[AUTO_RECONNECT] = enabled } }
     override suspend fun setBiometricLock(enabled: Boolean) { dataStore.edit { it[BIOMETRIC_LOCK] = enabled } }
+    override suspend fun setOnboardingCompleted(completed: Boolean) { dataStore.edit { it[ONBOARDING_COMPLETED] = completed } }
 }

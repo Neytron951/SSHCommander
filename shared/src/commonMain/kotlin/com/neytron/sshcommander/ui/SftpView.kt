@@ -68,8 +68,11 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.neytron.sshcommander.data.RemoteFile
 import com.neytron.sshcommander.sftp.SftpController
+import androidx.compose.material.icons.filled.Edit
+import com.neytron.sshcommander.ui.RemoteTextEditor
 import kotlinx.coroutines.launch
 
 /**
@@ -104,6 +107,7 @@ fun SftpView(controller: SftpController?, modifier: Modifier = Modifier) {
     var selectedPaths by remember { mutableStateOf(setOf<String>()) }
     var anchorPath by remember { mutableStateOf<String?>(null) }
     var previewFile by remember { mutableStateOf<RemoteFile?>(null) }
+    var editingFile by remember { mutableStateOf<RemoteFile?>(null) }
 
     // Navigating to another folder clears the selection.
     LaunchedEffect(currentPath) {
@@ -354,12 +358,29 @@ fun SftpView(controller: SftpController?, modifier: Modifier = Modifier) {
                             onDoubleTap = { handleDoubleTap(file) },
                             onOpen = { if (file.isDirectory) sftp.goTo(file.path) },
                             onPreview = { previewFile = file },
+                            onEdit = { editingFile = file },
                             onDownload = { downloadFile(file) },
                             onDelete = { deleteFile(file) },
                             onCopyPath = { copyPath(file) }
                         )
                     }
                 }
+            }
+        }
+    }
+
+    if (editingFile != null) {
+        Dialog(onDismissRequest = { editingFile = null }) {
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.background,
+                modifier = Modifier.fillMaxSize(0.9f)
+            ) {
+                RemoteTextEditor(
+                    remotePath = editingFile!!.path,
+                    controller = sftp,
+                    onClose = { editingFile = null; sftp.listDirectory() }
+                )
             }
         }
     }
@@ -411,6 +432,7 @@ private fun SftpRow(
     onDoubleTap: () -> Unit,
     onOpen: () -> Unit,
     onPreview: () -> Unit,
+    onEdit: () -> Unit,
     onDownload: () -> Unit,
     onDelete: () -> Unit,
     onCopyPath: () -> Unit
@@ -498,6 +520,11 @@ private fun SftpRow(
                                 text = { Text(AppStrings.preview) },
                                 onClick = { menuAnchor = null; onPreview() },
                                 leadingIcon = { Icon(Icons.Default.Preview, contentDescription = null) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Edit (Text)") },
+                                onClick = { menuAnchor = null; onEdit() },
+                                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
                             )
                             DropdownMenuItem(
                                 text = { Text(AppStrings.download) },

@@ -1,28 +1,25 @@
 package com.neytron.sshcommander.ui
 
-import androidx.compose.foundation.BorderStroke
+import android.content.res.Configuration
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
@@ -32,29 +29,26 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onPreviewKeyEvent
-import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.graphics.toColorInt
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.neytron.sshcommander.data.Server
-import com.neytron.sshcommander.data.TerminalScreenStore
+import com.neytron.sshcommander.R
+import com.neytron.sshcommander.data.ServerRepository
+import com.neytron.sshcommander.data.SettingsManager
+import com.neytron.sshcommander.data.TerminalDimensions
+import com.neytron.sshcommander.security.BiometricUtils
 import com.neytron.sshcommander.ui.MonitoringDashboard
+import com.neytron.sshcommander.ui.PrivacyUtils
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -63,47 +57,48 @@ import kotlinx.coroutines.launch
 @Composable
 fun ServerControlScreen(
     serverId: Int,
-    sessionId: Int,
+    activity: FragmentActivity,
+    viewModel: SshViewModel = viewModel(),
     onNavigateBack: () -> Unit,
     onManageCommands: () -> Unit,
     onManageLogins: () -> Unit,
-    onNavigateToSftp: () -> Unit,
-    onSwitchSession: (Int) -> Unit = {},
-    onAddSession: (Int) -> Unit = {},
-    onCloseSession: (Int) -> Unit = {}
+    onNavigateToSftp: () -> Unit
 ) {
-    val deps = LocalAppDeps.current
-    val viewModel: SshViewModel = viewModel { SshViewModel(deps.repository, deps.settings) }
+    val context = LocalContext.current
+    val repository = remember { ServerRepository(context) }
+    val settingsManager = remember { SettingsManager(context) }
 
     var selectedTab by remember { mutableIntStateOf(0) } // 0: Terminal, 1: Monitoring
 
     // In landscape the vertical space is tight: the quick-command row is collapsed
     // by default (can be toggled via the top bar button), and the bottom panel
     // is rendered more compact.
-    val isLandscape = isLandscapeLayout()
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     var quickCommandsVisible by remember { mutableStateOf(!isLandscape) }
-
+    
     var customCommandInput by remember { mutableStateOf("") }
     var templateToFill by remember { mutableStateOf<String?>(null) }
     var showConfirmDialog by remember { mutableStateOf(false) }
     var pendingCommand by remember { mutableStateOf<String?>(null) }
     var isPendingDangerous by remember { mutableStateOf(false) }
-
+    
+    fun handleExecute(rawCmd: String) {
+        if (rawCmd.contains("{{") && rawCmd.contains("}}")) {
+            templateToFill = rawCmd
+        } else {
+            viewModel.executeCommand(rawCmd)
+        }
+    }
+    
     var showExitConfirmation by remember { mutableStateOf(false) }
-
-    // Soft keyboard support: tapping the terminal focuses a hidden text field
-    // and opens the device keyboard; typed characters stream straight to SSH.
-    val terminalFocusRequester = remember { FocusRequester() }
-    val keyboardController = LocalSoftwareKeyboardController.current
-    var terminalInputBuffer by remember { mutableStateOf("") }
-
-    val fontFamilyStr by deps.settings.fontFamily.collectAsState(initial = "monospace")
-    val rebootConfirmMode by deps.settings.rebootConfirm.collectAsState(initial = "always")
-
+    
+    val fontFamilyStr by settingsManager.fontFamily.collectAsState(initial = "monospace")
+    val rebootConfirmMode by settingsManager.rebootConfirm.collectAsState(initial = "always")
+    
     val termBgColor by viewModel.termBgColor.collectAsState()
     val termTextColor by viewModel.termTextColor.collectAsState()
     val termFontSizePx by viewModel.termFontSizePx.collectAsState()
-    val privacyMode by deps.settings.privacyMode.collectAsState(initial = false)
+    val privacyMode by settingsManager.privacyMode.collectAsState(initial = false)
 
     val consoleFontFamily = when(fontFamilyStr) {
         "monospace" -> FontFamily.Monospace
@@ -114,50 +109,24 @@ fun ServerControlScreen(
 
     // List of useful base commands
     val baseCommands = listOf(
-        "ls -la" to AppStrings.cmdList,
-        "top" to AppStrings.cmdTop,
-        "df -h" to AppStrings.cmdDisk,
-        "free -m" to AppStrings.cmdRam,
-        "uptime" to AppStrings.cmdUptime,
-        "ps aux" to AppStrings.cmdProcesses,
-        "dmesg" to AppStrings.cmdLogs
+        "ls -la" to stringResource(R.string.cmd_list),
+        "top" to stringResource(R.string.cmd_top),
+        "df -h" to stringResource(R.string.cmd_disk),
+        "free -m" to stringResource(R.string.cmd_ram),
+        "uptime" to stringResource(R.string.cmd_uptime),
+        "ps aux" to stringResource(R.string.cmd_processes),
+        "dmesg" to stringResource(R.string.cmd_logs)
     )
 
-    fun handleExecute(rawCmd: String) {
-        if (rawCmd.contains("{{") && rawCmd.contains("}}")) {
-            templateToFill = rawCmd
-        } else {
-            viewModel.executeCommand(rawCmd)
-        }
-    }
-
-    LaunchedEffect(serverId, sessionId) {
-        val server = deps.repository.getServerById(serverId)
+    LaunchedEffect(serverId) {
+        val server = repository.getServerById(serverId)
         if (server != null) {
-            viewModel.setServer(server, sessionId)
+            viewModel.setServer(server)
         }
-    }
-
-    // All servers, used for the session tab labels and the "+" picker.
-    val allServers = remember { mutableStateListOf<Server>() }
-    LaunchedEffect(Unit) {
-        allServers.clear()
-        allServers.addAll(deps.repository.getServers())
-    }
-
-    // Open sessions (from the shared store) + current, so the tab row stays in
-    // sync when a session is closed on this screen. Sessions are keyed by a
-    // unique session id so the same server can appear in several tabs.
-    var sessionsVersion by remember { mutableIntStateOf(0) }
-    val currentServerId = viewModel.currentServer?.id ?: -1
-    val openSessions = remember(sessionsVersion, currentServerId) {
-        val map = TerminalScreenStore.openSessions().toMutableMap()
-        if (sessionId > 0 && !map.containsKey(sessionId)) map[sessionId] = currentServerId
-        map
     }
 
     // Handle back press to show confirmation
-    PlatformBackHandler(enabled = true) {
+    BackHandler {
         showExitConfirmation = true
     }
 
@@ -166,7 +135,7 @@ fun ServerControlScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text(viewModel.currentServer?.name ?: AppStrings.loading, style = MaterialTheme.typography.titleMedium)
+                        Text(viewModel.currentServer?.name ?: stringResource(R.string.loading), style = MaterialTheme.typography.titleMedium)
                         Text(
                             if (privacyMode) PrivacyUtils.maskHost(viewModel.currentServer?.host ?: "")
                             else viewModel.currentServer?.host ?: "",
@@ -176,7 +145,7 @@ fun ServerControlScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = { showExitConfirmation = true }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = AppStrings.back)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 actions = {
@@ -191,13 +160,13 @@ fun ServerControlScreen(
                             )
                             Icon(
                                 Icons.Default.KeyboardArrowDown,
-                                contentDescription = AppStrings.selectLogin,
+                                contentDescription = stringResource(R.string.select_login),
                                 modifier = Modifier.size(if (isLandscape) 16.dp else 18.dp)
                             )
                         }
                         DropdownMenu(expanded = loginMenuExpanded, onDismissRequest = { loginMenuExpanded = false }) {
                             DropdownMenuItem(
-                                text = { Text(String.format(AppStrings.mainLoginLabel, viewModel.currentServer?.username ?: "")) },
+                                text = { Text(stringResource(R.string.main_login_label, viewModel.currentServer?.username ?: "")) },
                                 onClick = {
                                     viewModel.selectLogin(null)
                                     loginMenuExpanded = false
@@ -219,7 +188,7 @@ fun ServerControlScreen(
                             }
                             HorizontalDivider()
                             DropdownMenuItem(
-                                text = { Text(AppStrings.manageLogins) },
+                                text = { Text(stringResource(R.string.manage_logins)) },
                                 onClick = {
                                     loginMenuExpanded = false
                                     onManageLogins()
@@ -230,15 +199,15 @@ fun ServerControlScreen(
                     IconButton(onClick = { quickCommandsVisible = !quickCommandsVisible }) {
                         Icon(
                             Icons.Default.Apps,
-                            contentDescription = AppStrings.quickCommands,
+                            contentDescription = stringResource(R.string.quick_commands),
                             tint = if (quickCommandsVisible) MaterialTheme.colorScheme.primary else LocalContentColor.current
                         )
                     }
                     IconButton(onClick = onNavigateToSftp) {
-                        Icon(Icons.Default.Folder, contentDescription = AppStrings.sftpExplorer)
+                        Icon(Icons.Default.Folder, contentDescription = stringResource(R.string.sftp_explorer))
                     }
                     IconButton(onClick = onManageCommands) {
-                        Icon(Icons.Default.Build, contentDescription = AppStrings.manageCommands)
+                        Icon(Icons.Default.Build, contentDescription = stringResource(R.string.manage_commands))
                     }
                 }
             )
@@ -262,23 +231,7 @@ fun ServerControlScreen(
             if (selectedTab == 1) {
                 MonitoringDashboard(viewModel)
             } else {
-                // Session tabs: one tab per open session, "+" to add, "×" to close.
-                SessionTabRow(
-                    openSessions = openSessions,
-                    allServers = allServers,
-                    currentSessionId = sessionId,
-                    onSelect = { sid ->
-                        if (sid != sessionId) onSwitchSession(sid)
-                    },
-                    onClose = { sid ->
-                        viewModel.closeSession(sid)
-                        if (sid == sessionId) onCloseSession(sid) else sessionsVersion++
-                    },
-                    onAddServer = { id ->
-                        onAddSession(id)
-                    }
-                )
-                // Quick & Base Commands Row
+                // QUICK COMMANDS
                 if (quickCommandsVisible) {
                     LazyRow(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
@@ -306,7 +259,7 @@ fun ServerControlScreen(
                                     }
                                 },
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = colorFromHex(cmd.colorHex, MaterialTheme.colorScheme.primary)
+                                    containerColor = try { Color(cmd.colorHex.toColorInt()) } catch(e: Exception) { MaterialTheme.colorScheme.primary }
                                 ),
                                 contentPadding = PaddingValues(horizontal = 12.dp),
                                 shape = MaterialTheme.shapes.small
@@ -322,7 +275,7 @@ fun ServerControlScreen(
                 val terminalRevision by viewModel.terminalRevision.collectAsState()
                 val parsedOutput = remember(terminalRevision, termTextColor) {
                     viewModel.terminalScreen.render(
-                        colorFromHex(termTextColor, Color(0xFF00FF00))
+                        try { Color(termTextColor.toColorInt()) } catch(e: Exception) { Color(0xFF00FF00) }
                     )
                 }
 
@@ -330,14 +283,7 @@ fun ServerControlScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
-                        .background(colorFromHex(termBgColor, Color.Black))
-                        // Tap the console to open the device keyboard.
-                        .pointerInput(Unit) {
-                            detectTapGestures {
-                                terminalFocusRequester.requestFocus()
-                                keyboardController?.show()
-                            }
-                        }
+                        .background(try { Color(termBgColor.toColorInt()) } catch(e: Exception) { Color.Black })
                         .pointerInput(Unit) {
                             detectTransformGestures { _, _, zoom, _ ->
                                 if (zoom != 1f) {
@@ -359,48 +305,10 @@ fun ServerControlScreen(
                                 fontSize = termFontSizePx.sp,
                                 modifier = Modifier.fillMaxWidth(),
                                 lineHeight = (termFontSizePx * 1.2f).sp,
-                                color = colorFromHex(termTextColor, Color.Unspecified)
+                                color = try { Color(termTextColor.toColorInt()) } catch(e: Exception) { Color.Unspecified }
                             )
                         }
                     }
-
-                    BasicTextField(
-                        value = terminalInputBuffer,
-                        onValueChange = { newValue ->
-                            val old = terminalInputBuffer
-                            terminalInputBuffer = newValue
-                            if (newValue.length > old.length) {
-                                newValue.substring(old.length).forEach { ch ->
-                                    if (ch == '\n') viewModel.sendEnter() else viewModel.sendInput(ch.toString())
-                                }
-                            } else if (newValue.length < old.length) {
-                                repeat(old.length - newValue.length) { viewModel.sendBackspace() }
-                            }
-                        },
-                        modifier = Modifier
-                            .size(1.dp)
-                            .alpha(0f)
-                            .focusRequester(terminalFocusRequester)
-                            .onPreviewKeyEvent { event ->
-                                if (event.type == KeyEventType.KeyDown) {
-                                    when {
-                                        event.key == Key.Enter -> { viewModel.sendEnter(); true }
-                                        event.key == Key.Backspace -> { viewModel.sendBackspace(); true }
-                                        event.key == Key.Tab -> { viewModel.sendInput("\t"); true }
-                                        event.key == Key.Escape -> { viewModel.sendEscape(); true }
-                                        event.key == Key.DirectionUp -> { viewModel.sendArrowUp(); true }
-                                        event.key == Key.DirectionDown -> { viewModel.sendArrowDown(); true }
-                                        event.key == Key.DirectionLeft -> { viewModel.sendArrowLeft(); true }
-                                        event.key == Key.DirectionRight -> { viewModel.sendArrowRight(); true }
-                                        else -> false
-                                    }
-                                } else false
-                            },
-                        textStyle = TextStyle(color = Color.Transparent, fontSize = 1.sp),
-                        cursorBrush = SolidColor(Color.Transparent),
-                        singleLine = false,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default)
-                    )
 
                     LaunchedEffect(terminalRevision) {
                         if (!viewModel.terminalScreen.isFullScreen) {
@@ -412,7 +320,7 @@ fun ServerControlScreen(
                     if (loading) {
                         LinearProgressIndicator(
                             modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter),
-                            color = colorFromHex(termTextColor, Color.Green),
+                            color = try { Color(termTextColor.toColorInt()) } catch(e: Exception) { Color.Green },
                             trackColor = Color.Transparent
                         )
                     }
@@ -429,29 +337,25 @@ fun ServerControlScreen(
                 ) {
                     Row {
                         IconButton(
-                            onClick = {
-                                customCommandInput = viewModel.navigateHistory(true, customCommandInput)
-                            },
+                            onClick = { customCommandInput = viewModel.navigateHistory(true, customCommandInput) },
                             modifier = Modifier.size(if (isLandscape) 36.dp else 48.dp)
                         ) {
-                            Icon(Icons.Default.KeyboardArrowUp, AppStrings.historyUp, modifier = Modifier.size(if (isLandscape) 20.dp else 24.dp))
+                            Icon(Icons.Default.KeyboardArrowUp, stringResource(R.string.history_up), modifier = Modifier.size(if (isLandscape) 20.dp else 24.dp))
                         }
                         IconButton(
-                            onClick = {
-                                customCommandInput = viewModel.navigateHistory(false, customCommandInput)
-                            },
+                            onClick = { customCommandInput = viewModel.navigateHistory(false, customCommandInput) },
                             modifier = Modifier.size(if (isLandscape) 36.dp else 48.dp)
                         ) {
-                            Icon(Icons.Default.KeyboardArrowDown, AppStrings.historyDown, modifier = Modifier.size(if (isLandscape) 20.dp else 24.dp))
+                            Icon(Icons.Default.KeyboardArrowDown, stringResource(R.string.history_down), modifier = Modifier.size(if (isLandscape) 20.dp else 24.dp))
                         }
                     }
-
+                    
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         TextButton(
                             onClick = { viewModel.sendInput("\t") },
                             contentPadding = PaddingValues(horizontal = if (isLandscape) 6.dp else 12.dp)
                         ) {
-                            Text(AppStrings.tabKey, fontWeight = FontWeight.Bold, fontSize = if (isLandscape) 12.sp else 14.sp)
+                            Text(stringResource(R.string.tab_key), fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, fontSize = if (isLandscape) 12.sp else 14.sp)
                         }
                         VerticalDivider(modifier = Modifier.height(if (isLandscape) 20.dp else 24.dp).padding(horizontal = 4.dp))
                         TextButton(
@@ -459,14 +363,14 @@ fun ServerControlScreen(
                             colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
                             contentPadding = PaddingValues(horizontal = if (isLandscape) 6.dp else 12.dp)
                         ) {
-                            Text(AppStrings.ctrlCKey, fontWeight = FontWeight.Bold, fontSize = if (isLandscape) 12.sp else 14.sp)
+                            Text(stringResource(R.string.ctrl_c_key), fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, fontSize = if (isLandscape) 12.sp else 14.sp)
                         }
                         VerticalDivider(modifier = Modifier.height(if (isLandscape) 20.dp else 24.dp).padding(horizontal = 4.dp))
                         TextButton(
                             onClick = { viewModel.clearTerminal() },
                             contentPadding = PaddingValues(horizontal = if (isLandscape) 6.dp else 12.dp)
                         ) {
-                            Text(AppStrings.clearKey, fontWeight = FontWeight.Bold, fontSize = if (isLandscape) 12.sp else 14.sp)
+                            Text(stringResource(R.string.clear_key), fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, fontSize = if (isLandscape) 12.sp else 14.sp)
                         }
                     }
                 }
@@ -481,16 +385,16 @@ fun ServerControlScreen(
                     contentPadding = PaddingValues(horizontal = if (isLandscape) 4.dp else 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    item { ControlKeyButton(AppStrings.escKey, { viewModel.sendEscape() }, isLandscape) }
+                    item { ControlKeyButton(stringResource(R.string.esc_key), { viewModel.sendEscape() }, isLandscape) }
                     item {
                         HoldableKeyButton(
                             onClick = { viewModel.sendBackspace() },
                             modifier = Modifier.height(if (isLandscape) 32.dp else 40.dp)
                         ) {
-                            Text("⌫", fontWeight = FontWeight.Bold, fontSize = if (isLandscape) 11.sp else 13.sp)
+                            Text("⌫", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, fontSize = if (isLandscape) 11.sp else 13.sp)
                         }
                     }
-                    item { ControlKeyButton(AppStrings.enterKey, { viewModel.sendEnter() }, isLandscape) }
+                    item { ControlKeyButton(stringResource(R.string.enter_key), { viewModel.sendEnter() }, isLandscape) }
                     item {
                         HoldableKeyButton(
                             onClick = { viewModel.sendArrowLeft() },
@@ -531,6 +435,47 @@ fun ServerControlScreen(
                     item { ControlKeyButton("Ctrl+K", { viewModel.sendCtrlKey('k') }, isLandscape) }
                     item { ControlKeyButton("Ctrl+U", { viewModel.sendCtrlKey('u') }, isLandscape) }
                 }
+
+                // Input Section
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(if (isLandscape) 4.dp else 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = customCommandInput,
+                        onValueChange = { 
+                            customCommandInput = it
+                            viewModel.onInputChanged(it)
+                        },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text(stringResource(R.string.command_placeholder), fontSize = if (isLandscape) 13.sp else 14.sp) },
+                        singleLine = true,
+                        textStyle = TextStyle(fontFamily = consoleFontFamily, fontSize = if (isLandscape) 13.sp else 14.sp),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                        keyboardActions = KeyboardActions(onSend = {
+                            if (customCommandInput.isNotBlank()) {
+                                viewModel.executeCommand(customCommandInput)
+                                customCommandInput = ""
+                            }
+                        }),
+                        shape = MaterialTheme.shapes.medium
+                    )
+                    Spacer(Modifier.width(if (isLandscape) 4.dp else 8.dp))
+                    FloatingActionButton(
+                        onClick = {
+                            if (customCommandInput.isNotBlank()) {
+                                viewModel.executeCommand(customCommandInput)
+                                customCommandInput = ""
+                            }
+                        },
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.size(if (isLandscape) 40.dp else 56.dp)
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = stringResource(R.string.run), modifier = Modifier.size(if (isLandscape) 20.dp else 24.dp))
+                    }
+                }
             }
         }
     }
@@ -538,52 +483,45 @@ fun ServerControlScreen(
     if (showConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showConfirmDialog = false },
-            title = { Text(AppStrings.confirmExecution) },
-            text = { Text(String.format(AppStrings.executeConfirmMsg, pendingCommand ?: "")) },
+            title = { Text(stringResource(R.string.confirm_execution)) },
+            text = { Text(stringResource(R.string.execute_confirm_msg, pendingCommand ?: "")) },
             confirmButton = {
                 TextButton(onClick = {
                     showConfirmDialog = false
                     val cmdToRun = pendingCommand ?: return@TextButton
-                    val biometric = deps.biometric
-                    if (isPendingDangerous && biometric != null && biometric.canAuthenticate()) {
-                        biometric.showPrompt(
-                            title = AppStrings.confirmExecution,
-                            subtitle = String.format(AppStrings.executeConfirmMsg, cmdToRun),
-                            negativeButtonText = AppStrings.cancel,
-                            onSuccess = { handleExecute(cmdToRun) },
-                            onError = {}
-                        )
+                    if (isPendingDangerous && BiometricUtils.canAuthenticate(activity)) {
+                        BiometricUtils.showBiometricPrompt(activity, { viewModel.executeCommand(cmdToRun) }, {})
                     } else {
-                        handleExecute(cmdToRun)
+                        viewModel.executeCommand(cmdToRun)
                     }
                 }) {
-                    Text(AppStrings.execute, color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.execute), color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showConfirmDialog = false }) {
-                    Text(AppStrings.cancel)
+                    Text(stringResource(R.string.cancel))
                 }
             }
         )
     }
-
+    
     if (showExitConfirmation) {
         AlertDialog(
             onDismissRequest = { showExitConfirmation = false },
-            title = { Text(AppStrings.confirmExit) },
-            text = { Text(AppStrings.exitSshSessionMsg) },
+            title = { Text(stringResource(R.string.confirm_exit)) },
+            text = { Text(stringResource(R.string.exit_ssh_session_msg)) },
             confirmButton = {
                 TextButton(onClick = {
                     showExitConfirmation = false
                     onNavigateBack()
                 }) {
-                    Text(AppStrings.exit, color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.exit), color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showExitConfirmation = false }) {
-                    Text(AppStrings.cancel)
+                    Text(stringResource(R.string.cancel))
                 }
             }
         )
@@ -656,7 +594,7 @@ private fun ControlKeyButton(
     ) {
         Text(
             label,
-            fontWeight = FontWeight.Bold,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
             fontSize = if (isLandscape) 11.sp else 13.sp
         )
     }
@@ -697,120 +635,5 @@ private fun HoldableKeyButton(
         contentAlignment = Alignment.Center
     ) {
         content()
-    }
-}
-
-private fun colorFromHex(hex: String, fallback: Color): Color {
-    return try {
-        val clean = hex.removePrefix("#")
-        val argb = when (clean.length) {
-            6 -> (0xFF000000L or clean.toLong(16)).toInt()
-            8 -> clean.toLong(16).toInt()
-            else -> return fallback
-        }
-        Color(argb)
-    } catch (e: Exception) {
-        fallback
-    }
-}
-
-@Composable
-private fun SessionTabRow(
-    openSessions: Map<Int, Int>,
-    allServers: List<Server>,
-    currentSessionId: Int,
-    onSelect: (Int) -> Unit,
-    onClose: (Int) -> Unit,
-    onAddServer: (Int) -> Unit
-) {
-    var addMenuExpanded by remember { mutableStateOf(false) }
-    Surface(
-        shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 6.dp)
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 6.dp, vertical = 6.dp)
-        ) {
-            openSessions.entries.sortedBy { it.key }.forEach { (sid, serverId) ->
-                val name = allServers.firstOrNull { it.id == serverId }?.name ?: "#$serverId"
-                val selected = sid == currentSessionId
-                Surface(
-                    onClick = { onSelect(sid) },
-                    shape = RoundedCornerShape(10.dp),
-                    color = if (selected) MaterialTheme.colorScheme.primaryContainer
-                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                    border = if (selected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
-                    else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .height(42.dp)
-                            .width(150.dp)
-                            .padding(start = 12.dp, end = 4.dp)
-                    ) {
-                        Text(
-                            name,
-                            style = MaterialTheme.typography.titleSmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
-                        )
-                        IconButton(onClick = { onClose(sid) }, modifier = Modifier.size(26.dp)) {
-                            Icon(
-                                Icons.Default.Close,
-                                contentDescription = AppStrings.closeSession,
-                                tint = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
-                                else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    }
-                }
-                Spacer(Modifier.width(6.dp))
-            }
-            Box {
-                Surface(
-                    onClick = { addMenuExpanded = true },
-                    shape = RoundedCornerShape(10.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
-                        modifier = Modifier
-                            .height(42.dp)
-                            .width(44.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Add,
-                            contentDescription = AppStrings.addSession,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-                DropdownMenu(expanded = addMenuExpanded, onDismissRequest = { addMenuExpanded = false }) {
-                    allServers.forEach { s ->
-                        DropdownMenuItem(
-                            text = { Text(s.name) },
-                            onClick = {
-                                addMenuExpanded = false
-                                onAddServer(s.id)
-                            }
-                        )
-                    }
-                }
-            }
-        }
     }
 }

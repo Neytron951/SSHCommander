@@ -94,16 +94,60 @@ fun ManageCommandsScreen(
     var showAddDialog by remember { mutableStateOf(false) }
     var commandToEdit by remember { mutableStateOf<CustomCommand?>(null) }
 
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedCategory by remember { mutableStateOf<String?>(null) }
+
+    val categories = commands.mapNotNull { it.categoryName }.distinct().sorted()
+    val filteredCommands = commands.filter { cmd ->
+        (selectedCategory == null || cmd.categoryName == selectedCategory) &&
+        (searchQuery.isEmpty() || cmd.name.contains(searchQuery, ignoreCase = true) || cmd.command.contains(searchQuery, ignoreCase = true))
+    }
+
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.manage_commands)) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
+            Column {
+                TopAppBar(
+                    title = { Text(stringResource(R.string.manage_commands)) },
+                    navigationIcon = {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
+                        }
+                    }
+                )
+                
+                // Search and Categories
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    placeholder = { Text("Search commands...") },
+                    singleLine = true,
+                    trailingIcon = { if (searchQuery.isNotEmpty()) IconButton(onClick = { searchQuery = "" }) { Icon(Icons.Default.Delete, null) } }
+                )
+                
+                if (categories.isNotEmpty()) {
+                    LazyRow(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        item {
+                            FilterChip(
+                                selected = selectedCategory == null,
+                                onClick = { selectedCategory = null },
+                                label = { Text("All") }
+                            )
+                        }
+                        items(categories) { cat ->
+                            FilterChip(
+                                selected = selectedCategory == cat,
+                                onClick = { selectedCategory = cat },
+                                label = { Text(cat) }
+                            )
+                        }
                     }
                 }
-            )
+            }
         },
         floatingActionButton = {
             FloatingActionButton(onClick = { showAddDialog = true }) {
@@ -116,7 +160,7 @@ fun ManageCommandsScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            itemsIndexed(commands) { index, command ->
+            itemsIndexed(filteredCommands) { index, command ->
                 CommandItem(
                     command = command,
                     onEdit = { commandToEdit = command },
@@ -133,11 +177,12 @@ fun ManageCommandsScreen(
         AddCommandDialog(
             initialColorHex = String.format("#%06X", 0xFFFFFF and primaryColor.toArgb()),
             onDismiss = { showAddDialog = false },
-            onConfirm = { name, cmd, isDangerous, colorHex ->
+            onConfirm = { name, cmd, cat, isDangerous, colorHex ->
                 viewModel.addCommand(
                     CustomCommand(
                         name = name,
                         command = cmd,
+                        categoryName = cat.ifBlank { null },
                         iconName = "default",
                         colorHex = colorHex,
                         orderIndex = commands.size,
@@ -153,14 +198,16 @@ fun ManageCommandsScreen(
         AddCommandDialog(
             initialName = commandToEdit!!.name,
             initialCommand = commandToEdit!!.command,
+            initialCategory = commandToEdit!!.categoryName ?: "",
             initialIsDangerous = commandToEdit!!.isDangerous,
             initialColorHex = commandToEdit!!.colorHex,
             onDismiss = { commandToEdit = null },
-            onConfirm = { name, cmd, isDangerous, colorHex ->
+            onConfirm = { name, cmd, cat, isDangerous, colorHex ->
                 viewModel.updateCommand(
                     commandToEdit!!.copy(
                         name = name,
                         command = cmd,
+                        categoryName = cat.ifBlank { null },
                         isDangerous = isDangerous,
                         colorHex = colorHex
                     )
@@ -213,13 +260,15 @@ fun CommandItem(
 fun AddCommandDialog(
     initialName: String = "",
     initialCommand: String = "",
+    initialCategory: String = "",
     initialIsDangerous: Boolean = false,
     initialColorHex: String = "#6200EE",
     onDismiss: () -> Unit, 
-    onConfirm: (String, String, Boolean, String) -> Unit
+    onConfirm: (String, String, String, Boolean, String) -> Unit
 ) {
     var name by remember { mutableStateOf(initialName) }
     var cmd by remember { mutableStateOf(initialCommand) }
+    var category by remember { mutableStateOf(initialCategory) }
     var isDangerous by remember { mutableStateOf(initialIsDangerous) }
     var colorHex by remember { mutableStateOf(initialColorHex) }
 
@@ -240,6 +289,12 @@ fun AddCommandDialog(
                     value = name, 
                     onValueChange = { name = it }, 
                     label = { Text(stringResource(R.string.server_name)) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = category, 
+                    onValueChange = { category = it }, 
+                    label = { Text("Category") },
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
@@ -279,7 +334,7 @@ fun AddCommandDialog(
             }
         },
         confirmButton = {
-            Button(onClick = { onConfirm(name, cmd, isDangerous, colorHex) }) { Text(stringResource(R.string.save)) }
+            Button(onClick = { onConfirm(name, cmd, category, isDangerous, colorHex) }) { Text(stringResource(R.string.save)) }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }

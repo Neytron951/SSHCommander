@@ -25,11 +25,13 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.neytron.sshcommander.data.ExportImportManager
 import com.neytron.sshcommander.data.SettingsManager
 import com.neytron.sshcommander.data.TerminalScreenStore
 import com.neytron.sshcommander.ui.*
 import com.neytron.sshcommander.ui.theme.SSHCommanderTheme
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -97,8 +99,9 @@ fun PhoneApp(
     val lifecycleOwner = LocalLifecycleOwner.current
 
     // Sync the string catalog with the persisted language.
-    LaunchedEffect(Unit) {
-        AppStrings.language = settings.language.first()
+    val language by settings.language.collectAsState(initial = "en")
+    LaunchedEffect(language) {
+        AppStrings.language = language
     }
 
     // On cold start, lock if the feature is enabled (waits for the real
@@ -268,7 +271,41 @@ fun PhoneApp(
                 onUnlocked = { isLocked = false }
             )
         }
+
+        // First-run guide: welcome → language → tab tour (or JSON import).
+        val scope = rememberCoroutineScope()
+        val importPicker = rememberUploadPicker { files ->
+            files.firstOrNull()?.let { f ->
+                scope.launch {
+                    try {
+                        val text = f.openInput()?.let { readText(it) } ?: ""
+                        deps.repository.let { ExportImportManager(it).importJson(text) }
+                        platformToast(AppStrings.importSuccess)
+                    } catch (e: Exception) {
+                        platformToast(String.format(AppStrings.errorPrefix, e.message ?: ""))
+                    }
+                }
+            }
+        }
+        OnboardingGate(
+            settings = settings,
+            tourSteps = androidTourSteps(),
+            onImportJson = { importPicker() }
+        )
     }
+}
+
+/** Reads the whole [PlatformInputStream] into a UTF-8 string and closes it. */
+private fun readText(input: PlatformInputStream): String {
+    val buffer = java.io.ByteArrayOutputStream()
+    val chunk = ByteArray(8192)
+    while (true) {
+        val n = input.read(chunk, 0, chunk.size)
+        if (n <= 0) break
+        buffer.write(chunk, 0, n)
+    }
+    input.close()
+    return String(buffer.toByteArray(), Charsets.UTF_8)
 }
 
 @Composable

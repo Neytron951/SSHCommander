@@ -13,9 +13,9 @@ val jpackageJdk: String = javaToolchains.launcherFor {
     vendor.set(JvmVendorSpec.ADOPTIUM)
 }.get().metadata.installationPath.asFile.absolutePath
 
-// Overridable via -PappName=MyApp / -PappVersion=1.4.0 (used by build-windows.bat).
+// Overridable via -PappName=MyApp / -PappVersion=1.5.0 (used by build-windows.bat).
 val appName: String = (project.findProperty("appName") as? String)?.takeIf { it.isNotBlank() } ?: "SSHCommander"
-val appVersion: String = (project.findProperty("appVersion") as? String)?.takeIf { it.isNotBlank() } ?: "1.4.0"
+val appVersion: String = (project.findProperty("appVersion") as? String)?.takeIf { it.isNotBlank() } ?: "1.5.0"
 
 dependencies {
     implementation(project(":shared"))

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -22,6 +23,7 @@ import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.GroupWork
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
@@ -36,6 +38,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -43,8 +47,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,7 +60,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.neytron.sshcommander.data.Server
 import com.neytron.sshcommander.data.ServerFolder
+import com.neytron.sshcommander.data.Workspace
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -66,14 +74,18 @@ fun ServerListScreen(
 ) {
     val deps = LocalAppDeps.current
     val viewModel: ServerListViewModel = viewModel { ServerListViewModel(deps.repository, deps.settings) }
+    val scope = rememberCoroutineScope()
 
     val servers by viewModel.servers.collectAsState(initial = emptyList())
     val folders by deps.repository.allFolders.collectAsState(initial = emptyList())
+    val workspaces by deps.repository.allWorkspaces.collectAsState(initial = emptyList())
     val statuses by viewModel.serverStatuses.collectAsState()
 
+    var selectedTab by remember { mutableIntStateOf(0) } // 0: Servers, 1: Workspaces
     var selectedServer by remember { mutableStateOf<Server?>(null) }
     var showMenu by remember { mutableStateOf(false) }
-    // Folder dialogs: create (new), rename (existing) and delete (confirm).
+    
+    // Folder dialogs
     var showFolderDialog by remember { mutableStateOf(false) }
     var folderToRename by remember { mutableStateOf<ServerFolder?>(null) }
     var folderDialogName by remember { mutableStateOf("") }
@@ -81,8 +93,6 @@ fun ServerListScreen(
 
     LaunchedEffect(servers) {
         viewModel.checkStatuses(servers)
-        // Periodic refresh while the screen is visible. Delayed start keeps
-        // the initial check snappy; the 60s cadence is gentle on the battery.
         while (true) {
             delay(60_000)
             viewModel.checkStatuses(servers)
@@ -91,73 +101,98 @@ fun ServerListScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(AppStrings.appName) },
-                actions = {
-                    IconButton(onClick = {
-                        folderDialogName = ""
-                        showFolderDialog = true
-                    }) {
-                        Icon(Icons.Default.CreateNewFolder, contentDescription = AppStrings.newFolder)
+            Column {
+                TopAppBar(
+                    title = { Text(AppStrings.appName) },
+                    actions = {
+                        if (selectedTab == 0) {
+                            IconButton(onClick = {
+                                folderDialogName = ""
+                                showFolderDialog = true
+                            }) {
+                                Icon(Icons.Default.CreateNewFolder, contentDescription = AppStrings.newFolder)
+                            }
+                        }
+                        IconButton(onClick = onSettingsClick) {
+                            Icon(Icons.Default.Settings, contentDescription = AppStrings.settings)
+                        }
                     }
-                    IconButton(onClick = onSettingsClick) {
-                        Icon(Icons.Default.Settings, contentDescription = AppStrings.settings)
+                )
+                TabRow(selectedTabIndex = selectedTab) {
+                    Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }) {
+                        Text(AppStrings.servers, modifier = Modifier.padding(12.dp))
+                    }
+                    Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }) {
+                        Text("Workspaces", modifier = Modifier.padding(12.dp))
                     }
                 }
-            )
+            }
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddServer) {
-                Icon(Icons.Default.Add, contentDescription = AppStrings.addServer)
+            if (selectedTab == 0) {
+                FloatingActionButton(onClick = onAddServer) {
+                    Icon(Icons.Default.Add, contentDescription = AppStrings.addServer)
+                }
             }
         }
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier.padding(padding).fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            val adBlockId = "R-M-19743557-1"
+        Box(Modifier.padding(padding)) {
+            if (selectedTab == 1) {
+                WorkspaceList(
+                    workspaces = workspaces,
+                    onOpen = { ws ->
+                        // On mobile, opening a workspace opens the first server.
+                        // On desktop, the main App.kt overrides this via a side pane.
+                        ws.items.firstOrNull()?.let { onServerClick(it.serverId) }
+                    },
+                    onDelete = { id -> scope.launch { deps.repository.deleteWorkspace(id) } }
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val adBlockId = "R-M-19743557-1"
+                    var adAfterIndex = if (servers.size >= 2) 2 else if (servers.size == 1) 1 else -1
+                    var rendered = 0
 
-            // Build a grouped list: unfiled servers first, then one group per folder.
-            // Keep track of how many server cards we've emitted for ad placement.
-            var adAfterIndex = if (servers.size >= 2) 2 else if (servers.size == 1) 1 else -1
-            var rendered = 0
-
-            fun emitServer(server: Server) {
-                rendered++
-                item(key = "server-${server.id}") {
-                    ServerCard(
-                        server = server,
-                        isOnline = statuses[server.id] ?: false,
-                        onClick = { onServerClick(server.id) },
-                        onLongClick = {
-                            selectedServer = server
-                            showMenu = true
+                    fun emitServer(server: Server) {
+                        rendered++
+                        item(key = "server-${server.id}") {
+                            ServerCard(
+                                server = server,
+                                isOnline = statuses[server.id] ?: false,
+                                onClick = { onServerClick(server.id) },
+                                onLongClick = {
+                                    selectedServer = server
+                                    showMenu = true
+                                }
+                            )
                         }
-                    )
-                }
-                if (adAfterIndex > 0 && rendered == adAfterIndex) {
-                    item { PlatformAdBanner(blockId = adBlockId) }
-                }
-            }
+                        if (adAfterIndex > 0 && rendered == adAfterIndex) {
+                            item { PlatformAdBanner(blockId = adBlockId) }
+                        }
+                    }
 
-            servers.filter { it.folderId == null }.forEach { emitServer(it) }
+                    servers.filter { it.folderId == null }.forEach { emitServer(it) }
 
-            folders.forEach { folder ->
-                val inFolder = servers.filter { it.folderId == folder.id }
-                item(key = "folder-${folder.id}") {
-                    FolderListHeader(
-                        name = folder.name,
-                        count = inFolder.size,
-                        onRename = {
-                            folderDialogName = folder.name
-                            folderToRename = folder
-                        },
-                        onDelete = { folderToDelete = folder }
-                    )
+                    folders.forEach { folder ->
+                        val inFolder = servers.filter { it.folderId == folder.id }
+                        item(key = "folder-${folder.id}") {
+                            FolderListHeader(
+                                name = folder.name,
+                                count = inFolder.size,
+                                onRename = {
+                                    folderDialogName = folder.name
+                                    folderToRename = folder
+                                },
+                                onDelete = { folderToDelete = folder }
+                            )
+                        }
+                        inFolder.forEach { emitServer(it) }
+                    }
                 }
-                inFolder.forEach { emitServer(it) }
             }
         }
     }
@@ -252,7 +287,47 @@ fun ServerListScreen(
     }
 }
 
-/** Simple section header shown above a folder's servers on the phone list. */
+@Composable
+fun WorkspaceList(
+    workspaces: List<Workspace>,
+    onOpen: (Workspace) -> Unit,
+    onDelete: (Int) -> Unit
+) {
+    if (workspaces.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("No saved workspaces", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    } else {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(workspaces, key = { it.id }) { ws ->
+                Card(
+                    onClick = { onOpen(ws) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.GroupWork, null, tint = ws.colorHex?.let { parseHexColor(it) } ?: MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(16.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(ws.name, style = MaterialTheme.typography.titleMedium)
+                            Text("${ws.items.size} tabs", style = MaterialTheme.typography.bodySmall)
+                        }
+                        IconButton(onClick = { onDelete(ws.id) }) {
+                            Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun FolderListHeader(
     name: String,
@@ -287,7 +362,6 @@ private fun FolderListHeader(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        // Folder actions: rename / delete.
         Box {
             IconButton(onClick = { menuExpanded = true }, modifier = Modifier.size(28.dp)) {
                 Icon(

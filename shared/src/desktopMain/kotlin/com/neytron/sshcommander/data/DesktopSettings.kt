@@ -53,6 +53,7 @@ class DesktopSettings(private val dataDir: File) : AppSettings {
     override val privacyMode: Flow<Boolean> = bool("privacy_mode", false)
     override val autoReconnect: Flow<Boolean> = bool("auto_reconnect", true)
     override val biometricLock: Flow<Boolean> = bool("biometric_lock", false)
+    override val onboardingCompleted: Flow<Boolean> = bool("onboarding_completed", false)
 
     // Desktop layout settings
     override val showServerList: Flow<Boolean> = bool("show_server_list", true)
@@ -73,6 +74,7 @@ class DesktopSettings(private val dataDir: File) : AppSettings {
     override suspend fun setPrivacyMode(enabled: Boolean) { props.setProperty("privacy_mode", enabled.toString()); persist() }
     override suspend fun setAutoReconnect(enabled: Boolean) { props.setProperty("auto_reconnect", enabled.toString()); persist() }
     override suspend fun setBiometricLock(enabled: Boolean) { props.setProperty("biometric_lock", enabled.toString()); persist() }
+    override suspend fun setOnboardingCompleted(completed: Boolean) { props.setProperty("onboarding_completed", completed.toString()); persist() }
     override suspend fun setShowServerList(enabled: Boolean) { props.setProperty("show_server_list", enabled.toString()); persist() }
     override suspend fun setShowCommandPanel(enabled: Boolean) { props.setProperty("show_command_panel", enabled.toString()); persist() }
     override suspend fun setShowTopBar(enabled: Boolean) { props.setProperty("show_top_bar", enabled.toString()); persist() }

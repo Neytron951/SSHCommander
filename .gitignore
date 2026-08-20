@@ -12,7 +12,6 @@
 
 # Android Studio / IntelliJ IDEA
 *.iml
-.idea/
 .gradle/
 local.properties
 captures/
@@ -51,8 +50,14 @@ keystore.properties
 # Editors
 .vscode/
 .fleet/
+.idea/
 
 # Gradle wrapper (keep gradle-wrapper.jar)
 gradle/wrapper/gradle-wrapper.jar
 !gradle/wrapper/gradle-wrapper.jar
 dist/
+
+# Multiplatform / Compose
+.metadata/
+.artifact/
+*.artifacts/

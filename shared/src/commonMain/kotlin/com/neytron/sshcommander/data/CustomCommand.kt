@@ -7,5 +7,7 @@ data class CustomCommand(
     val iconName: String,
     val colorHex: String,
     val orderIndex: Int,
-    val isDangerous: Boolean = false
+    val isDangerous: Boolean = false,
+    val categoryName: String? = null,
+    val variables: List<String>? = null
 )

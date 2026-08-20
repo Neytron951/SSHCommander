@@ -209,6 +209,18 @@ object AppStrings {
     val biometricNotAvailable get() = s.biometricNotAvailable
     val retry get() = s.retry
 
+    // Onboarding
+    val yes get() = s.yes
+    val no get() = s.no
+    val next get() = s.next
+    val skip get() = s.skip
+    val finish get() = s.finish
+    val welcomeTitle get() = s.welcomeTitle
+    val welcomeQuestion get() = s.welcomeQuestion
+    val importJsonQuestion get() = s.importJsonQuestion
+    val importJsonButton get() = s.importJsonButton
+    val tourStep get() = s.tourStep
+
     // Logins
     val manageLogins get() = s.manageLogins
     val addLogin get() = s.addLogin
@@ -286,6 +298,10 @@ object AppStrings {
         val biometricLock: String, val biometricLockDesc: String, val appLocked: String,
         val appLockedSubtitle: String, val unlock: String, val biometricNotAvailable: String,
         val retry: String,
+        val yes: String, val no: String, val next: String, val skip: String, val finish: String,
+        val welcomeTitle: String, val welcomeQuestion: String,
+        val importJsonQuestion: String, val importJsonButton: String,
+        val tourStep: String,
         val manageLogins: String, val addLogin: String, val loginLabel: String,
         val sftpStartPath: String, val sftpStartPathHint: String, val sftpStartPathHint2: String,
         val noLogins: String, val setDefaultLogin: String, val deleteLoginTitle: String,
@@ -364,6 +380,12 @@ object AppStrings {
         appLockedSubtitle = "Unlock with your fingerprint to continue",
         unlock = "Unlock", biometricNotAvailable = "Biometrics are not available on this device",
         retry = "Try again",
+        yes = "Yes", no = "No", next = "Next", skip = "Skip", finish = "Finish",
+        welcomeTitle = "Welcome to SSH Commander!",
+        welcomeQuestion = "Would you like to learn how to use SSH Commander?",
+        importJsonQuestion = "Do you have a data backup (JSON file)? Import it now?",
+        importJsonButton = "Import",
+        tourStep = "Step %1\$d of %2\$d",
         manageLogins = "Logins", addLogin = "Add Login",
         loginLabel = "Label (e.g. root, deploy)", sftpStartPath = "SFTP Start Folder",
         sftpStartPathHint = "SFTP start: %1\$s",
@@ -451,6 +473,12 @@ object AppStrings {
         unlock = "Разблокировать",
         biometricNotAvailable = "Биометрия недоступна на этом устройстве",
         retry = "Попробовать снова",
+        yes = "Да", no = "Нет", next = "Далее", skip = "Пропустить", finish = "Готово",
+        welcomeTitle = "Добро пожаловать в SSH Commander!",
+        welcomeQuestion = "Хотите узнать, как пользоваться SSH Commander?",
+        importJsonQuestion = "У вас есть резервная копия данных (файл JSON)? Импортировать её сейчас?",
+        importJsonButton = "Импортировать",
+        tourStep = "Шаг %1\$d из %2\$d",
         manageLogins = "Логины", addLogin = "Добавить логин",
         loginLabel = "Метка (напр. root, deploy)", sftpStartPath = "Стартовая папка SFTP",
         sftpStartPathHint = "Старт SFTP: %1\$s",

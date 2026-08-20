@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import com.jcraft.jsch.ChannelShell
 import com.jcraft.jsch.Session
 import com.neytron.sshcommander.data.*
+import com.neytron.sshcommander.terminal.TerminalController
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import java.io.InputStream
@@ -18,15 +19,26 @@ import java.io.OutputStream
 class SshViewModel(
     private val repository: ServerRepository,
     private val settings: AppSettings
-) : ViewModel() {
+) : ViewModel(), TerminalController {
     private val connectionManager = SshConnectionManager(hostKeyStore = RepositoryHostKeyStore(repository))
 
     var currentServer by mutableStateOf<Server?>(null)
     var sessionId by mutableIntStateOf(-1)
-    var terminalScreen = TerminalScreen()
-    var terminalRevision by mutableIntStateOf(0)
-    var isLoading by mutableStateOf(false)
-    var sshError by mutableStateOf<SshError?>(null)
+    
+    private var _terminalScreen = TerminalScreen()
+    override val terminalScreen: TerminalScreen get() = _terminalScreen
+    
+    private val _terminalRevision = MutableStateFlow(0)
+    override val terminalRevision: StateFlow<Int> = _terminalRevision.asStateFlow()
+    
+    private val _isLoading = MutableStateFlow(false)
+    override val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+    
+    private val _sshError = MutableStateFlow<String?>(null)
+    override val error: StateFlow<String?> = _sshError.asStateFlow()
+    
+    private val _isConnected = MutableStateFlow(false)
+    override val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
 
     var selectedLogin by mutableStateOf<ServerLogin?>(null)
     val logins = mutableStateListOf<ServerLogin>()
@@ -62,22 +74,20 @@ class SshViewModel(
 
     fun setServer(server: Server, sessionId: Int) {
         if (currentServer?.id != server.id || this.sessionId != sessionId) {
-            // Save the buffer of the session we're leaving, then restore (or
-            // create) the buffer for the target session. Sessions persist across
-            // navigation until they are explicitly closed.
-            currentServer?.let { if (this.sessionId > 0) TerminalScreenStore.save(this.sessionId, terminalScreen) }
+            // Save the buffer of the session we're leaving
+            currentServer?.let { if (this.sessionId > 0) TerminalScreenStore.save(this.sessionId, _terminalScreen) }
             stopExecution()
             currentServer = server
             this.sessionId = sessionId
-            terminalScreen = TerminalScreenStore.get(sessionId) ?: TerminalScreen()
-            terminalRevision++
+            _terminalScreen = TerminalScreenStore.get(sessionId) ?: TerminalScreen()
+            _terminalRevision.value++
             selectedLogin = null
             loadHistory(server.id)
             loadCustomCommands()
             // Load logins first, pick the default one, then connect once.
             loadLogins(server.id) { defaultLogin ->
                 selectedLogin = defaultLogin
-                connectToShell(server)
+                connect()
             }
         } else {
             loadCustomCommands()
@@ -88,8 +98,8 @@ class SshViewModel(
         if (selectedLogin?.id == login?.id) return
         val server = currentServer ?: return
         selectedLogin = login
-        terminalScreen.clear()
-        terminalRevision++
+        _terminalScreen.clear()
+        _terminalRevision.value++
         stopExecution()
         viewModelScope.launch {
             SshConnectionManager.closeSession(server.id)
@@ -171,7 +181,6 @@ class SshViewModel(
 
     /**
      * Ensures we are connected before performing any operation.
-     * This fixes the "session stops working" issue after minimizing the app.
      */
     private suspend fun ensureConnected(): Boolean {
         val server = currentServer ?: return false
@@ -185,11 +194,16 @@ class SshViewModel(
         }
     }
 
+    override fun connect() {
+        val server = currentServer ?: return
+        connectToShell(server)
+    }
+
     private fun connectToShell(server: Server) {
         shellJob?.cancel()
-        sshError = null
+        _sshError.value = null
         shellJob = viewModelScope.launch(Dispatchers.IO) {
-            isLoading = true
+            _isLoading.value = true
             var reconnectAttempt = 0
             var lastError: Exception? = null
             try {
@@ -197,8 +211,6 @@ class SshViewModel(
                     try {
                         reconnectAttempt = 0
                         lastError = null
-                        // Returns true if the channel closed unexpectedly (connection lost),
-                        // false when the job was cancelled by the user/navigation.
                         if (!openChannelAndRead(server)) break
                     } catch (e: Exception) {
                         lastError = e
@@ -214,33 +226,25 @@ class SshViewModel(
                         break
                     }
                     val delayMs = reconnectDelay(reconnectAttempt)
-                    isLoading = true // show the spinner while waiting to reconnect
+                    _isLoading.value = true
                     withContext(Dispatchers.Main) {
-                        terminalScreen.feed(String.format(AppStrings.reconnectingMsg, delayMs / 1000) + "\n")
-                        terminalRevision++
+                        _terminalScreen.feed(String.format(AppStrings.reconnectingMsg, delayMs / 1000) + "\n")
+                        _terminalRevision.value++
                     }
                     delay(delayMs)
                 }
             } finally {
-                isLoading = false
+                _isLoading.value = false
             }
         }
     }
 
     private fun reconnectDelay(attempt: Int): Long {
-        // Exponential backoff: 2s, 4s, 8s, 16s, 30s (capped)
         return (2000L * (1L shl (attempt - 1))).coerceAtMost(30_000L)
     }
 
-    /**
-     * Opens the shell channel and pumps its output until the channel closes.
-     * Returns true if the connection dropped unexpectedly (should reconnect),
-     * false when the coroutine was cancelled (user left the screen).
-     */
     private suspend fun openChannelAndRead(server: Server): Boolean {
-        // Build auth profile: selected login (if any) or the server's main credentials
         val profile = repository.buildConnectionProfile(server, selectedLogin)
-        // SHARED SESSION: Use the shared pool to avoid conflicts with SFTP
         val session = connectionManager.getOrCreateSession(server, profile)
         currentSession = session
 
@@ -251,8 +255,6 @@ class SshViewModel(
         val channel = session.openChannel("shell") as ChannelShell
         channel.setPty(true)
         channel.setPtyType("xterm")
-        // Advertise the same size as the emulator buffer so full-screen apps
-        // (nano/vim) lay out against the grid we actually render.
         channel.setPtySize(TerminalDimensions.COLS, 30, 0, 0)
 
         val inputStream: InputStream = channel.inputStream
@@ -260,9 +262,8 @@ class SshViewModel(
 
         channel.connect()
         currentChannel = channel
-        // Connected — stop the loading indicator. It's turned back on when a
-        // reconnect attempt begins and stays on during the backoff delay.
-        isLoading = false
+        _isConnected.value = true
+        _isLoading.value = false
 
         val buffer = ByteArray(4096)
         while (currentCoroutineContext().isActive && channel.isConnected) {
@@ -271,23 +272,17 @@ class SshViewModel(
                 val data = decodeUtf8(buffer.copyOfRange(0, len))
                 if (data.isNotEmpty()) {
                     withContext(Dispatchers.Main) {
-                        terminalScreen.feed(data)
-                        terminalRevision++
+                        _terminalScreen.feed(data)
+                        _terminalRevision.value++
                     }
                 }
             } else if (len == -1) break
         }
-        // If the coroutine is still active, the channel must have closed on its own.
         return currentCoroutineContext().isActive
     }
 
-    // Holds the tail of a multi-byte UTF-8 sequence that was split across reads.
     private var utf8Leftover = ByteArray(0)
 
-    /**
-     * Decodes UTF-8 bytes, keeping an incomplete trailing multi-byte sequence
-     * in [utf8Leftover] until the rest of it arrives in a later read.
-     */
     private fun decodeUtf8(chunk: ByteArray): String {
         val combined = utf8Leftover + chunk
         for (drop in 0..3) {
@@ -301,10 +296,8 @@ class SshViewModel(
                 utf8Leftover = combined.copyOfRange(len, combined.size)
                 return text.toString()
             } catch (e: java.nio.charset.CharacterCodingException) {
-                // Incomplete/oversized tail — drop one more byte and retry.
             }
         }
-        // Pathological: give up on the leftover and flush with replacement.
         val fallback = Charsets.UTF_8.newDecoder()
             .onMalformedInput(java.nio.charset.CodingErrorAction.REPLACE)
             .decode(java.nio.ByteBuffer.wrap(combined))
@@ -313,25 +306,25 @@ class SshViewModel(
     }
 
     private fun handleSshError(e: Exception) {
-        val error = when {
+        val errorObj = when {
             e.message?.contains("timeout") == true -> SshError.ConnectionTimeout
             e.message?.contains("Auth fail") == true -> SshError.AuthenticationFailed
             e.message?.contains("identification") == true -> SshError.HostKeyMismatch
             else -> SshError.Unknown(e.localizedMessage)
         }
-        sshError = error
-        val errorMessage = when (error) {
+        val errorMessage = when (errorObj) {
             is SshError.ConnectionTimeout -> AppStrings.errTimeout
             is SshError.AuthenticationFailed -> AppStrings.errAuthFailed
             is SshError.HostUnreachable -> AppStrings.errHostUnreachable
             is SshError.HostKeyMismatch -> AppStrings.errHostKeyMismatch
-            is SshError.Unknown -> error.message ?: AppStrings.errUnknown
+            is SshError.Unknown -> errorObj.message ?: AppStrings.errUnknown
         }
-        terminalScreen.feed(String.format(AppStrings.sshErrorTemplate, errorMessage))
-        terminalRevision++
+        _sshError.value = errorMessage
+        _terminalScreen.feed(String.format(AppStrings.sshErrorTemplate, errorMessage))
+        _terminalRevision.value++
     }
 
-    fun sendInput(input: String) {
+    override fun sendInput(input: String) {
         viewModelScope.launch(Dispatchers.IO) {
             if (!ensureConnected()) return@launch
             try {
@@ -341,14 +334,10 @@ class SshViewModel(
         }
     }
 
-    fun executeCommand(command: String) {
+    override fun executeCommand(command: String) {
         viewModelScope.launch(Dispatchers.IO) {
             if (!ensureConnected()) return@launch
-            // In full-screen apps (nano/vim/htop) the input field inserts text
-            // raw — a trailing LF is Ctrl+J, which nano maps to "justify" and
-            // violently reformats the screen. In the plain shell we do need the
-            // Enter to run the command.
-            sendInput(if (terminalScreen.isFullScreen) command else "$command\n")
+            sendInput(if (_terminalScreen.isFullScreen) command else "$command\n")
             currentServer?.let {
                 repository.insertHistory(CommandHistoryEntity(
                     serverId = it.id,
@@ -359,62 +348,48 @@ class SshViewModel(
         }
     }
 
-    fun sendCtrlC() {
-        sendInput("\u0003")
-    }
+    override fun sendCtrlC() { sendInput("\u0003") }
+    override fun sendEscape() { sendInput("\u001b") }
+    override fun sendBackspace() { sendInput("\u007f") }
+    override fun sendEnter() { sendInput("\r") }
+    override fun sendArrowUp() { sendInput("\u001b[A") }
+    override fun sendArrowDown() { sendInput("\u001b[B") }
+    override fun sendArrowRight() { sendInput("\u001b[C") }
+    override fun sendArrowLeft() { sendInput("\u001b[D") }
 
-    fun sendEscape() {
-        sendInput("\u001b")
-    }
-
-    fun sendBackspace() {
-        sendInput("\u007f")
-    }
-
-    fun sendEnter() {
-        // Real terminal Enter = CR. LF (Ctrl+J) triggers "justify" in nano.
-        sendInput("\r")
-    }
-
-    fun sendArrowUp() { sendInput("\u001b[A") }
-    fun sendArrowDown() { sendInput("\u001b[B") }
-    fun sendArrowRight() { sendInput("\u001b[C") }
-    fun sendArrowLeft() { sendInput("\u001b[D") }
-
-    /** Sends Ctrl+[letter] — e.g. Ctrl+X exits nano. */
-    fun sendCtrlKey(letter: Char) {
+    override fun sendCtrlKey(letter: Char) {
         val ctrl = letter.lowercaseChar() - 'a' + 1
         if (ctrl in 1..26) sendInput(ctrl.toChar().toString())
     }
 
-    fun clearTerminal() {
-        terminalScreen.clear()
-        terminalRevision++
+    override fun clearTerminal() {
+        _terminalScreen.clear()
+        _terminalRevision.value++
+    }
+
+    override fun disconnect() {
+        stopExecution()
+    }
+
+    override fun close() {
+        stopExecution()
     }
 
     fun stopExecution() {
         shellJob?.cancel()
-        // PERSISTENCE FIX: Only close the channel, not the shared session.
-        // This ensures SFTP doesn't get disconnected when you leave the terminal.
         currentChannel?.disconnect()
         currentChannel = null
         channelOutputStream = null
-        isLoading = false
+        _isLoading.value = false
+        _isConnected.value = false
     }
 
     override fun onCleared() {
         super.onCleared()
-        // Keep the terminal buffer alive after this screen is popped so the
-        // session can be restored when the user comes back to this server.
-        if (sessionId > 0) TerminalScreenStore.save(sessionId, terminalScreen)
+        if (sessionId > 0) TerminalScreenStore.save(sessionId, _terminalScreen)
         stopExecution()
     }
 
-    /**
-     * Closes an open session: drops its buffer and, if it was the last session
-     * for that server, disconnects the shared SSH connection so nothing leaks
-     * after the app finishes with it.
-     */
     fun closeSession(sessionId: Int) {
         val serverId = TerminalScreenStore.serverOf(sessionId)
         TerminalScreenStore.remove(sessionId)
@@ -422,12 +397,11 @@ class SshViewModel(
             stopExecution()
             currentServer = null
             this.sessionId = -1
-            terminalScreen = TerminalScreen()
+            _terminalScreen = TerminalScreen()
         }
-        val server = serverId
-        if (server != null && !TerminalScreenStore.hasSessionForServer(server)) {
+        if (serverId != null && !TerminalScreenStore.hasSessionForServer(serverId)) {
             viewModelScope.launch {
-                SshConnectionManager.closeSession(server)
+                SshConnectionManager.closeSession(serverId)
             }
         }
     }

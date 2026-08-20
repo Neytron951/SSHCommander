@@ -1,4 +1,4 @@
-<img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" width="128" height="128" align="left" style="margin-right: 15px;"/>
+<img src="androidApp/src/main/res/mipmap-xxxhdpi/ic_launcher.png" width="128" height="128" align="left" style="margin-right: 15px;"/>
 
 **SSH COMMANDER**
 
@@ -6,7 +6,7 @@
 
 **SSH Commander** — мощный клиент для удалённого управления серверами по SSH и SFTP с терминалом, виджетами и биометрической защитой.
 
-> **Текущая версия:** 1.4 — предпросмотр и выбор файлов в SFTP, разделённый вид «Терминал + SFTP», поддержка Windows и Linux.
+> **Текущая версия:** 1.5 — первоначальная настройка и гайд по приложению, поддержка Windows и Linux.
 
 ![Скриншот приложения](ScreenShots/screenshot.png)
 
@@ -87,8 +87,11 @@ SSH Commander — мощный и удобный кроссплатформен�
 git clone https://github.com/Neytron951/SSHCommander.git
 cd SSHCommander
 
-# Android-приложение
+# Android-приложение (современная версия на Compose Multiplatform)
 ./gradlew :androidApp:assembleDebug
+
+# Android-приложение (старая нативная версия)
+./gradlew :appLegacy:assembleDebug
 
 # Windows-десктоп (установщик MSI или EXE)
 ./gradlew :desktopAppWindows:packageMsi

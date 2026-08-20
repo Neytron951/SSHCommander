@@ -8,7 +8,7 @@ plugins {
 }
 
 android {
-    namespace = "com.neytron.sshcommander"
+    namespace = "com.neytron.sshcommander.legacy"
     compileSdk = 35
 
     // Load release signing config from keystore.properties (not committed to VCS)
@@ -30,11 +30,11 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.neytron.sshcommander"
+        applicationId = "com.neytron.sshcommander.legacy"
         minSdk = 24
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.2"
+        versionCode = 4
+        versionName = "1.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -62,6 +62,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":shared"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.lifecycle.runtime.ktx)

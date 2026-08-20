@@ -21,6 +21,9 @@ interface SftpController {
     /** Lists the contents of [path] and updates [currentPath] on success. */
     fun listDirectory(path: String = currentPath.value)
 
+    /** Lists the contents of [path] and returns them. */
+    suspend fun listFiles(path: String): List<RemoteFile>
+
     fun goUp()
     fun goTo(path: String)
 
@@ -44,6 +47,12 @@ interface SftpController {
 
     /** Current directory listing (null while not connected). */
     val files: StateFlow<List<RemoteFile>>
+
+    /** Reads the whole remote file as a string. */
+    suspend fun readRemoteText(remotePath: String): String?
+
+    /** Saves a string as a remote file. */
+    suspend fun writeRemoteText(remotePath: String, text: String): Boolean
 
     fun close()
 }

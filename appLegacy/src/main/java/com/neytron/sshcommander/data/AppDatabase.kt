@@ -1,13 +1,12 @@
 package com.neytron.sshcommander.data
 
 import android.content.Context
-import androidx.room.Database
-import androidx.room.Room
-import androidx.room.RoomDatabase
+import androidx.room.*
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [Server::class, CustomCommand::class, CommandHistoryEntity::class, ServerLogin::class], version = 8, exportSchema = false)
+@Database(entities = [Server::class, CustomCommand::class, CommandHistoryEntity::class, ServerLogin::class, Workspace::class], version = 9, exportSchema = false)
+@TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun serverDao(): ServerDao
 
@@ -55,6 +54,20 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE custom_commands ADD COLUMN categoryName TEXT")
+                db.execSQL("ALTER TABLE custom_commands ADD COLUMN variables TEXT")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS workspaces (" +
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "name TEXT NOT NULL, " +
+                        "colorHex TEXT, " +
+                        "items TEXT NOT NULL)"
+                )
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -62,7 +75,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "ssh_commander_db"
                 )
-                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
                 .build()
                 INSTANCE = instance
                 instance
