@@ -1,11 +1,11 @@
 @echo off
 setlocal enabledelayedexpansion
 chcp 65001 >nul
-title SSHCommander - build Windows (MSI + EXE)
+title SSH Commander - build Windows (MSI + EXE)
 cd /d "%~dp0"
 
 echo ============================================================
-echo   SSHCommander - Windows Installer Builder (MSI + EXE)
+echo   SSH Commander - Windows Installer Builder (MSI + EXE)
 echo.
 echo   MSI installs to Program Files (all users)
 echo   and creates Start Menu shortcut.
@@ -17,12 +17,11 @@ REM ------------------------------------------------------------
 REM  1. Output package name
 REM ------------------------------------------------------------
 set "PACKAGE_NAME="
-set /p "PACKAGE_NAME=Output name [Enter = SSHCommander]: "
-if "!PACKAGE_NAME!"=="" set "PACKAGE_NAME=SSHCommander"
+set /p "PACKAGE_NAME=Output name [Enter = SSH Commander]: "
+if "!PACKAGE_NAME!"=="" set "PACKAGE_NAME=SSH Commander"
 if /I "!PACKAGE_NAME:~-4!"==".exe" set "PACKAGE_NAME=!PACKAGE_NAME:~0,-4!"
 if /I "!PACKAGE_NAME:~-4!"==".msi" set "PACKAGE_NAME=!PACKAGE_NAME:~0,-4!"
-set "PACKAGE_NAME=!PACKAGE_NAME: =!"
-if "!PACKAGE_NAME!"=="" set "PACKAGE_NAME=SSHCommander"
+if "!PACKAGE_NAME!"=="" set "PACKAGE_NAME=SSH Commander"
 
 REM ------------------------------------------------------------
 REM  2. Package version (without validation)
@@ -39,7 +38,7 @@ REM ------------------------------------------------------------
 REM  3. Run jpackage build
 REM ------------------------------------------------------------
 echo [1/2] Running jpackage: MSI + EXE...
-call "%~dp0gradlew.bat" :desktopAppWindows:packageMsi :desktopAppWindows:packageExe -PappName=%PACKAGE_NAME% -PappVersion=%PACKAGE_VERSION% --console=plain
+call "%~dp0gradlew.bat" :desktopAppWindows:packageMsi :desktopAppWindows:packageExe "-PappName=%PACKAGE_NAME%" -PappVersion=%PACKAGE_VERSION% --console=plain
 if errorlevel 1 (
     echo.
     echo [ERROR] Build failed. Check output above.

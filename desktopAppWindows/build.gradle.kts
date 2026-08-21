@@ -14,7 +14,7 @@ val jpackageJdk: String = javaToolchains.launcherFor {
 }.get().metadata.installationPath.asFile.absolutePath
 
 // Overridable via -PappName=MyApp / -PappVersion=1.5.0 (used by build-windows.bat).
-val appName: String = (project.findProperty("appName") as? String)?.takeIf { it.isNotBlank() } ?: "SSHCommander"
+val appName: String = (project.findProperty("appName") as? String)?.takeIf { it.isNotBlank() } ?: "SSH Commander"
 val appVersion: String = (project.findProperty("appVersion") as? String)?.takeIf { it.isNotBlank() } ?: "1.5.0"
 
 dependencies {
@@ -34,11 +34,13 @@ compose.desktop {
             vendor = "Neytron"
             windows {
                 iconFile.set(project.file("src/main/resources/icon.ico"))
-                // Per-machine install to Program Files + Start Menu shortcut so
-                // Windows Search / Start can find the app after installation.
+                // Per-machine install to Program Files + Start Menu shortcut.
                 perUserInstall = false
                 menu = true
                 menuGroup = appName
+                // Stable UpgradeCode ensures that updating the app replaces the old entry
+                // instead of creating a "bundled" duplicate in Add/Remove Programs.
+                upgradeUuid = "8a9728d1-02e7-4faa-883f-29c2d985f6f8"
             }
         }
     }
