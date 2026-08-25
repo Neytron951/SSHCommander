@@ -17,7 +17,7 @@
         <!-- Yandex Mobile Ads App ID -->
         <meta-data
             android:name="com.yandex.mobile.ads.app_id"
-            android:value="19743557" />
+            android:value="19808660" />
 
         <!-- Disable automatic sdk initialization as per manual -->
         <meta-data

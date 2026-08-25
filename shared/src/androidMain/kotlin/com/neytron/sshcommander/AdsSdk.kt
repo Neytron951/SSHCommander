@@ -17,9 +17,14 @@ object AdsSdk {
     val isInitialized: StateFlow<Boolean> = _isInitialized.asStateFlow()
 
     fun initialize(context: Context) {
-        if (_isInitialized.value) return
+        if (_isInitialized.value) {
+            android.util.Log.d("AdsSdk", "Already initialized")
+            return
+        }
 
+        android.util.Log.d("AdsSdk", "Initializing Yandex Ads SDK...")
         YandexAds.initialize(context) {
+            android.util.Log.d("AdsSdk", "Yandex Ads SDK initialization complete")
             _isInitialized.value = true
         }
     }

@@ -26,6 +26,7 @@ interface AppSettings {
     val privacyMode: Flow<Boolean>
     val autoReconnect: Flow<Boolean>
     val biometricLock: Flow<Boolean>
+    val adsEnabled: Flow<Boolean>
 
     /** Whether the first-run onboarding/guide has been completed. */
     val onboardingCompleted: Flow<Boolean> get() = flowOf(false)
@@ -59,6 +60,7 @@ interface AppSettings {
     suspend fun setPrivacyMode(enabled: Boolean)
     suspend fun setAutoReconnect(enabled: Boolean)
     suspend fun setBiometricLock(enabled: Boolean)
+    suspend fun setAdsEnabled(enabled: Boolean)
 
     /** Mark the first-run onboarding as done (no-op by default). */
     suspend fun setOnboardingCompleted(completed: Boolean) {}

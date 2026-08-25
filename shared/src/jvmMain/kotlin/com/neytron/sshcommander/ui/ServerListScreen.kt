@@ -80,6 +80,7 @@ fun ServerListScreen(
     val folders by deps.repository.allFolders.collectAsState(initial = emptyList())
     val workspaces by deps.repository.allWorkspaces.collectAsState(initial = emptyList())
     val statuses by viewModel.serverStatuses.collectAsState()
+    val adsEnabled by deps.settings.adsEnabled.collectAsState(initial = true)
 
     var selectedTab by remember { mutableIntStateOf(0) } // 0: Servers, 1: Workspaces
     var selectedServer by remember { mutableStateOf<Server?>(null) }
@@ -153,7 +154,7 @@ fun ServerListScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    val adBlockId = "R-M-19743557-1"
+                    val adBlockId = "R-M-19808660-1"
                     var adAfterIndex = if (servers.size >= 2) 2 else if (servers.size == 1) 1 else -1
                     var rendered = 0
 
@@ -170,7 +171,7 @@ fun ServerListScreen(
                                 }
                             )
                         }
-                        if (adAfterIndex > 0 && rendered == adAfterIndex) {
+                        if (adsEnabled && adAfterIndex > 0 && rendered == adAfterIndex) {
                             item { PlatformAdBanner(blockId = adBlockId) }
                         }
                     }

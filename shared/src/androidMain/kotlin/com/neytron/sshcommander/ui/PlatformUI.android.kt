@@ -18,8 +18,7 @@ actual fun PlatformBackHandler(enabled: Boolean, onBack: () -> Unit) {
 
 @Composable
 actual fun PlatformAdBanner(blockId: String) {
-    // Ad banner is rendered by androidApp (NativeAdBanner) via a slot;
-    // this actual is only used when the shared UI is run without ads.
+    NativeAdBanner(blockId = blockId)
 }
 
 @Composable

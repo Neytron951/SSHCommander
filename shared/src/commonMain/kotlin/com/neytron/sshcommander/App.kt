@@ -112,6 +112,10 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.material.icons.filled.Policy
+import androidx.compose.material.icons.filled.Terminal
+import androidx.compose.material3.ListItem
+import com.neytron.sshcommander.ui.AboutContent
 import com.neytron.sshcommander.data.AppSettings
 import com.neytron.sshcommander.data.ConnectionProfile
 import com.neytron.sshcommander.data.CustomCommand
@@ -775,6 +779,7 @@ fun SSHCommanderLayout(
     if (showAboutDialog) {
         AboutDialog(
             appVersion = appVersion,
+            settings = settings,
             onDismiss = { showAboutDialog = false }
         )
     }
@@ -2780,25 +2785,84 @@ private fun ColorChipRow(colors: List<String>, selectedColor: String, onSelect: 
     }
 }
 
-/** Simple About dialog with the app version. */
+/** Advanced About dialog with sections and ad settings. */
 @Composable
 private fun AboutDialog(
     appVersion: String,
+    settings: AppSettings?,
     onDismiss: () -> Unit
 ) {
+    val scope = rememberCoroutineScope()
+    val adsEnabled by (settings?.adsEnabled?.collectAsState(initial = true) ?: remember { mutableStateOf(true) })
+    val language by (settings?.language?.collectAsState(initial = AppStrings.language) ?: remember { mutableStateOf("en") })
+    val content = remember(language) { AboutContent.forLanguage(language) }
+
+    var showAboutText by remember { mutableStateOf(false) }
+    var showLicense by remember { mutableStateOf(false) }
+    var showAdConfirm1 by remember { mutableStateOf(false) }
+    var showAdConfirm2 by remember { mutableStateOf(false) }
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(AppStrings.appName, fontWeight = FontWeight.Bold) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        title = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                Icon(
+                    imageVector = Icons.Default.Terminal,
+                    contentDescription = null,
+                    modifier = Modifier.size(64.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(AppStrings.appName, fontWeight = FontWeight.Bold)
                 Text(
-                    String.format(AppStrings.aboutVersion, appVersion.ifBlank { "1.1" }),
-                    style = MaterialTheme.typography.bodyMedium,
+                    String.format(AppStrings.aboutVersion, appVersion.ifBlank { "1.6" }),
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 HorizontalDivider()
-                AppStrings.aboutTextLines.forEach { line ->
-                    Text(line, style = MaterialTheme.typography.bodyMedium)
+                
+                // Sections
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                ) {
+                    Column {
+                        ListItem(
+                            headlineContent = { Text(AppStrings.aboutApp) },
+                            leadingContent = { Icon(Icons.Default.Info, null) },
+                            modifier = Modifier.clickable { showAboutText = true }
+                        )
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                        ListItem(
+                            headlineContent = { Text(AppStrings.license) },
+                            leadingContent = { Icon(Icons.Default.Policy, null) },
+                            modifier = Modifier.clickable { showLicense = true }
+                        )
+                    }
+                }
+
+                // Ad Toggle
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                ) {
+                    ListItem(
+                        headlineContent = { Text(AppStrings.disableAds) },
+                        supportingContent = { Text(AppStrings.disableAdsDesc) },
+                        trailingContent = {
+                            Switch(
+                                checked = !adsEnabled,
+                                onCheckedChange = { checked ->
+                                    if (checked) showAdConfirm1 = true
+                                    else scope.launch { settings?.setAdsEnabled(true) }
+                                }
+                            )
+                        }
+                    )
                 }
             }
         },
@@ -2806,6 +2870,69 @@ private fun AboutDialog(
             TextButton(onClick = onDismiss) { Text(AppStrings.dismiss) }
         }
     )
+
+    // Sub-dialogs
+    if (showAboutText) {
+        AlertDialog(
+            onDismissRequest = { showAboutText = false },
+            title = { Text(AppStrings.aboutApp) },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    content.description.forEach { paragraph ->
+                        Text(paragraph, modifier = Modifier.padding(bottom = 8.dp))
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showAboutText = false }) { Text("OK") } }
+        )
+    }
+
+    if (showLicense) {
+        AlertDialog(
+            onDismissRequest = { showLicense = false },
+            title = { Text(AppStrings.license) },
+            text = {
+                Text(
+                    "SSH Commander is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.",
+                    modifier = Modifier.verticalScroll(rememberScrollState())
+                )
+            },
+            confirmButton = { TextButton(onClick = { showLicense = false }) { Text("OK") } }
+        )
+    }
+
+    if (showAdConfirm1) {
+        AlertDialog(
+            onDismissRequest = { showAdConfirm1 = false },
+            title = { Text(AppStrings.disableAdsConfirmTitle) },
+            text = { Text(AppStrings.disableAdsConfirmMsg) },
+            confirmButton = {
+                Button(onClick = {
+                    showAdConfirm1 = false
+                    showAdConfirm2 = true
+                }) { Text(AppStrings.yes) }
+            },
+            dismissButton = { TextButton(onClick = { showAdConfirm1 = false }) { Text(AppStrings.no) } }
+        )
+    }
+
+    if (showAdConfirm2) {
+        AlertDialog(
+            onDismissRequest = { showAdConfirm2 = false },
+            title = { Text(AppStrings.disableAdsConfirmFinalTitle) },
+            text = { Text(AppStrings.disableAdsConfirmFinalMsg) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch { settings?.setAdsEnabled(false) }
+                        showAdConfirm2 = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) { Text(AppStrings.disableAds) }
+            },
+            dismissButton = { TextButton(onClick = { showAdConfirm2 = false }) { Text(AppStrings.cancel) } }
+        )
+    }
 }
 
 /**

@@ -100,6 +100,13 @@ object AppStrings {
     // About / widget
     val aboutApp get() = s.aboutApp
     val aboutVersion get() = s.aboutVersion
+    val license get() = s.license
+    val disableAds get() = s.disableAds
+    val disableAdsDesc get() = s.disableAdsDesc
+    val disableAdsConfirmTitle get() = s.disableAdsConfirmTitle
+    val disableAdsConfirmMsg get() = s.disableAdsConfirmMsg
+    val disableAdsConfirmFinalTitle get() = s.disableAdsConfirmFinalTitle
+    val disableAdsConfirmFinalMsg get() = s.disableAdsConfirmFinalMsg
     val showInWidget get() = s.showInWidget
 
     /** Short description lines shown on the desktop About dialog. */
@@ -270,7 +277,11 @@ object AppStrings {
         val confirmExecution: String, val execute: String, val dangerous: String,
         val newCommand: String, val requiresBio: String, val confirmRebootMsg: String,
         val rebootConfirm: String,
-        val aboutApp: String, val aboutVersion: String, val showInWidget: String,
+        val aboutApp: String, val aboutVersion: String,
+        val license: String, val disableAds: String, val disableAdsDesc: String,
+        val disableAdsConfirmTitle: String, val disableAdsConfirmMsg: String,
+        val disableAdsConfirmFinalTitle: String, val disableAdsConfirmFinalMsg: String,
+        val showInWidget: String,
         val iconGaming: String, val iconWeb: String, val iconDatabase: String, val iconCloud: String,
         val iconNas: String, val iconVpn: String, val iconDev: String, val iconMedia: String,
         val iconDefault: String,
@@ -337,7 +348,14 @@ object AppStrings {
         requiresBio = "Requires biometric confirmation",
         confirmRebootMsg = "Are you sure? Biometric verification may be required.",
         rebootConfirm = "Reboot Confirmation",
-        aboutApp = "About", aboutVersion = "Version: %1\$s", showInWidget = "Show in Widget",
+        aboutApp = "About", aboutVersion = "Version: %1\$s",
+        license = "License", disableAds = "Disable Ads",
+        disableAdsDesc = "Turning off ads will slightly reduce app support.",
+        disableAdsConfirmTitle = "Disable Ads?",
+        disableAdsConfirmMsg = "Ads help keep the app free. Are you sure you want to disable them?",
+        disableAdsConfirmFinalTitle = "Last chance",
+        disableAdsConfirmFinalMsg = "Are you really sure you want to disable ads? Double-check before you proceed.",
+        showInWidget = "Show in Widget",
         iconGaming = "Gaming", iconWeb = "Web", iconDatabase = "Database", iconCloud = "Cloud",
         iconNas = "NAS", iconVpn = "VPN", iconDev = "Development", iconMedia = "Media",
         iconDefault = "Default",
@@ -429,6 +447,12 @@ object AppStrings {
         confirmRebootMsg = "Вы уверены? Может потребоваться биометрия.",
         rebootConfirm = "Подтверждение",
         aboutApp = "О приложении", aboutVersion = "Версия: %1\$s",
+        license = "Лицензия", disableAds = "Отключить рекламу",
+        disableAdsDesc = "Отключение рекламы снижает поддержку разработки приложения.",
+        disableAdsConfirmTitle = "Отключить рекламу?",
+        disableAdsConfirmMsg = "Реклама помогает приложению оставаться бесплатным. Вы уверены, что хотите её отключить?",
+        disableAdsConfirmFinalTitle = "Последнее предупреждение",
+        disableAdsConfirmFinalMsg = "Вы точно-точно уверены? Подумайте еще раз, прежде чем подтвердить.",
         showInWidget = "Показывать в виджете",
         iconGaming = "Игровой", iconWeb = "Веб-сервер", iconDatabase = "База данных",
         iconCloud = "Облако", iconNas = "NAS", iconVpn = "VPN",

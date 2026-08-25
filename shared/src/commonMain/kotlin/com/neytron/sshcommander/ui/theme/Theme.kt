@@ -52,7 +52,7 @@ private val LightColorScheme = lightColorScheme(
     onBackground = Color(0xFF001F2A),
     surface = Color(0xFFF8FDFF),
     onSurface = Color(0xFF001F2A),
-    surfaceVariant = Color(0xFFDEE3EB),
+    surfaceVariant = Color(0xFFD6E3FF), // Более холодный светло-синий оттенок
     onSurfaceVariant = Color(0xFF42474E),
     outline = Color(0xFF72777F)
 )

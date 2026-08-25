@@ -20,6 +20,8 @@ val appVersion: String = (project.findProperty("appVersion") as? String)?.takeIf
 dependencies {
     implementation(project(":shared"))
     implementation(compose.desktop.currentOs)
+    implementation(compose.material3)
+    implementation(compose.materialIconsExtended)
 }
 
 compose.desktop {

@@ -47,7 +47,7 @@ fun main() = application {
             },
             serverRepository = serverRepository,
             settings = settings,
-            appVersion = "1.5",
+            appVersion = "1.6",
             backupManager = ExportImportManager(serverRepository)
         )
     }
