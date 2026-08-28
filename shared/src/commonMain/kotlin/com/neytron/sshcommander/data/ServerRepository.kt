@@ -108,4 +108,30 @@ interface ServerRepository {
     suspend fun updateLastSftpPath(serverId: Int, path: String)
 
     suspend fun updateLoginLastSftpPath(loginId: Int, path: String)
+
+    // ---- SSH Keys ----
+
+    /** All stored SSH keys. */
+    val allSshKeys: Flow<List<SshKey>>
+
+    suspend fun getSshKeys(): List<SshKey>
+
+    suspend fun getSshKeyById(id: Int): SshKey?
+
+    suspend fun insertSshKey(key: SshKey): Int
+
+    suspend fun updateSshKey(key: SshKey)
+
+    suspend fun deleteSshKey(id: Int)
+
+    suspend fun getKeyPassphrase(id: Int): String?
+
+    /**
+     * Provisions a new user on the remote server using an active connection.
+     * @param serverId the target server ID
+     * @param username the new username to create
+     * @param publicKey the public key to authorize
+     * @param password optional password for the new user
+     */
+    suspend fun provisionUser(serverId: Int, username: String, publicKey: String, password: String?): Result<Unit>
 }

@@ -34,8 +34,12 @@ import androidx.core.graphics.toColorInt
 import androidx.core.os.LocaleListCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.neytron.sshcommander.R
+import com.neytron.sshcommander.legacy.R
 import com.neytron.sshcommander.security.BiometricUtils
+import com.neytron.sshcommander.data.DataBackupManager
+import com.neytron.sshcommander.sync.AndroidAuthManager
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.common.api.ApiException
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -65,6 +69,22 @@ fun SettingsScreen(
     }
     
     var isTransitioning by remember { mutableStateOf(false) }
+
+    val deps = LocalAppDeps.current
+    val authManager = deps.authManager
+    val googleSignInLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+            try {
+                val account = task.getResult(ApiException::class.java)
+                (authManager as? AndroidAuthManager)?.handleSignInResult(account)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
 
     val presetBgColors = listOf("#000000", "#1A1A1B", "#2D2D2D", "#FFFFFF", "#F5F5F5", "#002B36", "#073642")
     val presetTextColors = listOf("#00FF00", "#008000", "#FFFFFF", "#000000", "#FFD700", "#FFA500", "#FF0000", "#268BD2")
@@ -269,6 +289,19 @@ fun SettingsScreen(
                     }
                 }
             }
+
+            HorizontalDivider()
+
+            // Cloud Sync
+            CloudSyncSection(
+                backupManager = com.neytron.sshcommander.data.ExportImportManager(context),
+                onSignInClick = {
+                    val intent = (authManager as? com.neytron.sshcommander.sync.AndroidAuthManager)?.getSignInIntent()
+                    if (intent != null) {
+                        googleSignInLauncher.launch(intent)
+                    }
+                }
+            )
 
             HorizontalDivider()
 

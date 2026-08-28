@@ -1,66 +1,28 @@
 package com.neytron.sshcommander.ui
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.CreateNewFolder
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.FileUpload
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.FolderOpen
-import androidx.compose.material.icons.filled.InsertDriveFile
-import androidx.compose.material.icons.filled.Preview
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.State
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.isCtrlPressed
-import androidx.compose.ui.input.pointer.isPrimaryPressed
-import androidx.compose.ui.input.pointer.isSecondaryPressed
-import androidx.compose.ui.input.pointer.isShiftPressed
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -71,8 +33,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.neytron.sshcommander.data.RemoteFile
 import com.neytron.sshcommander.sftp.SftpController
-import androidx.compose.material.icons.filled.Edit
-import com.neytron.sshcommander.ui.RemoteTextEditor
 import kotlinx.coroutines.launch
 
 /**
@@ -83,33 +43,30 @@ import kotlinx.coroutines.launch
 @Composable
 fun SftpView(controller: SftpController?, modifier: Modifier = Modifier) {
     val isLoading by (controller?.isLoading?.collectAsState()
-        ?: remember { androidx.compose.runtime.mutableStateOf(false) })
+        ?: remember { mutableStateOf(false) })
     val error by (controller?.error?.collectAsState()
-        ?: remember { androidx.compose.runtime.mutableStateOf<String?>(null) })
+        ?: remember { mutableStateOf<String?>(null) })
     val currentPath by (controller?.currentPath?.collectAsState()
-        ?: remember { androidx.compose.runtime.mutableStateOf("/") })
+        ?: remember { mutableStateOf("/") })
     val files by (controller?.files?.collectAsState()
-        ?: remember { androidx.compose.runtime.mutableStateOf(emptyList<RemoteFile>()) })
+        ?: remember { mutableStateOf(emptyList<RemoteFile>()) })
 
     val scope = rememberCoroutineScope()
     var showNewFolder by remember { mutableStateOf(false) }
     var newFolderName by remember { mutableStateOf("") }
     var status by remember { mutableStateOf<String?>(null) }
-    // Editable path: keep a draft that syncs with currentPath when it changes
-    // externally (navigation buttons), so typing is not overwritten.
+    
     var pathDraft by remember { mutableStateOf("") }
     var pathEditing by remember { mutableStateOf(false) }
     LaunchedEffect(currentPath) {
         if (!pathEditing) pathDraft = currentPath
     }
 
-    // Selection model (path-based so it survives listing refreshes).
     var selectedPaths by remember { mutableStateOf(setOf<String>()) }
     var anchorPath by remember { mutableStateOf<String?>(null) }
     var previewFile by remember { mutableStateOf<RemoteFile?>(null) }
     var editingFile by remember { mutableStateOf<RemoteFile?>(null) }
 
-    // Navigating to another folder clears the selection.
     LaunchedEffect(currentPath) {
         selectedPaths = emptySet()
         anchorPath = null
@@ -123,6 +80,34 @@ fun SftpView(controller: SftpController?, modifier: Modifier = Modifier) {
         return
     }
 
+    // Navigation and Action Handlers
+    val uploadPicker = rememberUploadPicker { scope.launch { sftp.upload(it, currentPath) } }
+
+    var pendingDownload by remember { mutableStateOf<RemoteFile?>(null) }
+    val savePicker = rememberSavePicker { target ->
+        target?.let { dest ->
+            pendingDownload?.let { file ->
+                scope.launch {
+                    val ok = sftp.download(currentPath, file, dest)
+                    status = if (ok) "Downloaded ${file.name}" else "Download failed"
+                }
+            }
+        }
+    }
+
+    // MULTI-DOWNLOAD: For multiple selection
+    val dirPicker = rememberDirectoryPicker { dir ->
+        dir?.let { dest ->
+            scope.launch {
+                val targets = files.filter { it.path in selectedPaths && !it.isDirectory }
+                var ok = 0
+                targets.forEach { if (sftp.downloadToDir(currentPath, it, dest)) ok++ }
+                status = "Downloaded $ok/${targets.size}"
+                selectedPaths = emptySet()
+            }
+        }
+    }
+
     fun joinRemote(parent: String, name: String): String =
         if (parent == "/") "/$name"
         else if (parent.endsWith("/")) "$parent$name"
@@ -131,12 +116,10 @@ fun SftpView(controller: SftpController?, modifier: Modifier = Modifier) {
     fun handleSingleTap(file: RemoteFile, index: Int, ctrl: Boolean, shift: Boolean) {
         when {
             ctrl -> {
-                // Ctrl+click — toggle this file in/out of the selection.
                 selectedPaths = if (file.path in selectedPaths) selectedPaths - file.path else selectedPaths + file.path
                 anchorPath = file.path
             }
             shift -> {
-                // Shift+click — select the whole range from the anchor file.
                 val anchorIndex = files.indexOfFirst { it.path == anchorPath }
                 if (anchorIndex >= 0 && anchorIndex != index) {
                     val from = minOf(anchorIndex, index)
@@ -160,33 +143,14 @@ fun SftpView(controller: SftpController?, modifier: Modifier = Modifier) {
     }
 
     fun downloadFile(file: RemoteFile) {
-        downloadFolder { dir ->
-            if (dir != null) {
-                scope.launch {
-                    status = null
-                    val ok = sftp.download(currentPath, file, dir)
-                    status = if (ok) "Downloaded to $dir/${file.name}" else "Download failed"
-                }
-            }
-        }
+        pendingDownload = file
+        savePicker(file.name)
     }
 
     fun downloadSelected() {
         val targets = files.filter { it.path in selectedPaths && !it.isDirectory }
         if (targets.isEmpty()) return
-        downloadFolder { dir ->
-            if (dir != null) {
-                scope.launch {
-                    var ok = 0
-                    targets.forEach { if (sftp.download(currentPath, it, dir)) ok++ }
-                    status = if (ok == targets.size) "Downloaded $ok files" else "Downloaded $ok/${targets.size}"
-                    if (ok == targets.size) {
-                        selectedPaths = emptySet()
-                        anchorPath = null
-                    }
-                }
-            }
-        }
+        dirPicker()
     }
 
     fun deleteFile(file: RemoteFile) {
@@ -217,8 +181,27 @@ fun SftpView(controller: SftpController?, modifier: Modifier = Modifier) {
         status = "Path copied"
     }
 
-    Column(modifier.fillMaxSize()) {
-        // Toolbar
+    Column(
+        modifier = modifier.fillMaxSize()
+            .platformDragAndDrop { filePaths ->
+                scope.launch {
+                    try {
+                        status = "Uploading..."
+                        var uploaded = 0
+                        filePaths.forEach { path ->
+                            if (sftp.upload(path, currentPath)) uploaded++
+                        }
+                        status = if (uploaded > 0) "Uploaded $uploaded files" else "Upload failed"
+                        // Force refresh the list after DAD with a tiny safety delay
+                        kotlinx.coroutines.delay(500)
+                        sftp.listDirectory(currentPath)
+                    } catch (e: Exception) {
+                        status = "Error: ${e.message}"
+                    }
+                }
+            }
+    ) {
+        // Unified Toolbar
         Surface(
             shape = RoundedCornerShape(12.dp),
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
@@ -232,81 +215,70 @@ fun SftpView(controller: SftpController?, modifier: Modifier = Modifier) {
                     .fillMaxWidth()
                     .padding(horizontal = 4.dp, vertical = 4.dp)
             ) {
-            IconButton(onClick = { sftp.goUp() }, enabled = currentPath != "/") {
-                Icon(Icons.Filled.ArrowUpward, contentDescription = "Up")
-            }
-            IconButton(onClick = { sftp.listDirectory() }) {
-                Icon(Icons.Default.Refresh, contentDescription = "Refresh")
-            }
-            // Editable path — type a path and press Enter to navigate.
-            OutlinedTextField(
-                value = pathDraft,
-                onValueChange = { pathDraft = it },
-                singleLine = true,
-                textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                placeholder = { Text("/") },
-                modifier = Modifier.weight(1f).onFocusChanged { focused ->
-                    pathEditing = focused.isFocused
-                    if (!focused.isFocused && pathDraft != currentPath) {
-                        pathDraft = currentPath
-                    }
-                },
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-                keyboardActions = KeyboardActions(onGo = {
-                    val p = pathDraft.trim().ifEmpty { "/" }
-                    scope.launch {
-                        status = null
-                        sftp.goTo(p)
-                        pathDraft = p
-                    }
-                    pathEditing = false
-                })
-            )
-            IconButton(onClick = { showNewFolder = true }) {
-                Icon(Icons.Default.CreateNewFolder, contentDescription = "New folder")
-            }
-            IconButton(onClick = { uploadFile { path -> scope.launch { if (sftp.upload(path, currentPath)) status = "Uploaded" else status = "Upload failed" } } }) {
-                Icon(Icons.Default.FileUpload, contentDescription = "Upload")
-            }
-        }
-        }
+                IconButton(onClick = { sftp.goUp() }, enabled = currentPath != "/") {
+                    Icon(Icons.Default.ArrowUpward, contentDescription = "Up")
+                }
+                IconButton(onClick = { scope.launch { sftp.listDirectory() } }) {
+                    Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                }
 
-        // Selection toolbar (shown while files are selected)
-        if (selectedPaths.isNotEmpty()) {
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 4.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 12.dp, end = 4.dp, top = 2.dp, bottom = 2.dp)
-                ) {
+                // Breadcrumbs & Path Input
+                Box(modifier = Modifier.weight(1f).padding(horizontal = 8.dp)) {
+                    if (pathEditing) {
+                        OutlinedTextField(
+                            value = pathDraft,
+                            onValueChange = { pathDraft = it },
+                            singleLine = true,
+                            textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                            modifier = Modifier.fillMaxWidth().onFocusChanged { focused ->
+                                pathEditing = focused.isFocused
+                            },
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                            keyboardActions = KeyboardActions(onGo = {
+                                val p = pathDraft.trim().ifEmpty { "/" }
+                                scope.launch {
+                                    status = null
+                                    sftp.goTo(p)
+                                }
+                                pathEditing = false
+                            })
+                        )
+                    } else {
+                        Breadcrumbs(
+                            path = currentPath,
+                            onClick = { sftp.goTo(it) },
+                            onManualEdit = { pathEditing = true },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+
+                if (selectedPaths.isNotEmpty()) {
+                    // Selection Actions (Replacing Global Actions)
                     Text(
-                        text = String.format(AppStrings.selectedCount, selectedPaths.size),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.weight(1f)
+                        text = "${selectedPaths.size} selected",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 8.dp)
                     )
                     IconButton(onClick = { downloadSelected() }) {
                         Icon(Icons.Default.Download, contentDescription = AppStrings.download)
                     }
                     IconButton(onClick = { deleteSelected() }) {
-                        Icon(
-                            Icons.Default.Delete,
-                            contentDescription = AppStrings.delete,
-                            tint = MaterialTheme.colorScheme.error
-                        )
+                        Icon(Icons.Default.Delete, contentDescription = AppStrings.delete, tint = MaterialTheme.colorScheme.error)
                     }
-                    IconButton(onClick = {
-                        selectedPaths = emptySet()
-                        anchorPath = null
-                    }) {
+                    IconButton(onClick = { selectedPaths = emptySet(); anchorPath = null }) {
                         Icon(Icons.Default.Close, contentDescription = AppStrings.clearSelection)
+                    }
+                } else {
+                    // Global Actions
+                    IconButton(onClick = { showNewFolder = true }) {
+                        Icon(Icons.Default.CreateNewFolder, contentDescription = "New folder")
+                    }
+                    IconButton(onClick = { 
+                        uploadPicker()
+                    }) {
+                        Icon(Icons.Default.FileUpload, contentDescription = "Upload")
                     }
                 }
             }
@@ -379,7 +351,10 @@ fun SftpView(controller: SftpController?, modifier: Modifier = Modifier) {
                 RemoteTextEditor(
                     remotePath = editingFile!!.path,
                     controller = sftp,
-                    onClose = { editingFile = null; sftp.listDirectory() }
+                    onClose = { 
+                        editingFile = null
+                        scope.launch { sftp.listDirectory() }
+                    }
                 )
             }
         }
@@ -425,6 +400,60 @@ fun SftpView(controller: SftpController?, modifier: Modifier = Modifier) {
 }
 
 @Composable
+private fun Breadcrumbs(
+    path: String,
+    onClick: (String) -> Unit,
+    onManualEdit: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val segments = remember(path) {
+        val list = mutableListOf<Pair<String, String>>()
+        list.add("/" to "/")
+        var current = ""
+        path.split('/').filter { it.isNotEmpty() }.forEach {
+            current += "/$it"
+            list.add(it to current)
+        }
+        list
+    }
+
+    Row(
+        modifier = modifier
+            .horizontalScroll(rememberScrollState())
+            .clickable { onManualEdit() }
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        segments.forEachIndexed { index, (name, fullPath) ->
+            Text(
+                text = name,
+                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                color = if (index == segments.size - 1) MaterialTheme.colorScheme.primary 
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(4.dp))
+                    .clickable { onClick(fullPath) }
+                    .padding(horizontal = 4.dp, vertical = 2.dp)
+            )
+            if (index < segments.size - 1 && name != "/") {
+                Text("/", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun SftpPlaceholder() {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Text(
+            "SFTP — подключите сервер, чтобы просматривать файлы",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
 private fun SftpRow(
     file: RemoteFile,
     isSelected: Boolean,
@@ -439,7 +468,6 @@ private fun SftpRow(
 ) {
     var menuAnchor by remember { mutableStateOf<Offset?>(null) }
 
-    // Keep the latest callbacks without restarting the gesture coroutine.
     val singleTapState = rememberUpdatedState(onSingleTap)
     val doubleTapState = rememberUpdatedState(onDoubleTap)
     val longPressState = rememberUpdatedState<(Offset) -> Unit>({ menuAnchor = it })
@@ -473,7 +501,7 @@ private fun SftpRow(
                 Icon(
                     imageVector = if (file.isDirectory) Icons.Default.Folder else Icons.Default.InsertDriveFile,
                     contentDescription = null,
-                    tint = if (file.isDirectory) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = if (file.isDirectory) Color(0xFFFFC107) else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(Modifier.width(8.dp))
@@ -498,7 +526,6 @@ private fun SftpRow(
                 )
             }
 
-            // Context menu anchored at the click position (right-click / long-press).
             menuAnchor?.let { anchor ->
                 Box(
                     modifier = Modifier.offset {
@@ -522,7 +549,7 @@ private fun SftpRow(
                                 leadingIcon = { Icon(Icons.Default.Preview, contentDescription = null) }
                             )
                             DropdownMenuItem(
-                                text = { Text("Edit (Text)") },
+                                text = { Text(AppStrings.editText) },
                                 onClick = { menuAnchor = null; onEdit() },
                                 leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
                             )
@@ -552,14 +579,6 @@ private fun SftpRow(
 private const val SFTP_DOUBLE_TAP_MS = 350L
 private const val SFTP_LONG_PRESS_MS = 500L
 
-/**
- * Row-level pointer handling:
- *  - single click (primary): selection; Ctrl = toggle, Shift = range
- *  - double click: open (navigate folders / preview files)
- *  - long press / right click: context menu at the cursor
- * The callbacks are passed as [State] so the gesture coroutine always invokes
- * the latest lambdas without needing to restart.
- */
 private fun Modifier.sftpRowGestures(
     onSingleTap: State<(ctrl: Boolean, shift: Boolean) -> Unit>,
     onDoubleTap: State<() -> Unit>,
@@ -591,7 +610,6 @@ private fun Modifier.sftpRowGestures(
                         val duration = System.currentTimeMillis() - downTime
                         downTime = 0L
                         downWasPrimary = false
-                        // Ignore drags (e.g. touch scrolling over a row).
                         if ((change.position - downPos).getDistance() > 12.dp.toPx()) continue
                         if (duration >= SFTP_LONG_PRESS_MS) {
                             onLongPress.value(change.position)
@@ -621,30 +639,9 @@ private fun Modifier.sftpRowGestures(
     }
 }
 
-@Composable
-private fun SftpPlaceholder() {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(
-            "SFTP — подключите сервер, чтобы просматривать файлы",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
-
 // ---- platform hooks for file dialogs ----
 
-/**
- * Opens a native file picker and invokes [onFileSelected] with the chosen path.
- * Desktop implementation uses a Swing JFileChooser; Android will use SAF.
- */
 internal expect fun uploadFile(onFileSelected: (String) -> Unit)
-
-/**
- * Opens a native folder picker and invokes [onFolderSelected] with the chosen
- * directory path (the destination for SFTP downloads). No-op on cancel.
- * Desktop implementation uses a Swing JFileChooser; Android will use SAF.
- */
 internal expect fun downloadFolder(onFolderSelected: (String) -> Unit)
 
 internal fun formatSize(size: Long): String {

@@ -112,5 +112,8 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
-    implementation("com.jcraft:jsch:0.1.55")
+    implementation(libs.jsch)
+    
+    // Google Auth
+    implementation(libs.play.services.auth)
 }

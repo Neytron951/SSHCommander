@@ -36,7 +36,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isCtrlPressed
-import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
@@ -208,6 +207,19 @@ fun TerminalView(
                             }
                             true
                         }
+                        // Ctrl+V or Ctrl+Shift+V pastes from the local clipboard.
+                        event.isCtrlPressed && event.key == Key.V -> {
+                            clipboard.getText()?.text?.let { text ->
+                                // Remove trailing newline so it doesn't execute immediately
+                                val cleanText = when {
+                                    text.endsWith("\r\n") -> text.dropLast(2)
+                                    text.endsWith("\n") || text.endsWith("\r") -> text.dropLast(1)
+                                    else -> text
+                                }
+                                controller.sendInput(cleanText)
+                            }
+                            true
+                        }
                         // Ctrl+letter → control character (Ctrl+X exits nano,
                         // Ctrl+O saves, Ctrl+G cancels...).
                         event.isCtrlPressed && event.key.toLetter() != null -> {
@@ -228,22 +240,13 @@ fun TerminalView(
                         event.key == Key.PageUp -> { controller.sendInput("\u001b[5~"); true }
                         event.key == Key.PageDown -> { controller.sendInput("\u001b[6~"); true }
                         else -> {
-                            // Prefer the physical key (works even with a non-Latin
-                            // layout: physical "L" types 'l', exactly what a
-                            // terminal user expects when typing "ls -la").
-                            val physical = event.key.toPhysicalChar(event.isShiftPressed, capsLock.value)
-                            if (physical != null) {
-                                controller.sendInput(physical.toString())
+                            val cp = event.utf16CodePoint
+                            // 0xFFFF = AWT CHAR_UNDEFINED (modifier keys).
+                            if (cp != 0 && cp != 0xFFFF && !Char(cp).isISOControl()) {
+                                controller.sendInput(Char(cp).toString())
                                 true
                             } else {
-                                val cp = event.utf16CodePoint
-                                // 0xFFFF = AWT CHAR_UNDEFINED (modifier keys).
-                                if (cp != 0 && cp != 0xFFFF && !Char(cp).isISOControl()) {
-                                    controller.sendInput(Char(cp).toString())
-                                    true
-                                } else {
-                                    false
-                                }
+                                false
                             }
                         }
                     }
@@ -389,45 +392,6 @@ private fun wordRange(text: String, offset: Int): IntRange {
     var e = clamped
     while (e < text.length && !text[e].isWhitespace()) e++
     return s until e
-}
-
-/**
- * Maps a physical US QWERTY key to its character, so the terminal keeps
- * working regardless of the OS keyboard layout (e.g. Russian layout still
- * types Latin "l" when the physical L key is pressed).
- *
- * Letters respect Shift and Caps Lock (uppercase = Shift XOR CapsLock);
- * symbol keys only care about Shift.
- */
-private fun Key.toPhysicalChar(shift: Boolean, capsLock: Boolean): Char? {
-    val letter = this.toLetter()
-    if (letter != null) {
-        return if (shift xor capsLock) letter.uppercaseChar() else letter
-    }
-    return when (this) {
-        Key.Zero -> if (shift) ')' else '0'
-        Key.One -> if (shift) '!' else '1'
-        Key.Two -> if (shift) '@' else '2'
-        Key.Three -> if (shift) '#' else '3'
-        Key.Four -> if (shift) '$' else '4'
-        Key.Five -> if (shift) '%' else '5'
-        Key.Six -> if (shift) '^' else '6'
-        Key.Seven -> if (shift) '&' else '7'
-        Key.Eight -> if (shift) '*' else '8'
-        Key.Nine -> if (shift) '(' else '9'
-        Key.Spacebar -> ' '
-        Key.Minus -> if (shift) '_' else '-'
-        Key.Equals -> if (shift) '+' else '='
-        Key.LeftBracket -> if (shift) '{' else '['
-        Key.RightBracket -> if (shift) '}' else ']'
-        Key.Backslash -> if (shift) '|' else '\\'
-        Key.Semicolon -> if (shift) ':' else ';'
-        Key.Apostrophe -> if (shift) '"' else '\''
-        Key.Comma -> if (shift) '<' else ','
-        Key.Period -> if (shift) '>' else '.'
-        Key.Slash -> if (shift) '?' else '/'
-        else -> null
-    }
 }
 
 /** Returns the lowercase letter for a physical A-Z key, or null. */

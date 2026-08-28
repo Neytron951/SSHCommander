@@ -40,6 +40,7 @@ class DesktopSettings(private val dataDir: File) : AppSettings {
     private fun int(key: String, default: Int): Flow<Int> = version.map { (props.getProperty(key) ?: default.toString()).toIntOrNull() ?: default }
     private fun bool(key: String, default: Boolean): Flow<Boolean> = version.map { (props.getProperty(key) ?: default.toString()).toBooleanStrictOrNull() ?: default }
     private fun flt(key: String, default: Float): Flow<Float> = version.map { (props.getProperty(key) ?: default.toString()).toFloatOrNull() ?: default }
+    private fun long(key: String, default: Long): Flow<Long> = version.map { (props.getProperty(key) ?: default.toString()).toLongOrNull() ?: default }
 
     override val themeMode: Flow<String> = str("theme_mode", "system")
     override val language: Flow<String> = str("language", "en")
@@ -48,12 +49,15 @@ class DesktopSettings(private val dataDir: File) : AppSettings {
     override val timeout: Flow<Int> = int("timeout", 10)
     override val rebootConfirm: Flow<String> = str("reboot_confirm", "always")
     override val termBgColor: Flow<String> = str("term_bg_color", "#000000")
-    override val termTextColor: Flow<String> = str("term_text_color", "#00FF00")
+    override val termTextColor: Flow<String> = str("term_text_color", "#FFFFFF")
     override val termFontSizePx: Flow<Float> = flt("term_font_size_px", 14f)
     override val privacyMode: Flow<Boolean> = bool("privacy_mode", false)
     override val autoReconnect: Flow<Boolean> = bool("auto_reconnect", true)
     override val biometricLock: Flow<Boolean> = bool("biometric_lock", false)
     override val adsEnabled: Flow<Boolean> = bool("ads_enabled", true)
+    override val monitorWidgets: Flow<String> = str("monitor_widgets", "")
+    override val lastSyncTime: Flow<Long> = long("last_sync_time", 0L)
+    override val isCloudSyncEnabled: Flow<Boolean> = bool("is_cloud_sync_enabled", false)
     override val onboardingCompleted: Flow<Boolean> = bool("onboarding_completed", false)
 
     // Desktop layout settings
@@ -76,6 +80,9 @@ class DesktopSettings(private val dataDir: File) : AppSettings {
     override suspend fun setAutoReconnect(enabled: Boolean) { props.setProperty("auto_reconnect", enabled.toString()); persist() }
     override suspend fun setBiometricLock(enabled: Boolean) { props.setProperty("biometric_lock", enabled.toString()); persist() }
     override suspend fun setAdsEnabled(enabled: Boolean) { props.setProperty("ads_enabled", enabled.toString()); persist() }
+    override suspend fun setMonitorWidgets(json: String) { props.setProperty("monitor_widgets", json); persist() }
+    override suspend fun setLastSyncTime(time: Long) { props.setProperty("last_sync_time", time.toString()); persist() }
+    override suspend fun setCloudSyncEnabled(enabled: Boolean) { props.setProperty("is_cloud_sync_enabled", enabled.toString()); persist() }
     override suspend fun setOnboardingCompleted(completed: Boolean) { props.setProperty("onboarding_completed", completed.toString()); persist() }
     override suspend fun setShowServerList(enabled: Boolean) { props.setProperty("show_server_list", enabled.toString()); persist() }
     override suspend fun setShowCommandPanel(enabled: Boolean) { props.setProperty("show_command_panel", enabled.toString()); persist() }

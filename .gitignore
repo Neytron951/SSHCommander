@@ -61,3 +61,11 @@ dist/
 .metadata/
 .artifact/
 *.artifacts/
+
+# Project Secrets & Local Data
+secrets.json
+secrets.dpapi
+*.key
+*.pub
+.sshcommander/
+google-services.json

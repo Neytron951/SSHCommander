@@ -10,5 +10,6 @@ data class ServerLogin(
     val passphraseKey: String? = null,
     val sftpStartPath: String? = null,
     val lastSftpPath: String? = null,
-    val isDefault: Boolean = false
+    val isDefault: Boolean = false,
+    val sshKeyId: Int? = null
 )

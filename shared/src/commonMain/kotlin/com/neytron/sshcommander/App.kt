@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -40,6 +39,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.foundation.combinedClickable
@@ -62,6 +62,7 @@ import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -112,10 +113,18 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Policy
 import androidx.compose.material.icons.filled.Terminal
+import androidx.compose.material.icons.filled.VpnKey
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.OutlinedCard
 import com.neytron.sshcommander.ui.AboutContent
+import com.neytron.sshcommander.ui.CloudSyncSection
+import com.neytron.sshcommander.ui.LocalAppDeps
+import com.neytron.sshcommander.ui.SshKeyManagerScreen
 import com.neytron.sshcommander.data.AppSettings
 import com.neytron.sshcommander.data.ConnectionProfile
 import com.neytron.sshcommander.data.CustomCommand
@@ -124,6 +133,7 @@ import com.neytron.sshcommander.data.Server
 import com.neytron.sshcommander.data.ServerFolder
 import com.neytron.sshcommander.data.ServerLogin
 import com.neytron.sshcommander.data.ServerRepository
+import com.neytron.sshcommander.data.SshKey
 import com.neytron.sshcommander.data.Workspace
 import com.neytron.sshcommander.data.WorkspaceItem
 import com.neytron.sshcommander.data.WorkspaceItemType
@@ -205,10 +215,12 @@ fun SSHCommanderLayout(
     var folderToDelete by remember { mutableStateOf<ServerFolder?>(null) }
     var folderNameDialog by remember { mutableStateOf<FolderNameDialogState?>(null) }
     var showSettingsDialog by remember { mutableStateOf(false) }
+    var showSshKeyManager by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
     var showManageCommandsDialog by remember { mutableStateOf(false) }
     var showSaveWorkspaceDialog by remember { mutableStateOf(false) }
     val workspaces = remember { mutableStateListOf<Workspace>() }
+    val sshKeys = remember { mutableStateListOf<SshKey>() }
     var dataLoaded by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
@@ -322,7 +334,8 @@ fun SSHCommanderLayout(
                 loginId = tab.loginId,
                 type = WorkspaceItemType.TERMINAL, // Defaulting to terminal for now
                 isPinned = tab.isPinned,
-                tabColorHex = tab.tabColorHex
+                tabColorHex = tab.tabColorHex,
+                initialPath = tab.sftp?.currentPath?.value
             )
         }
         scope.launch {
@@ -359,9 +372,17 @@ fun SSHCommanderLayout(
 
     // Workspaces loaded from the repository
     LaunchedEffect(serverRepository) {
-        serverRepository?.allWorkspaces?.collect {
+        serverRepository?.allWorkspaces?.collect { list ->
             workspaces.clear()
-            workspaces.addAll(it)
+            workspaces.addAll(list)
+        }
+    }
+
+    // SSH Keys loaded from the repository
+    LaunchedEffect(serverRepository) {
+        serverRepository?.allSshKeys?.collect { list ->
+            sshKeys.clear()
+            sshKeys.addAll(list)
         }
     }
 
@@ -507,7 +528,7 @@ fun SSHCommanderLayout(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        val wide = maxWidth >= 720.dp
+        val wide = this.maxWidth >= 720.dp
 
         if (wide) {
             Column(Modifier.fillMaxSize()) {
@@ -646,6 +667,7 @@ fun SSHCommanderLayout(
             server = editing,
             initialPassword = editingPassword,
             folders = folders,
+            sshKeys = sshKeys,
             onSave = { newServer, password ->
                 val repo = serverRepository
                 scope.launch {
@@ -772,8 +794,22 @@ fun SSHCommanderLayout(
     if (showSettingsDialog) {
         DesktopSettingsDialog(
             settings = settings,
+            backupManager = backupManager,
+            onSshKeysClick = { showSshKeyManager = true },
             onDismiss = { showSettingsDialog = false }
         )
+    }
+
+    if (showSshKeyManager) {
+        Dialog(onDismissRequest = { showSshKeyManager = false }) {
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.background,
+                modifier = Modifier.fillMaxSize(0.85f)
+            ) {
+                SshKeyManagerScreen(onNavigateBack = { showSshKeyManager = false })
+            }
+        }
     }
 
     if (showAboutDialog) {
@@ -1397,7 +1433,7 @@ private fun ServerRow(
                     Icon(Icons.Default.Edit, contentDescription = AppStrings.editServer, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                 }
                 IconButton(onClick = onManageLogins, modifier = Modifier.size(28.dp)) {
-                    Icon(Icons.Default.Person, contentDescription = AppStrings.manageLogins, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Policy, contentDescription = AppStrings.identities, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                 }
                 IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
                     Icon(Icons.Default.Delete, contentDescription = AppStrings.deleteServer, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
@@ -2143,6 +2179,7 @@ private fun ServerDialog(
     server: Server?,
     initialPassword: String,
     folders: List<ServerFolder> = emptyList(),
+    sshKeys: List<SshKey> = emptyList(),
     onSave: (Server, String) -> Unit,
     onManageLogins: (() -> Unit)? = null,
     onDismiss: () -> Unit
@@ -2156,6 +2193,7 @@ private fun ServerDialog(
     var sftpStartPath by remember { mutableStateOf(server?.sftpStartPath ?: "") }
     var iconName by remember { mutableStateOf(server?.iconName ?: "Default") }
     var folderId by remember { mutableStateOf(server?.folderId) }
+    var sshKeyId by remember { mutableStateOf(server?.sshKeyId) }
 
     fun submit() {
         val trimmedHost = host.trim()
@@ -2171,7 +2209,8 @@ private fun ServerDialog(
                 username = trimmedUser,
                 iconName = iconName,
                 sftpStartPath = sftpStartPath.trim().ifEmpty { null },
-                folderId = folderId
+                folderId = folderId,
+                sshKeyId = sshKeyId
             ),
             password
         )
@@ -2217,13 +2256,48 @@ private fun ServerDialog(
                         modifier = Modifier.weight(2f)
                     )
                 }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(AppStrings.identities, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                    if (isEdit && onManageLogins != null) {
+                        TextButton(onClick = onManageLogins) {
+                            Icon(Icons.Default.Settings, null, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(AppStrings.edit)
+                        }
+                    }
+                }
+
+                if (isEdit && onManageLogins != null) {
+                    Card(
+                        onClick = onManageLogins,
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Policy, null, tint = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text("Manage Identities & Keys", fontWeight = FontWeight.Bold)
+                                Text("Add users, generate keys or auto-provision", style = MaterialTheme.typography.labelSmall)
+                            }
+                            Icon(Icons.Default.ChevronRight, null)
+                        }
+                    }
+                }
+
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it },
                     label = { Text(AppStrings.password) },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    trailingIcon = {
+                        val cb = androidx.compose.ui.platform.LocalClipboardManager.current
+                        IconButton(onClick = { cb.getText()?.text?.let { password = it } }) {
+                            Icon(Icons.Default.ContentPaste, "Paste")
+                        }
+                    }
                 )
                 OutlinedTextField(
                     value = sftpStartPath,
@@ -2241,6 +2315,43 @@ private fun ServerDialog(
                     selectedId = folderId,
                     onSelect = { folderId = it }
                 )
+
+                // SSH Key selector (legacy, keeping for compatibility in this dialog)
+                if (sshKeys.isNotEmpty()) {
+                    Text(AppStrings.sshKeys, style = MaterialTheme.typography.titleSmall)
+                    var expandedKeyMenu by remember { mutableStateOf(false) }
+                    Box {
+                        OutlinedCard(
+                            onClick = { expandedKeyMenu = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.VpnKey, null, tint = MaterialTheme.colorScheme.primary)
+                                Spacer(Modifier.width(12.dp))
+                                Text(
+                                    text = sshKeys.firstOrNull { it.id == sshKeyId }?.name ?: "No key selected",
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Icon(Icons.Default.ArrowDropDown, null)
+                            }
+                        }
+                        DropdownMenu(expanded = expandedKeyMenu, onDismissRequest = { expandedKeyMenu = false }) {
+                            DropdownMenuItem(
+                                text = { Text("No key") },
+                                onClick = { sshKeyId = null; expandedKeyMenu = false }
+                            )
+                            sshKeys.forEach { key ->
+                                DropdownMenuItem(
+                                    text = { Text(key.name) },
+                                    onClick = { sshKeyId = key.id; expandedKeyMenu = false }
+                                )
+                            }
+                        }
+                    }
+                }
 
                 Text(AppStrings.chooseIcon, style = MaterialTheme.typography.titleSmall)
                 // Icon picker grid (mirrors the mobile AddEditServerScreen).
@@ -2275,14 +2386,6 @@ private fun ServerDialog(
                                 )
                             }
                         }
-                    }
-                }
-
-                if (isEdit && onManageLogins != null) {
-                    OutlinedButton(onClick = onManageLogins, modifier = Modifier.fillMaxWidth()) {
-                        Icon(Icons.Default.Person, contentDescription = null)
-                        Spacer(Modifier.width(6.dp))
-                        Text(AppStrings.manageLogins)
                     }
                 }
             }
@@ -2398,10 +2501,12 @@ private fun ManageLoginsDialog(
 ) {
     val scope = rememberCoroutineScope()
     val logins = remember { mutableStateListOf<ServerLogin>() }
+    val sshKeys = remember { mutableStateListOf<SshKey>() }
     var editing by remember { mutableStateOf<ServerLogin?>(null) }
     var adding by remember { mutableStateOf(false) }
     var loginToDelete by remember { mutableStateOf<ServerLogin?>(null) }
     var editingPassword by remember { mutableStateOf<String?>(null) }
+    var isProvisioning by remember { mutableStateOf(false) }
 
     LaunchedEffect(repository, server.id) {
         logins.clear()
@@ -2411,14 +2516,20 @@ private fun ManageLoginsDialog(
         }
     }
 
-    // Load the stored password when opening the edit dialog (suspend access).
+    LaunchedEffect(repository) {
+        repository?.allSshKeys?.collect {
+            sshKeys.clear()
+            sshKeys.addAll(it)
+        }
+    }
+
     LaunchedEffect(editing) {
         editingPassword = editing?.let { repository?.getLoginPassword(it.id) }
     }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(AppStrings.manageLogins, fontWeight = FontWeight.Bold) },
+        title = { Text(AppStrings.identities, fontWeight = FontWeight.Bold) },
         text = {
             Column {
                 Text(
@@ -2435,23 +2546,31 @@ private fun ManageLoginsDialog(
                     )
                 } else {
                     LazyColumn(
-                        modifier = Modifier.fillMaxWidth().height(280.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                        modifier = Modifier.fillMaxWidth().height(320.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(logins, key = { it.id }) { login ->
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
+                                    .padding(horizontal = 12.dp, vertical = 8.dp)
                             ) {
+                                Icon(
+                                    imageVector = if (login.sshKeyId != null) Icons.Default.VpnKey else Icons.Default.Person,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(Modifier.width(12.dp))
                                 Column(Modifier.weight(1f)) {
                                     Text(
                                         login.label,
                                         style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Medium
+                                        fontWeight = FontWeight.Bold
                                     )
                                     Text(
                                         login.username,
@@ -2460,33 +2579,24 @@ private fun ManageLoginsDialog(
                                     )
                                 }
                                 if (login.isDefault) {
-                                    Text(
-                                        if (AppStrings.language == "ru") "по умолч." else "default",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.padding(end = 8.dp)
-                                    )
+                                    Icon(Icons.Default.Star, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp).padding(end = 8.dp))
                                 } else {
                                     TextButton(onClick = {
                                         scope.launch {
                                             repository?.updateLogin(login.copy(isDefault = true), null)
-                                            // Clear default from other logins.
                                             logins.filter { it.id != login.id && it.isDefault }.forEach { other ->
                                                 repository?.updateLogin(other.copy(isDefault = false), null)
                                             }
                                         }
                                     }) {
-                                        Text(
-                                            if (AppStrings.language == "ru") "по умолч." else "default",
-                                            style = MaterialTheme.typography.labelSmall
-                                        )
+                                        Text(if (AppStrings.language == "ru") "По умолч." else "Default", style = MaterialTheme.typography.labelSmall)
                                     }
                                 }
-                                IconButton(onClick = { editing = login }) {
-                                    Icon(Icons.Default.Edit, contentDescription = AppStrings.edit, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                IconButton(onClick = { editing = login }, modifier = Modifier.size(32.dp)) {
+                                    Icon(Icons.Default.Edit, null, modifier = Modifier.size(18.dp))
                                 }
-                                IconButton(onClick = { loginToDelete = login }) {
-                                    Icon(Icons.Default.Delete, contentDescription = AppStrings.delete, tint = MaterialTheme.colorScheme.error)
+                                IconButton(onClick = { loginToDelete = login }, modifier = Modifier.size(32.dp)) {
+                                    Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
                                 }
                             }
                         }
@@ -2496,12 +2606,12 @@ private fun ManageLoginsDialog(
         },
         confirmButton = {
             Row {
-                Button(onClick = { adding = true }) {
-                    Icon(Icons.Default.Add, contentDescription = null)
-                    Spacer(Modifier.width(4.dp))
+                Button(onClick = { adding = true }, enabled = !isProvisioning) {
+                    Icon(Icons.Default.Add, null)
+                    Spacer(Modifier.width(6.dp))
                     Text(AppStrings.addLogin)
                 }
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(12.dp))
                 TextButton(onClick = onDismiss) { Text(AppStrings.dismiss) }
             }
         }
@@ -2509,38 +2619,69 @@ private fun ManageLoginsDialog(
 
     if (adding || editing != null) {
         val target = editing
-        LoginEditDialog(
+        IdentityEditDialog(
             initialLabel = target?.label ?: "",
             initialUsername = target?.username ?: "",
             initialPassword = editingPassword ?: "",
             initialSftpPath = target?.sftpStartPath ?: "",
+            initialSshKeyId = target?.sshKeyId,
+            sshKeys = sshKeys,
+            serverId = server.id,
+            isProvisioning = isProvisioning,
             onDismiss = { adding = false; editing = null },
-            onConfirm = { label, username, password, sftpPath ->
+            onConfirm = { label, username, password, sftpPath, sshKeyId, autoProvision, genType, genBits, genPass ->
                 scope.launch {
-                    if (target != null) {
-                        repository?.updateLogin(
-                            target.copy(
-                                label = label,
-                                username = username,
-                                sftpStartPath = sftpPath.ifBlank { null }
-                            ),
-                            password
-                        )
+                    if (autoProvision) {
+                        isProvisioning = true
+                        try {
+                            // Generate key with user-defined settings
+                            val (priv, pub) = com.neytron.sshcommander.data.SshKeyUtils.generateKeyPair(genType, genBits, genPass)
+                            val newKeyId = repository?.insertSshKey(SshKey(
+                                name = "Key for $username", 
+                                type = genType, 
+                                privateKeyContent = priv, 
+                                publicKeyContent = pub,
+                                passphraseKey = genPass
+                            ))
+                            
+                            val result = repository?.provisionUser(server.id, username, pub, password)
+                            
+                            if (result?.isSuccess == true) {
+                                repository?.insertLogin(
+                                    ServerLogin(
+                                        serverId = server.id, label = label, username = username,
+                                        sftpStartPath = sftpPath.ifBlank { null }, sshKeyId = newKeyId,
+                                        isDefault = logins.isEmpty()
+                                    ),
+                                    password
+                                )
+                                platformToast(AppStrings.provisionSuccess)
+                                adding = false
+                                editing = null
+                            } else {
+                                platformToast("Provisioning failed: ${result?.exceptionOrNull()?.message}")
+                            }
+                        } catch (e: Exception) {
+                            platformToast("Error: ${e.message}")
+                        } finally {
+                            isProvisioning = false
+                        }
                     } else {
-                        repository?.insertLogin(
-                            ServerLogin(
-                                serverId = server.id,
-                                label = label,
-                                username = username,
-                                sftpStartPath = sftpPath.ifBlank { null },
-                                isDefault = logins.isEmpty()
-                            ),
-                            password
-                        )
+                        if (target != null) {
+                            repository?.updateLogin(
+                                target.copy(label = label, username = username, sftpStartPath = sftpPath.ifBlank { null }, sshKeyId = sshKeyId),
+                                password
+                            )
+                        } else {
+                            repository?.insertLogin(
+                                ServerLogin(serverId = server.id, label = label, username = username, sftpStartPath = sftpPath.ifBlank { null }, isDefault = logins.isEmpty(), sshKeyId = sshKeyId),
+                                password
+                            )
+                        }
+                        adding = false
+                        editing = null
                     }
                 }
-                adding = false
-                editing = null
             }
         )
     }
@@ -2563,26 +2704,37 @@ private fun ManageLoginsDialog(
     }
 }
 
-/** Single login editor (label, username, password, SFTP start path). */
+/** Single identity editor (Unified Auth Master). */
 @Composable
-private fun LoginEditDialog(
+private fun IdentityEditDialog(
     initialLabel: String = "",
     initialUsername: String = "",
     initialPassword: String = "",
     initialSftpPath: String = "",
+    initialSshKeyId: Int? = null,
+    sshKeys: List<SshKey> = emptyList(),
+    serverId: Int,
+    isProvisioning: Boolean = false,
     onDismiss: () -> Unit,
-    onConfirm: (label: String, username: String, password: String, sftpPath: String) -> Unit
+    onConfirm: (label: String, username: String, password: String, sftpPath: String, sshKeyId: Int?, autoProvision: Boolean, keyType: String, keyBits: Int, keyPass: String?) -> Unit
 ) {
     var label by remember { mutableStateOf(initialLabel) }
     var username by remember { mutableStateOf(initialUsername) }
     var password by remember { mutableStateOf(initialPassword) }
     var sftpPath by remember { mutableStateOf(initialSftpPath) }
+    var sshKeyId by remember { mutableStateOf(initialSshKeyId) }
+    var authMethod by remember { mutableStateOf(if (initialSshKeyId != null) 1 else 0) } // 0: Password, 1: Key
+    var autoProvision by remember { mutableStateOf(false) }
+    
+    // Key generation settings
+    var genBits by remember { mutableIntStateOf(4096) }
+    var genPassphrase by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(AppStrings.addLogin, fontWeight = FontWeight.Bold) },
+        title = { Text(if (initialLabel.isEmpty()) AppStrings.addLogin else AppStrings.edit, fontWeight = FontWeight.Bold) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
                 OutlinedTextField(
                     value = label,
                     onValueChange = { label = it },
@@ -2597,14 +2749,103 @@ private fun LoginEditDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = { Text(AppStrings.password) },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth()
-                )
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                
+                Text(AppStrings.authMethod, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    RadioButton(selected = authMethod == 0, onClick = { authMethod = 0; autoProvision = false })
+                    Text(AppStrings.usePassword, modifier = Modifier.clickable { authMethod = 0; autoProvision = false })
+                    Spacer(Modifier.width(16.dp))
+                    RadioButton(selected = authMethod == 1, onClick = { authMethod = 1 })
+                    Text(AppStrings.useSshKey, modifier = Modifier.clickable { authMethod = 1 })
+                }
+
+                if (authMethod == 0) {
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        label = { Text(AppStrings.password) },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                } else {
+                    // Key selection / generation
+                    if (initialLabel.isEmpty()) {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Checkbox(checked = autoProvision, onCheckedChange = { autoProvision = it })
+                                    Text(AppStrings.autoProvisionDesc, fontWeight = FontWeight.Bold)
+                                }
+                                Text(
+                                    AppStrings.provisioningWarning,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                                    modifier = Modifier.padding(start = 32.dp)
+                                )
+                                
+                                if (autoProvision) {
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                                    Text("New Key Settings:", style = MaterialTheme.typography.labelMedium)
+                                    
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text("RSA Bits: ", style = MaterialTheme.typography.bodySmall)
+                                        RadioButton(selected = genBits == 2048, onClick = { genBits = 2048 })
+                                        Text("2048", style = MaterialTheme.typography.bodySmall)
+                                        Spacer(Modifier.width(8.dp))
+                                        RadioButton(selected = genBits == 4096, onClick = { genBits = 4096 })
+                                        Text("4096", style = MaterialTheme.typography.bodySmall)
+                                    }
+
+                                    OutlinedTextField(
+                                        value = genPassphrase,
+                                        onValueChange = { genPassphrase = it },
+                                        label = { Text(AppStrings.passphrase) },
+                                        singleLine = true,
+                                        visualTransformation = PasswordVisualTransformation(),
+                                        modifier = Modifier.fillMaxWidth().padding(start = 8.dp)
+                                    )
+
+                                    Spacer(Modifier.height(4.dp))
+                                    OutlinedTextField(
+                                        value = password,
+                                        onValueChange = { password = it },
+                                        label = { Text("Initial System Password (for useradd)") },
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth().padding(start = 8.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    if (!autoProvision) {
+                        Text(AppStrings.selectExistingKey, style = MaterialTheme.typography.labelMedium)
+                        var expandedKeyMenu by remember { mutableStateOf(false) }
+                        Box {
+                            OutlinedCard(onClick = { expandedKeyMenu = true }, modifier = Modifier.fillMaxWidth()) {
+                                Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.VpnKey, null, tint = MaterialTheme.colorScheme.primary)
+                                    Spacer(Modifier.width(12.dp))
+                                    Text(sshKeys.firstOrNull { it.id == sshKeyId }?.name ?: "No key selected", modifier = Modifier.weight(1f))
+                                    Icon(Icons.Default.ArrowDropDown, null)
+                                }
+                            }
+                            DropdownMenu(expanded = expandedKeyMenu, onDismissRequest = { expandedKeyMenu = false }) {
+                                DropdownMenuItem(text = { Text("No key") }, onClick = { sshKeyId = null; expandedKeyMenu = false })
+                                sshKeys.forEach { key ->
+                                    DropdownMenuItem(text = { Text(key.name) }, onClick = { sshKeyId = key.id; expandedKeyMenu = false })
+                                }
+                            }
+                        }
+                    }
+                }
+
                 OutlinedTextField(
                     value = sftpPath,
                     onValueChange = { sftpPath = it },
@@ -2616,15 +2857,33 @@ private fun LoginEditDialog(
             }
         },
         confirmButton = {
-            Button(onClick = {
-                val trimmedLabel = label.trim()
-                val trimmedUser = username.trim()
-                if (trimmedLabel.isEmpty() || trimmedUser.isEmpty()) return@Button
-                onConfirm(trimmedLabel, trimmedUser, password, sftpPath.trim())
-            }) { Text(AppStrings.save) }
+            Button(
+                onClick = {
+                    onConfirm(
+                        label.trim(), 
+                        username.trim(), 
+                        password, 
+                        sftpPath.trim(), 
+                        if (authMethod == 0) null else sshKeyId, 
+                        autoProvision,
+                        "RSA", 
+                        genBits, 
+                        genPassphrase.takeIf { it.isNotBlank() }
+                    )
+                },
+                enabled = label.isNotBlank() && username.isNotBlank() && !isProvisioning
+            ) {
+                if (isProvisioning) {
+                    CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Processing...")
+                } else {
+                    Text(if (autoProvision) "Provision & Save" else AppStrings.save)
+                }
+            }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(AppStrings.cancel) }
+            TextButton(onClick = onDismiss, enabled = !isProvisioning) { Text(AppStrings.cancel) }
         }
     )
 }
@@ -2636,6 +2895,8 @@ private fun LoginEditDialog(
 @Composable
 private fun DesktopSettingsDialog(
     settings: AppSettings?,
+    backupManager: DataBackupManager? = null,
+    onSshKeysClick: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
@@ -2737,6 +2998,26 @@ private fun DesktopSettingsDialog(
                         onCheckedChange = { scope.launch { settings?.setAutoReconnect(it) } }
                     )
                 }
+
+                HorizontalDivider()
+
+                // SSH Keys Management
+                SettingsBlockTitle(AppStrings.manageKeys)
+                OutlinedButton(
+                    onClick = onSshKeysClick,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.VpnKey, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(AppStrings.sshKeys)
+                }
+
+                HorizontalDivider()
+
+                // Cloud Sync
+                CloudSyncSection(backupManager = backupManager)
+
+                HorizontalDivider()
             }
         },
         confirmButton = {

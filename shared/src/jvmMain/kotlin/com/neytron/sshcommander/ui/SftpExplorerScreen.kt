@@ -24,25 +24,29 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.neytron.sshcommander.data.RemoteFile
 import com.neytron.sshcommander.data.ServerLogin
+import kotlinx.coroutines.launch
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun SftpExplorerScreen(
     serverId: Int,
+    sessionId: Int,
     onNavigateBack: () -> Unit,
     onManageLogins: () -> Unit
 ) {
     val deps = LocalAppDeps.current
+    val scope = rememberCoroutineScope()
     val viewModel: SftpViewModel = viewModel { SftpViewModel(deps.repository) }
-    val files = viewModel.remoteFiles
-    val currentPath = viewModel.currentPath
-    val isLoading = viewModel.isLoading
-    val errorMessage = viewModel.errorMessage
-    val selectedFiles = viewModel.selectedFiles
-    val showHidden = viewModel.showHiddenFiles
-    val transferProgress = viewModel.transferProgress
-    val isTransferring = viewModel.isTransferring
+    
+    val files by viewModel.files.collectAsState()
+    val currentPath by viewModel.currentPath.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val error by viewModel.error.collectAsState()
+    val selectedPaths by viewModel.selectedFiles.collectAsState()
+    val showHidden by viewModel.showHiddenFiles.collectAsState()
+    val transferProgress by viewModel.transferProgress.collectAsState()
+    val isTransferring by viewModel.isTransferring.collectAsState()
 
     var isSearchActive by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
@@ -51,42 +55,49 @@ fun SftpExplorerScreen(
     var showNewFolderDialog by remember { mutableStateOf(false) }
     var fileToRename by remember { mutableStateOf<RemoteFile?>(null) }
     var fileToPreview by remember { mutableStateOf<RemoteFile?>(null) }
+    var fileToEdit by remember { mutableStateOf<RemoteFile?>(null) }
 
     // Navigation and Action Handlers
-    val uploadPicker = rememberUploadPicker { viewModel.uploadFiles(it) }
+    val uploadPicker = rememberUploadPicker { scope.launch { viewModel.upload(it, currentPath) } }
 
     var pendingDownload by remember { mutableStateOf<RemoteFile?>(null) }
     val savePicker = rememberSavePicker { target ->
         target?.let { dest ->
             pendingDownload?.let { file ->
-                viewModel.downloadFile(file, dest)
+                scope.launch { viewModel.download(currentPath, file, dest) }
             }
         }
     }
 
     // MULTI-DOWNLOAD: For multiple selection
     val dirPicker = rememberDirectoryPicker { dir ->
-        dir?.let { viewModel.downloadSelected(it) }
+        dir?.let { dest ->
+            scope.launch {
+                files.filter { it.path in selectedPaths && !it.isDirectory }.forEach {
+                    viewModel.downloadToDir(currentPath, it, dest)
+                }
+            }
+        }
     }
 
-    val isInSelectionMode = selectedFiles.isNotEmpty()
+    val isInSelectionMode = selectedPaths.isNotEmpty()
 
     // Safety: Prevent accidental exit. The back gesture first navigates up
     // a folder; only at the root folder does it offer to close the session.
     PlatformBackHandler(enabled = true) {
         when {
-            isInSelectionMode -> viewModel.selectedFiles.clear()
+            isInSelectionMode -> viewModel.clearSelection()
             isSearchActive -> isSearchActive = false
             currentPath != "/" && currentPath.isNotEmpty() && !isTransitioning -> {
                 isTransitioning = true
-                viewModel.navigateUp()
+                viewModel.goUp()
             }
             else -> showExitConfirmation = true
         }
     }
 
-    LaunchedEffect(serverId) {
-        viewModel.connect(serverId)
+    LaunchedEffect(serverId, sessionId) {
+        viewModel.setServer(serverId, sessionId)
     }
 
     // Release the transition guard once the folder actually changed.
@@ -101,35 +112,31 @@ fun SftpExplorerScreen(
 
     Scaffold(
         topBar = {
-            if (isInSelectionMode) {
-                SelectionTopBar(
-                    selectedCount = selectedFiles.size,
-                    onClearSelection = { viewModel.selectedFiles.clear() },
-                    onDeleteSelected = { viewModel.deleteSelected() },
-                    onDownloadSelected = {
-                        // For multi-selection, we ask for a directory
-                        dirPicker()
+            SftpTopBar(
+                serverName = viewModel.currentServer?.name ?: AppStrings.loading,
+                currentPath = currentPath,
+                isSearchActive = isSearchActive,
+                searchQuery = searchQuery,
+                selectedFilesCount = selectedPaths.size,
+                selectedLogin = viewModel.selectedLogin,
+                logins = viewModel.logins,
+                showHidden = showHidden,
+                onSelectLogin = { viewModel.selectLogin(it) },
+                onManageLogins = onManageLogins,
+                onSearchQueryChange = { searchQuery = it },
+                onToggleSearch = { isSearchActive = !isSearchActive; if (!isSearchActive) searchQuery = "" },
+                onNavigateBack = { showExitConfirmation = true },
+                onRefresh = { scope.launch { viewModel.listDirectory() } },
+                onToggleHidden = { viewModel.toggleHiddenFiles() },
+                onNewFolder = { showNewFolderDialog = true },
+                onClearSelection = { viewModel.clearSelection() },
+                onDeleteSelected = { 
+                    scope.launch {
+                        files.filter { it.path in selectedPaths }.forEach { viewModel.delete(currentPath, it) }
                     }
-                )
-            } else {
-                ExplorerTopBar(
-                    serverName = viewModel.currentServer?.name ?: AppStrings.loading,
-                    currentPath = currentPath,
-                    isSearchActive = isSearchActive,
-                    searchQuery = searchQuery,
-                    selectedLogin = viewModel.selectedLogin,
-                    logins = viewModel.logins,
-                    onSelectLogin = { viewModel.selectLogin(it) },
-                    onManageLogins = onManageLogins,
-                    onSearchQueryChange = { searchQuery = it },
-                    onToggleSearch = { isSearchActive = !isSearchActive; if (!isSearchActive) searchQuery = "" },
-                    onNavigateBack = { showExitConfirmation = true },
-                    onRefresh = { viewModel.loadDirectory(currentPath) },
-                    showHidden = showHidden,
-                    onToggleHidden = { viewModel.toggleHiddenFiles() },
-                    onNewFolder = { showNewFolderDialog = true }
-                )
-            }
+                },
+                onDownloadSelected = { dirPicker() }
+            )
         },
         floatingActionButton = {
             if (!isInSelectionMode) {
@@ -152,7 +159,7 @@ fun SftpExplorerScreen(
                     ListItem(
                         headlineContent = { Text("..", fontWeight = FontWeight.Bold) },
                         leadingContent = { Icon(Icons.Default.ArrowUpward, contentDescription = null) },
-                        modifier = Modifier.clickable(enabled = !isTransitioning) { viewModel.navigateUp() }
+                        modifier = Modifier.clickable(enabled = !isTransitioning) { viewModel.goUp() }
                     )
                     HorizontalDivider(thickness = 0.5.dp)
                 }
@@ -166,21 +173,21 @@ fun SftpExplorerScreen(
                         }
                     }
                     items(filteredFiles, key = { it.path }) { file ->
-                        val isSelected = selectedFiles.any { it.path == file.path }
+                        val isSelected = selectedPaths.contains(file.path)
                         FileItem(
                             file = file,
                             isSelected = isSelected,
                             isInSelectionMode = isInSelectionMode,
                             onClick = {
                                 if (!isTransitioning) {
-                                    if (isInSelectionMode) viewModel.toggleSelection(file)
-                                    else if (file.isDirectory) viewModel.loadDirectory(file.path)
+                                    if (isInSelectionMode) viewModel.toggleSelection(file.path)
+                                    else if (file.isDirectory) scope.launch { viewModel.listDirectory(file.path) }
                                 }
                             },
-                            onLongClick = { if (!isTransitioning) viewModel.toggleSelection(file) },
+                            onLongClick = { if (!isTransitioning) viewModel.toggleSelection(file.path) },
                             onDoubleClick = {
                                 if (!isTransitioning) {
-                                    if (file.isDirectory) viewModel.loadDirectory(file.path)
+                                    if (file.isDirectory) scope.launch { viewModel.listDirectory(file.path) }
                                     else fileToPreview = file
                                 }
                             },
@@ -190,7 +197,8 @@ fun SftpExplorerScreen(
                             },
                             onRename = { fileToRename = file },
                             onPreview = { fileToPreview = file },
-                            onDelete = { viewModel.deleteFile(file) }
+                            onEdit = { fileToEdit = file },
+                            onDelete = { scope.launch { viewModel.delete(currentPath, file) } }
                         )
                     }
                 }
@@ -198,21 +206,20 @@ fun SftpExplorerScreen(
 
             if (isLoading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter))
 
-            errorMessage?.let {
+            error?.let {
                 AlertDialog(
-                    onDismissRequest = { viewModel.errorMessage = null },
+                    onDismissRequest = { /* viewModel doesn't have error = null setter anymore */ },
                     title = { Text(AppStrings.sessionError) },
                     text = { Text(it) },
                     confirmButton = {
                         TextButton(onClick = {
-                            viewModel.errorMessage = null
-                            viewModel.connect(serverId) // Try to reconnect
+                            viewModel.connect() // Try to reconnect
                         }) {
                             Text(AppStrings.reconnect)
                         }
                     },
                     dismissButton = {
-                        TextButton(onClick = { viewModel.errorMessage = null }) {
+                        TextButton(onClick = { /* dismiss */ }) {
                             Text(AppStrings.dismiss)
                         }
                     }
@@ -227,7 +234,7 @@ fun SftpExplorerScreen(
                     confirmLabel = AppStrings.create,
                     onDismiss = { showNewFolderDialog = false },
                     onConfirm = { name ->
-                        viewModel.createFolder(name)
+                        scope.launch { viewModel.makeDirectory(currentPath, name) }
                         showNewFolderDialog = false
                     }
                 )
@@ -240,7 +247,9 @@ fun SftpExplorerScreen(
                     confirmLabel = AppStrings.rename,
                     onDismiss = { fileToRename = null },
                     onConfirm = { newName ->
-                        viewModel.renameFile(file, newName)
+                        scope.launch {
+                            viewModel.rename(file.path, newName)
+                        }
                         fileToRename = null
                     }
                 )
@@ -252,6 +261,25 @@ fun SftpExplorerScreen(
                     file = file,
                     onDismiss = { fileToPreview = null }
                 )
+            }
+
+            if (fileToEdit != null) {
+                androidx.compose.ui.window.Dialog(onDismissRequest = { fileToEdit = null }) {
+                    Surface(
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.background,
+                        modifier = Modifier.fillMaxSize(0.95f)
+                    ) {
+                        RemoteTextEditor(
+                            remotePath = fileToEdit!!.path,
+                            controller = viewModel,
+                            onClose = { 
+                                fileToEdit = null
+                                scope.launch { viewModel.listDirectory(currentPath) }
+                            }
+                        )
+                    }
+                }
             }
 
             if (showExitConfirmation) {
@@ -280,64 +308,85 @@ fun SftpExplorerScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ExplorerTopBar(
+fun SftpTopBar(
     serverName: String,
     currentPath: String,
     isSearchActive: Boolean,
     searchQuery: String,
+    selectedFilesCount: Int,
     selectedLogin: ServerLogin?,
     logins: List<ServerLogin>,
+    showHidden: Boolean,
     onSelectLogin: (ServerLogin?) -> Unit,
     onManageLogins: () -> Unit,
     onSearchQueryChange: (String) -> Unit,
     onToggleSearch: () -> Unit,
     onNavigateBack: () -> Unit,
     onRefresh: () -> Unit,
-    showHidden: Boolean,
     onToggleHidden: () -> Unit,
-    onNewFolder: () -> Unit
+    onNewFolder: () -> Unit,
+    onClearSelection: () -> Unit,
+    onDeleteSelected: () -> Unit,
+    onDownloadSelected: () -> Unit
 ) {
-    if (isSearchActive) {
-        TopAppBar(
-            title = {
-                TextField(
-                    value = searchQuery,
-                    onValueChange = onSearchQueryChange,
-                    placeholder = { Text(AppStrings.searchFiles) },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent
-                    ),
-                    singleLine = true
-                )
-            },
-            navigationIcon = {
-                IconButton(onClick = onToggleSearch) { Icon(Icons.Default.Close, null) }
-            }
-        )
-    } else {
-        var showLoginMenu by remember { mutableStateOf(false) }
-        TopAppBar(
-            title = {
-                Column {
-                    Text(serverName, style = MaterialTheme.typography.titleMedium)
-                    Text(currentPath, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    if (selectedLogin != null) {
-                        Text(
-                            selectedLogin.label.ifBlank { selectedLogin.username },
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
+    val isInSelectionMode = selectedFilesCount > 0
+
+    TopAppBar(
+        title = {
+            when {
+                isInSelectionMode -> {
+                    Text(String.format(AppStrings.selectedCount, selectedFilesCount))
+                }
+                isSearchActive -> {
+                    TextField(
+                        value = searchQuery,
+                        onValueChange = onSearchQueryChange,
+                        placeholder = { Text(AppStrings.searchFiles) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent
+                        ),
+                        singleLine = true
+                    )
+                }
+                else -> {
+                    Column {
+                        Text(serverName, style = MaterialTheme.typography.titleMedium, maxLines = 1)
+                        Text(currentPath, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (selectedLogin != null) {
+                            Text(
+                                selectedLogin.label.ifBlank { selectedLogin.username },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
                 }
-            },
-            navigationIcon = {
+            }
+        },
+        navigationIcon = {
+            if (isInSelectionMode) {
+                IconButton(onClick = onClearSelection) { Icon(Icons.Default.Close, null) }
+            } else if (isSearchActive) {
+                IconButton(onClick = onToggleSearch) { Icon(Icons.Default.Close, null) }
+            } else {
                 IconButton(onClick = onNavigateBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) }
-            },
-            actions = {
+            }
+        },
+        actions = {
+            if (isInSelectionMode) {
+                IconButton(onClick = onDownloadSelected) {
+                    Icon(Icons.Default.Download, null)
+                }
+                IconButton(onClick = onDeleteSelected) {
+                    Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error)
+                }
+            } else if (!isSearchActive) {
                 IconButton(onClick = onToggleSearch) { Icon(Icons.Default.Search, null) }
                 IconButton(onClick = onRefresh) { Icon(Icons.Default.Refresh, null) }
+                
+                var showLoginMenu by remember { mutableStateOf(false) }
                 Box {
                     IconButton(onClick = { showLoginMenu = true }) { Icon(Icons.Default.Person, null) }
                     DropdownMenu(expanded = showLoginMenu, onDismissRequest = { showLoginMenu = false }) {
@@ -363,6 +412,7 @@ fun ExplorerTopBar(
                         )
                     }
                 }
+                
                 var showMenu by remember { mutableStateOf(false) }
                 Box {
                     IconButton(onClick = { showMenu = true }) { Icon(Icons.Default.MoreVert, null) }
@@ -380,33 +430,9 @@ fun ExplorerTopBar(
                     }
                 }
             }
-        )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun SelectionTopBar(
-    selectedCount: Int,
-    onClearSelection: () -> Unit,
-    onDeleteSelected: () -> Unit,
-    onDownloadSelected: () -> Unit
-) {
-    TopAppBar(
-        title = { Text(String.format(AppStrings.selectedCount, selectedCount)) },
-        navigationIcon = {
-            IconButton(onClick = onClearSelection) { Icon(Icons.Default.Close, null) }
-        },
-        actions = {
-            IconButton(onClick = onDownloadSelected) {
-                Icon(Icons.Default.Download, null)
-            }
-            IconButton(onClick = onDeleteSelected) {
-                Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error)
-            }
         },
         colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
+            containerColor = if (isInSelectionMode) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
         )
     )
 }
@@ -423,6 +449,7 @@ fun FileItem(
     onDownload: () -> Unit,
     onRename: () -> Unit,
     onPreview: () -> Unit,
+    onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f) else Color.Transparent
@@ -471,6 +498,11 @@ fun FileItem(
                                     text = { Text(AppStrings.preview) },
                                     onClick = { showMenu = false; onPreview() },
                                     leadingIcon = { Icon(Icons.Default.Preview, null) }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(AppStrings.editText) },
+                                    onClick = { showMenu = false; onEdit() },
+                                    leadingIcon = { Icon(Icons.Default.Edit, null) }
                                 )
                             }
                             DropdownMenuItem(

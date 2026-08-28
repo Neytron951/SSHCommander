@@ -20,5 +20,7 @@ data class Server(
     val widgetCommand: String? = null,
     val sftpStartPath: String? = null,
     val lastSftpPath: String? = null,
-    val folderId: Int? = null
+    val folderId: Int? = null,
+    val isPinned: Boolean = false,
+    val sshKeyId: Int? = null
 )

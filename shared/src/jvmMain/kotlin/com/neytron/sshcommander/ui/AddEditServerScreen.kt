@@ -24,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -63,6 +64,7 @@ fun AddEditServerScreen(
     val viewModel: AddEditServerViewModel = viewModel { AddEditServerViewModel(deps.repository, deps.settings) }
 
     val folders by deps.repository.allFolders.collectAsState(initial = emptyList())
+    val sshKeys by deps.repository.allSshKeys.collectAsState(initial = emptyList())
 
     LaunchedEffect(serverId) {
         if (serverId != null) {
@@ -165,6 +167,38 @@ fun AddEditServerScreen(
                             text = { Text(folder.name) },
                             onClick = { viewModel.folderId = folder.id; folderMenu = false }
                         )
+                    }
+                }
+            }
+
+            // SSH Key selector
+            if (sshKeys.isNotEmpty()) {
+                Text(AppStrings.sshKeys, style = MaterialTheme.typography.titleSmall)
+                var keyMenu by remember { mutableStateOf(false) }
+                Box {
+                    OutlinedButton(
+                        onClick = { keyMenu = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.VpnKey, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = sshKeys.firstOrNull { it.id == viewModel.sshKeyId }?.name ?: "No key selected",
+                            modifier = Modifier.weight(1f)
+                        )
+                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = null)
+                    }
+                    DropdownMenu(expanded = keyMenu, onDismissRequest = { keyMenu = false }) {
+                        DropdownMenuItem(
+                            text = { Text("No key") },
+                            onClick = { viewModel.sshKeyId = null; keyMenu = false }
+                        )
+                        sshKeys.forEach { key ->
+                            DropdownMenuItem(
+                                text = { Text(key.name) },
+                                onClick = { viewModel.sshKeyId = key.id; keyMenu = false }
+                            )
+                        }
                     }
                 }
             }

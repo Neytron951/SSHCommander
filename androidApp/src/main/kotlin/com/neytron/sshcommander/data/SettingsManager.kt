@@ -38,6 +38,9 @@ class SettingsManager(context: Context) : AppSettings {
         val AUTO_RECONNECT = booleanPreferencesKey("auto_reconnect")
         val BIOMETRIC_LOCK = booleanPreferencesKey("biometric_lock")
         val ADS_ENABLED = booleanPreferencesKey("ads_enabled")
+        val MONITOR_WIDGETS = stringPreferencesKey("monitor_widgets")
+        val LAST_SYNC_TIME = longPreferencesKey("last_sync_time")
+        val CLOUD_SYNC_ENABLED = booleanPreferencesKey("cloud_sync_enabled")
         val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
     }
 
@@ -49,7 +52,7 @@ class SettingsManager(context: Context) : AppSettings {
     override val rebootConfirm: Flow<String> = dataStore.data.map { it[REBOOT_CONFIRM] ?: "always" }
 
     override val termBgColor: Flow<String> = dataStore.data.map { it[TERM_BG_COLOR] ?: "#000000" }
-    override val termTextColor: Flow<String> = dataStore.data.map { it[TERM_TEXT_COLOR] ?: "#00FF00" }
+    override val termTextColor: Flow<String> = dataStore.data.map { it[TERM_TEXT_COLOR] ?: "#FFFFFF" }
     override val termFontSizePx: Flow<Float> = dataStore.data.map { it[TERM_FONT_SIZE_PX] ?: 14f }
 
     // Defaults for Widget: Deep Dark Theme
@@ -62,6 +65,9 @@ class SettingsManager(context: Context) : AppSettings {
     override val autoReconnect: Flow<Boolean> = dataStore.data.map { it[AUTO_RECONNECT] ?: true }
     override val biometricLock: Flow<Boolean> = dataStore.data.map { it[BIOMETRIC_LOCK] ?: false }
     override val adsEnabled: Flow<Boolean> = dataStore.data.map { it[ADS_ENABLED] ?: true }
+    override val monitorWidgets: Flow<String> = dataStore.data.map { it[MONITOR_WIDGETS] ?: "" }
+    override val lastSyncTime: Flow<Long> = dataStore.data.map { it[LAST_SYNC_TIME] ?: 0L }
+    override val isCloudSyncEnabled: Flow<Boolean> = dataStore.data.map { it[CLOUD_SYNC_ENABLED] ?: false }
     override val onboardingCompleted: Flow<Boolean> = dataStore.data.map { it[ONBOARDING_COMPLETED] ?: false }
 
     override suspend fun setThemeMode(mode: String) { dataStore.edit { it[THEME_MODE] = mode } }
@@ -84,5 +90,8 @@ class SettingsManager(context: Context) : AppSettings {
     override suspend fun setAutoReconnect(enabled: Boolean) { dataStore.edit { it[AUTO_RECONNECT] = enabled } }
     override suspend fun setBiometricLock(enabled: Boolean) { dataStore.edit { it[BIOMETRIC_LOCK] = enabled } }
     override suspend fun setAdsEnabled(enabled: Boolean) { dataStore.edit { it[ADS_ENABLED] = enabled } }
+    override suspend fun setMonitorWidgets(json: String) { dataStore.edit { it[MONITOR_WIDGETS] = json } }
+    override suspend fun setLastSyncTime(time: Long) { dataStore.edit { it[LAST_SYNC_TIME] = time } }
+    override suspend fun setCloudSyncEnabled(enabled: Boolean) { dataStore.edit { it[CLOUD_SYNC_ENABLED] = enabled } }
     override suspend fun setOnboardingCompleted(completed: Boolean) { dataStore.edit { it[ONBOARDING_COMPLETED] = completed } }
 }

@@ -9,3 +9,14 @@ plugins {
     alias(libs.plugins.compose.multiplatform) apply false
     alias(libs.plugins.ksp) apply false
 }
+
+subprojects {
+    configurations.all {
+        // Force exclusion of the old JSch from EVERY module
+        exclude(group = "com.jcraft", module = "jsch")
+        
+        resolutionStrategy {
+            force("com.github.mwiede:jsch:0.2.21")
+        }
+    }
+}

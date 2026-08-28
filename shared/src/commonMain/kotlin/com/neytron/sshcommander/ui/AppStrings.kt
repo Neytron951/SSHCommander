@@ -76,8 +76,12 @@ object AppStrings {
     val saveServer get() = s.saveServer
     val save get() = s.save
     val cancel get() = s.cancel
+    val pin get() = s.pin
+    val unpin get() = s.unpin
+    val pinnedServers get() = s.pinnedServers
     val delete get() = s.delete
     val edit get() = s.edit
+    val editText get() = s.edit + " (Text)"
     val chooseAction get() = s.chooseAction
     val chooseIcon get() = s.chooseIcon
 
@@ -259,6 +263,31 @@ object AppStrings {
     val permissions get() = s.permissions
     val folder get() = s.folder
 
+    // SSH Keys
+    val manageKeys get() = s.manageKeys
+    val sshKeys get() = s.sshKeys
+    val addKey get() = s.addKey
+    val generateKey get() = s.generateKey
+    val keyName get() = s.keyName
+    val keyType get() = s.keyType
+    val keyBits get() = s.keyBits
+    val passphrase get() = s.passphrase
+    val copyPublicKey get() = s.copyPublicKey
+    val publicKeyCopied get() = s.publicKeyCopied
+    val deleteKeyConfirm get() = s.deleteKeyConfirm
+
+    // Identity / Unified Auth
+    val identities get() = s.identities
+    val authMethod get() = s.authMethod
+    val usePassword get() = s.usePassword
+    val useSshKey get() = s.useSshKey
+    val autoProvisionDesc get() = s.autoProvisionDesc
+    val provisioningWarning get() = s.provisioningWarning
+    val importKeyContent get() = s.importKeyContent
+    val generateNewKey get() = s.generateNewKey
+    val selectExistingKey get() = s.selectExistingKey
+    val provisionSuccess get() = s.provisionSuccess
+
     data class Strings(
         val appName: String, val servers: String, val addServer: String, val editServer: String,
         val deleteServer: String, val settings: String, val back: String, val exit: String,
@@ -271,6 +300,7 @@ object AppStrings {
         val exportSuccess: String, val importSuccess: String,
         val serverName: String, val hostIp: String, val port: String, val username: String,
         val password: String, val saveServer: String, val save: String, val cancel: String,
+        val pin: String, val unpin: String, val pinnedServers: String,
         val delete: String, val edit: String, val chooseAction: String, val chooseIcon: String,
         val reboot: String, val checkConnection: String, val loading: String, val commands: String,
         val manageCommands: String, val runCommand: String, val run: String,
@@ -321,7 +351,14 @@ object AppStrings {
         val copyText: String, val selectAll: String, val clearSelection: String,
         val preview: String, val download: String, val copyPath: String, val open: String,
         val fileInfo: String, val previewUnavailable: String, val fileType: String,
-        val fileSize: String, val modified: String, val permissions: String, val folder: String
+        val fileSize: String, val modified: String, val permissions: String, val folder: String,
+        val manageKeys: String, val sshKeys: String, val addKey: String, val generateKey: String,
+        val keyName: String, val keyType: String, val keyBits: String, val passphrase: String,
+        val copyPublicKey: String, val publicKeyCopied: String, val deleteKeyConfirm: String,
+        val identities: String, val authMethod: String, val usePassword: String,
+        val useSshKey: String, val autoProvisionDesc: String, val provisioningWarning: String,
+        val importKeyContent: String, val generateNewKey: String, val selectExistingKey: String,
+        val provisionSuccess: String
     )
 
     val en = Strings(
@@ -339,6 +376,7 @@ object AppStrings {
         importSuccess = "Data imported. Please restart.",
         serverName = "Name", hostIp = "Host / IP", port = "Port", username = "Username",
         password = "Password", saveServer = "Save Server", save = "Save", cancel = "Cancel",
+        pin = "Pin to top", unpin = "Unpin", pinnedServers = "Pinned",
         delete = "Delete", edit = "Edit", chooseAction = "Choose Action",
         chooseIcon = "Choose Icon",
         reboot = "Reboot", checkConnection = "Check Connection", loading = "Loading...",
@@ -417,7 +455,18 @@ object AppStrings {
         preview = "Preview", download = "Download", copyPath = "Copy path", open = "Open",
         fileInfo = "File info", previewUnavailable = "Preview is not available for this file type",
         fileType = "Type", fileSize = "Size", modified = "Modified", permissions = "Permissions",
-        folder = "Folder"
+        folder = "Folder",
+        manageKeys = "SSH Keys", sshKeys = "SSH Keys", addKey = "Add Key", generateKey = "Generate Key",
+        keyName = "Key Name", keyType = "Key Type", keyBits = "Bits", passphrase = "Passphrase (optional)",
+        copyPublicKey = "Copy Public Key", publicKeyCopied = "Public key copied to clipboard",
+        deleteKeyConfirm = "Delete this SSH key?",
+        identities = "Identities & Access", authMethod = "Authentication Method",
+        usePassword = "Use Password", useSshKey = "Use SSH Key",
+        autoProvisionDesc = "Auto-provision on server",
+        provisioningWarning = "Requires an active sudo session on this server",
+        importKeyContent = "Import Key Content", generateNewKey = "Generate New Key",
+        selectExistingKey = "Select Existing Key",
+        provisionSuccess = "Identity provisioned successfully!"
     )
 
     val ru = Strings(
@@ -436,7 +485,9 @@ object AppStrings {
         importSuccess = "Данные импортированы. Перезапустите.",
         serverName = "Название", hostIp = "Хост / IP", port = "Порт", username = "Логин",
         password = "Пароль", saveServer = "Сохранить сервер", save = "Сохранить",
-        cancel = "Отмена", delete = "Удалить", edit = "Изменить",
+        cancel = "Отмена", 
+        pin = "Закрепить", unpin = "Открепить", pinnedServers = "Закрепленные",
+        delete = "Удалить", edit = "Изменить",
         chooseAction = "Выберите действие", chooseIcon = "Выбрать иконку",
         reboot = "Перезагрузить", checkConnection = "Проверить соединение",
         loading = "Загрузка...", commands = "Команды",
@@ -503,7 +554,7 @@ object AppStrings {
         importJsonQuestion = "У вас есть резервная копия данных (файл JSON)? Импортировать её сейчас?",
         importJsonButton = "Импортировать",
         tourStep = "Шаг %1\$d из %2\$d",
-        manageLogins = "Логины", addLogin = "Добавить логин",
+        manageLogins = "Logins", addLogin = "Добавить логин",
         loginLabel = "Метка (напр. root, deploy)", sftpStartPath = "Стартовая папка SFTP",
         sftpStartPathHint = "Старт SFTP: %1\$s",
         sftpStartPathHint2 = "Папка, которая открывается в SFTP первой. Пусто = домашняя папка (или последняя посещённая).",
@@ -517,6 +568,17 @@ object AppStrings {
         open = "Открыть", fileInfo = "Информация о файле",
         previewUnavailable = "Предпросмотр недоступен для этого типа файлов",
         fileType = "Тип", fileSize = "Размер", modified = "Изменён",
-        permissions = "Права доступа", folder = "Папка"
+        permissions = "Права доступа", folder = "Папка",
+        manageKeys = "SSH Ключи", sshKeys = "SSH Ключи", addKey = "Добавить ключ", generateKey = "Создать ключ",
+        keyName = "Название ключа", keyType = "Тип ключа", keyBits = "Бит", passphrase = "Пароль (необязательно)",
+        copyPublicKey = "Скопировать Pub Key", publicKeyCopied = "Публичный ключ скопирован",
+        deleteKeyConfirm = "Удалить этот SSH ключ?",
+        identities = "Личности и Доступ", authMethod = "Способ входа",
+        usePassword = "Использовать пароль", useSshKey = "Использовать SSH ключ",
+        autoProvisionDesc = "Развернуть на сервере автоматически",
+        provisioningWarning = "Требуется активная sudo-сессия",
+        importKeyContent = "Вставить содержимое ключа", generateNewKey = "Создать новый ключ",
+        selectExistingKey = "Выбрать из списка",
+        provisionSuccess = "Личность успешно развернута на сервере!"
     )
 }

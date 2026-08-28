@@ -24,10 +24,13 @@ data class ServerLoginWithPassword(
     val password: String
 )
 
-class ExportImportManager(private val context: Context) {
+class ExportImportManager(private val context: Context) : com.neytron.sshcommander.data.DataBackupManager {
     private val repository = ServerRepository(context)
     private val dao = AppDatabase.getDatabase(context).serverDao()
     private val gson = Gson()
+
+    override suspend fun exportJson(): String = exportData()
+    override suspend fun importJson(json: String) = importData(json)
 
     suspend fun exportData(): String = withContext(Dispatchers.IO) {
         val servers = dao.getAllServers().first().map {

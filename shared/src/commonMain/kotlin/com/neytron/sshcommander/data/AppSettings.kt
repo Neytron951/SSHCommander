@@ -27,6 +27,10 @@ interface AppSettings {
     val autoReconnect: Flow<Boolean>
     val biometricLock: Flow<Boolean>
     val adsEnabled: Flow<Boolean>
+    val monitorWidgets: Flow<String> // JSON serialized list
+    
+    val lastSyncTime: Flow<Long>
+    val isCloudSyncEnabled: Flow<Boolean>
 
     /** Whether the first-run onboarding/guide has been completed. */
     val onboardingCompleted: Flow<Boolean> get() = flowOf(false)
@@ -61,6 +65,10 @@ interface AppSettings {
     suspend fun setAutoReconnect(enabled: Boolean)
     suspend fun setBiometricLock(enabled: Boolean)
     suspend fun setAdsEnabled(enabled: Boolean)
+    suspend fun setMonitorWidgets(json: String)
+    
+    suspend fun setLastSyncTime(time: Long)
+    suspend fun setCloudSyncEnabled(enabled: Boolean)
 
     /** Mark the first-run onboarding as done (no-op by default). */
     suspend fun setOnboardingCompleted(completed: Boolean) {}

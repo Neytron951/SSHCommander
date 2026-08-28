@@ -15,6 +15,9 @@ import com.neytron.sshcommander.data.JsonServerRepository
 import com.neytron.sshcommander.data.ServerRepository
 import com.neytron.sshcommander.sftp.SftpSession
 import com.neytron.sshcommander.terminal.TerminalSession
+import com.neytron.sshcommander.ui.AppDeps
+import com.neytron.sshcommander.ui.LocalAppDeps
+import androidx.compose.runtime.CompositionLocalProvider
 import java.io.File
 import javax.imageio.ImageIO
 
@@ -38,17 +41,25 @@ fun main() = application {
         icon = windowIcon,
         state = rememberWindowState(width = 1000.dp, height = 700.dp)
     ) {
-        App(
-            terminalSessionFactory = { server, profile ->
-                TerminalSession(server, profile, hostKeyStore = null)
-            },
-            sftpSessionFactory = { server, profile ->
-                SftpSession(server, profile, hostKeyStore = null)
-            },
-            serverRepository = serverRepository,
-            settings = settings,
-            appVersion = "1.6",
-            backupManager = ExportImportManager(serverRepository)
-        )
+        CompositionLocalProvider(
+            LocalAppDeps provides AppDeps(
+                repository = serverRepository,
+                settings = settings,
+                biometric = null
+            )
+        ) {
+            App(
+                terminalSessionFactory = { server, profile ->
+                    TerminalSession(server, profile, hostKeyStore = null)
+                },
+                sftpSessionFactory = { server, profile ->
+                    SftpSession(server, profile, hostKeyStore = null)
+                },
+                serverRepository = serverRepository,
+                settings = settings,
+                appVersion = "1.7.0",
+                backupManager = ExportImportManager(serverRepository)
+            )
+        }
     }
 }

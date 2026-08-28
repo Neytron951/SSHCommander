@@ -8,11 +8,15 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -28,6 +32,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -74,6 +79,7 @@ fun ServerControlScreen(
 ) {
     val deps = LocalAppDeps.current
     val viewModel: SshViewModel = viewModel { SshViewModel(deps.repository, deps.settings) }
+    val scope = rememberCoroutineScope()
 
     var selectedTab by remember { mutableIntStateOf(0) } // 0: Terminal, 1: Monitoring
 
@@ -90,6 +96,7 @@ fun ServerControlScreen(
     var isPendingDangerous by remember { mutableStateOf(false) }
 
     var showExitConfirmation by remember { mutableStateOf(false) }
+    var showSaveWorkspaceDialog by remember { mutableStateOf(false) }
 
     // Soft keyboard support: tapping the terminal focuses a hidden text field
     // and opens the device keyboard; typed characters stream straight to SSH.
@@ -239,6 +246,9 @@ fun ServerControlScreen(
                     }
                     IconButton(onClick = onManageCommands) {
                         Icon(Icons.Default.Build, contentDescription = AppStrings.manageCommands)
+                    }
+                    IconButton(onClick = { showSaveWorkspaceDialog = true }) {
+                        Icon(Icons.Default.Save, contentDescription = "Save Workspace")
                     }
                 }
             )
@@ -599,6 +609,78 @@ fun ServerControlScreen(
             onDismiss = { templateToFill = null }
         )
     }
+
+    if (showSaveWorkspaceDialog) {
+        SaveWorkspaceDialog(
+            onSave = { name, color ->
+                scope.launch {
+                    val openSessions = TerminalScreenStore.openSessions()
+                    val items = openSessions.map { (sid, serverId) ->
+                        val bundle = com.neytron.sshcommander.data.SessionManager.getBundle(sid)
+                        com.neytron.sshcommander.data.WorkspaceItem(
+                            serverId = serverId,
+                            loginId = bundle?.lastLoginId,
+                            type = com.neytron.sshcommander.data.WorkspaceItemType.TERMINAL,
+                            initialPath = bundle?.sftp?.currentPath?.value,
+                            lastCommand = bundle?.terminal?.lastCommand?.value
+                        )
+                    }
+                    deps.repository.insertWorkspace(com.neytron.sshcommander.data.Workspace(name = name, colorHex = color, items = items))
+                    showSaveWorkspaceDialog = false
+                    platformToast("Workspace saved!")
+                }
+            },
+            onDismiss = { showSaveWorkspaceDialog = false }
+        )
+    }
+}
+
+@Composable
+fun SaveWorkspaceDialog(
+    onSave: (String, String?) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var colorHex by remember { mutableStateOf<String?>(null) }
+    val colors = listOf("#F44336", "#4CAF50", "#2196F3", "#FFEB3B", "#9C27B0")
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Save Workspace", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Workspace Name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text("Theme Color", style = MaterialTheme.typography.labelLarge)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    colors.forEach { hex ->
+                        val selected = colorHex == hex
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(androidx.compose.foundation.shape.CircleShape)
+                                .background(colorFromHex(hex, Color.Gray))
+                                .border(if (selected) 2.dp else 0.dp, MaterialTheme.colorScheme.primary, androidx.compose.foundation.shape.CircleShape)
+                                .clickable { colorHex = hex }
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onSave(name.trim(), colorHex) }, enabled = name.isNotBlank()) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(AppStrings.cancel) }
+        }
+    )
 }
 
 @Composable

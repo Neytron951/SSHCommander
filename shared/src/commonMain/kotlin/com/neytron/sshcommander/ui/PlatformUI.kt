@@ -1,6 +1,7 @@
 package com.neytron.sshcommander.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 
 /**
  * Platform back navigation handler.
@@ -28,3 +29,7 @@ expect fun isLandscapeLayout(): Boolean
 
 /** Shows a transient platform message (Toast on Android, console on desktop). */
 expect fun platformToast(message: String)
+
+/** Platform-specific Drag-and-Drop support for files. */
+@Composable
+expect fun Modifier.platformDragAndDrop(onFilesDropped: (List<String>) -> Unit): Modifier

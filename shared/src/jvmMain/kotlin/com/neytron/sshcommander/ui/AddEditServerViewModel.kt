@@ -23,6 +23,7 @@ class AddEditServerViewModel(
     var showInWidget by mutableStateOf(false)
     var sftpStartPath by mutableStateOf("")
     var folderId by mutableStateOf<Int?>(null)
+    var sshKeyId by mutableStateOf<Int?>(null)
 
     var nameError by mutableStateOf<String?>(null)
     var hostError by mutableStateOf<String?>(null)
@@ -43,6 +44,7 @@ class AddEditServerViewModel(
                 showInWidget = server.showInWidget
                 sftpStartPath = server.sftpStartPath ?: ""
                 folderId = server.folderId
+                sshKeyId = server.sshKeyId
             }
         }
     }
@@ -69,7 +71,8 @@ class AddEditServerViewModel(
                 iconName = iconName,
                 showInWidget = showInWidget,
                 sftpStartPath = sftpStartPath.trim().ifBlank { null },
-                folderId = folderId
+                folderId = folderId,
+                sshKeyId = sshKeyId
             )
             if (currentServerId == null) {
                 currentServerId = repository.insertServer(server, password)

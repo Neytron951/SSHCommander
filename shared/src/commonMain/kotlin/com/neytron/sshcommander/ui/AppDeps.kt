@@ -11,7 +11,9 @@ import com.neytron.sshcommander.data.ServerRepository
 data class AppDeps(
     val repository: ServerRepository,
     val settings: AppSettings,
-    val biometric: BiometricAuthenticator?
+    val biometric: BiometricAuthenticator?,
+    val authManager: com.neytron.sshcommander.sync.AuthManager? = null,
+    val httpClient: io.ktor.client.HttpClient? = null
 )
 
 val LocalAppDeps = staticCompositionLocalOf<AppDeps> {

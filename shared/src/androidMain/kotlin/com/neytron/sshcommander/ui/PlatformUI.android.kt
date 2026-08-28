@@ -4,6 +4,7 @@ import android.content.Context
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 
 /** Set once by androidApp's Application/MainActivity so shared code can toast. */
@@ -30,3 +31,6 @@ actual fun platformToast(message: String) {
         Toast.makeText(ctx, message, Toast.LENGTH_LONG).show()
     }
 }
+
+@Composable
+actual fun Modifier.platformDragAndDrop(onFilesDropped: (List<String>) -> Unit): Modifier = this

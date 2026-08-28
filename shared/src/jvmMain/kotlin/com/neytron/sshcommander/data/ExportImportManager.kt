@@ -10,8 +10,14 @@ data class ExportData(
     val servers: List<ServerWithPassword>,
     val customCommands: List<CustomCommand>,
     val logins: List<ServerLoginWithPassword>,
-    // Nullable so older JSON files (Android legacy / previous exports) import fine.
-    val folders: List<ServerFolder>? = emptyList()
+    val folders: List<ServerFolder>? = emptyList(),
+    val workspaces: List<Workspace>? = emptyList(),
+    val sshKeys: List<SshKeyWithPassphrase>? = emptyList()
+)
+
+data class SshKeyWithPassphrase(
+    val key: SshKey,
+    val passphrase: String?
 )
 
 data class ServerWithPassword(
@@ -45,7 +51,12 @@ class ExportImportManager(private val repository: ServerRepository) : DataBackup
             }
         }
         val folders = repository.getFolders()
-        gson.toJson(ExportData(servers, commands, logins, folders))
+        val workspaces = repository.allWorkspaces.first()
+        val sshKeys = repository.getSshKeys().map {
+            SshKeyWithPassphrase(it, repository.getKeyPassphrase(it.id))
+        }
+
+        gson.toJson(ExportData(servers, commands, logins, folders, workspaces, sshKeys))
     }
 
     override suspend fun importJson(json: String): Unit = importData(json)
@@ -54,29 +65,65 @@ class ExportImportManager(private val repository: ServerRepository) : DataBackup
         val type = object : TypeToken<ExportData>() {}.type
         val data: ExportData = gson.fromJson(json, type)
 
-        // Track old folder id -> new folder id so servers can be re-linked.
+        // 1. SSH Keys (needed for servers/logins)
+        val keyIdMap = mutableMapOf<Int, Int>()
+        (data.sshKeys ?: emptyList()).forEach { item ->
+            val newId = repository.insertSshKey(item.key.copy(id = 0, passphraseKey = item.passphrase))
+            keyIdMap[item.key.id] = newId
+        }
+
+        // 2. Folders
         val folderIdMap = mutableMapOf<Int, Int>()
         (data.folders ?: emptyList()).forEach { folder ->
             val newId = repository.insertFolder(folder.name)
             folderIdMap[folder.id] = newId
         }
 
-        // Track old server id -> new server id so logins can be re-linked.
+        // 3. Servers
         val serverIdMap = mutableMapOf<Int, Int>()
         data.servers.forEach { item ->
             val newId = repository.insertServer(
-                item.server.copy(id = 0, folderId = item.server.folderId?.let { folderIdMap[it] }),
+                item.server.copy(
+                    id = 0, 
+                    folderId = item.server.folderId?.let { folderIdMap[it] },
+                    sshKeyId = item.server.sshKeyId?.let { keyIdMap[it] }
+                ),
                 item.password
             )
             serverIdMap[item.server.id] = newId
         }
+        
+        // 4. Custom Commands
         data.customCommands.forEach { cmd ->
             repository.insertCustomCommand(cmd.copy(id = 0))
         }
+        
+        // 5. Logins
+        val loginIdMap = mutableMapOf<Int, Int>()
         data.logins.forEach { item ->
             val newServerId = serverIdMap[item.login.serverId]
             if (newServerId != null) {
-                repository.insertLogin(item.login.copy(id = 0, serverId = newServerId), item.password)
+                val newId = repository.insertLogin(
+                    item.login.copy(
+                        id = 0, 
+                        serverId = newServerId,
+                        sshKeyId = item.login.sshKeyId?.let { keyIdMap[it] }
+                    ), 
+                    item.password
+                )
+                loginIdMap[item.login.id] = newId
+            }
+        }
+        
+        // 6. Workspaces
+        (data.workspaces ?: emptyList()).forEach { ws ->
+            val newItems = ws.items.map { it.copy(
+                serverId = serverIdMap[it.serverId] ?: 0,
+                loginId = it.loginId?.let { loginIdMap[it] }
+            ) }.filter { it.serverId != 0 }
+            
+            if (newItems.isNotEmpty()) {
+                repository.insertWorkspace(ws.copy(id = 0, items = newItems))
             }
         }
     }

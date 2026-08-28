@@ -27,6 +27,8 @@ import java.io.File
  *   commands.json    — custom commands
  *   history.json     — command history per server
  *   folders.json     — server grouping folders
+ *   keys.json        — managed SSH key pairs
+ *   key_passwords.json — key id → passphrase
  *
  * NOTE: passwords are stored in plain text here on purpose — secure storage
  * (Windows DPAPI / Android Keystore) is a dedicated phase-3 task.
@@ -43,10 +45,10 @@ class JsonServerRepository(
         // jpackage runtime image. Provide InstanceCreators so deserialization
         // works in the packaged (MSI/EXE) build.
         .registerTypeAdapter(Server::class.java, InstanceCreator { _ ->
-            Server(name = "", host = "", username = "")
+            Server(name = "", host = "", username = "", isPinned = false, sshKeyId = null)
         })
         .registerTypeAdapter(ServerLogin::class.java, InstanceCreator { _ ->
-            ServerLogin(serverId = 0, label = "", username = "")
+            ServerLogin(serverId = 0, label = "", username = "", sshKeyId = null)
         })
         .registerTypeAdapter(CustomCommand::class.java, InstanceCreator { _ ->
             CustomCommand(name = "", command = "", iconName = "Default", colorHex = "", orderIndex = 0)
@@ -63,6 +65,9 @@ class JsonServerRepository(
         .registerTypeAdapter(WorkspaceItem::class.java, InstanceCreator { _ ->
             WorkspaceItem(serverId = 0)
         })
+        .registerTypeAdapter(SshKey::class.java, InstanceCreator { _ ->
+            SshKey(name = "", type = "RSA")
+        })
         .create()
     private val mutex = Mutex()
     private val serversFile = File(dataDir, "servers.json")
@@ -73,6 +78,8 @@ class JsonServerRepository(
     private val historyFile = File(dataDir, "history.json")
     private val foldersFile = File(dataDir, "folders.json")
     private val workspacesFile = File(dataDir, "workspaces.json")
+    private val keysFile = File(dataDir, "keys.json")
+    private val keyPasswordsFile = File(dataDir, "key_passwords.json")
 
     private val _servers = MutableStateFlow<List<Server>>(emptyList())
     override val allServers: StateFlow<List<Server>> = _servers.asStateFlow()
@@ -82,6 +89,9 @@ class JsonServerRepository(
 
     private val _workspaces = MutableStateFlow<List<Workspace>>(emptyList())
     override val allWorkspaces: StateFlow<List<Workspace>> = _workspaces.asStateFlow()
+
+    private val _sshKeys = MutableStateFlow<List<SshKey>>(emptyList())
+    override val allSshKeys: StateFlow<List<SshKey>> = _sshKeys.asStateFlow()
 
     private val _logins = MutableStateFlow<List<ServerLogin>>(emptyList())
     private val _commands = MutableStateFlow<List<CustomCommand>>(emptyList())
@@ -95,6 +105,7 @@ class JsonServerRepository(
         _commands.value = readCommands()
         _history.value = readHistory()
         _workspaces.value = readWorkspaces()
+        _sshKeys.value = readSshKeys()
     }
 
     override suspend fun getServers(): List<Server> = withContext(Dispatchers.IO) {
@@ -182,26 +193,32 @@ class JsonServerRepository(
         mutex.withLock { loadPassword(serverId) }
     }
 
-    override suspend fun buildConnectionProfile(server: Server): ConnectionProfile =
-        ConnectionProfile(
+    override suspend fun buildConnectionProfile(server: Server): ConnectionProfile {
+        val managedKey = server.sshKeyId?.let { getSshKeyById(it) }
+        return ConnectionProfile(
             username = server.username,
             password = getPassword(server.id) ?: "",
-            privateKeyPath = server.privateKeyPath,
-            passphrase = server.passphraseKey?.takeIf { it.isNotBlank() }
+            privateKeyPath = server.privateKeyPath ?: managedKey?.privateKeyPath,
+            privateKeyContent = managedKey?.privateKeyContent,
+            publicKeyContent = managedKey?.publicKeyContent,
+            passphrase = server.passphraseKey?.takeIf { it.isNotBlank() } ?: managedKey?.id?.let { loadKeyPassphrase(it) }
         )
+    }
 
     override suspend fun buildConnectionProfile(server: Server, login: ServerLogin?): ConnectionProfile {
-        return if (login == null) {
-            buildConnectionProfile(server)
-        } else {
-            ConnectionProfile(
-                username = login.username,
-                password = getLoginPassword(login.id) ?: "",
-                privateKeyPath = login.privateKeyPath,
-                passphrase = login.passphraseKey?.takeIf { it.isNotBlank() }
-                    ?.let { getLoginPassword(login.id) }
-            )
-        }
+        if (login == null) return buildConnectionProfile(server)
+        
+        val managedKey = login.sshKeyId?.let { getSshKeyById(it) }
+        return ConnectionProfile(
+            username = login.username,
+            password = getLoginPassword(login.id) ?: "",
+            privateKeyPath = login.privateKeyPath ?: managedKey?.privateKeyPath,
+            privateKeyContent = managedKey?.privateKeyContent,
+            publicKeyContent = managedKey?.publicKeyContent,
+            passphrase = login.passphraseKey?.takeIf { it.isNotBlank() }
+                ?.let { getLoginPassword(login.id) }
+                ?: managedKey?.id?.let { loadKeyPassphrase(it) }
+        )
     }
 
     // ---- Server Logins ----
@@ -358,6 +375,60 @@ class JsonServerRepository(
         }
     }
 
+    // ---- SSH Keys ----
+
+    override suspend fun getSshKeys(): List<SshKey> = withContext(Dispatchers.IO) {
+        mutex.withLock { _sshKeys.value }
+    }
+
+    override suspend fun getSshKeyById(id: Int): SshKey? = withContext(Dispatchers.IO) {
+        mutex.withLock { _sshKeys.value.firstOrNull { it.id == id } }
+    }
+
+    override suspend fun insertSshKey(key: SshKey): Int = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val current = _sshKeys.value
+            val newId = (current.maxOfOrNull { it.id } ?: 0) + 1
+            val persisted = key.copy(id = newId, createdAt = System.currentTimeMillis())
+            _sshKeys.update { current + persisted }
+            writeSshKeys(_sshKeys.value)
+            key.passphraseKey?.let { storeKeyPassphrase(newId, it) }
+            newId
+        }
+    }
+
+    override suspend fun updateSshKey(key: SshKey): Unit = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            _sshKeys.update { list -> list.map { if (it.id == key.id) key else it } }
+            writeSshKeys(_sshKeys.value)
+            key.passphraseKey?.let { storeKeyPassphrase(key.id, it) }
+        }
+    }
+
+    override suspend fun deleteSshKey(id: Int): Unit = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            _sshKeys.update { list -> list.filterNot { it.id == id } }
+            writeSshKeys(_sshKeys.value)
+            removeKeyPassphrase(id)
+        }
+    }
+
+    override suspend fun getKeyPassphrase(id: Int): String? = withContext(Dispatchers.IO) {
+        mutex.withLock { loadKeyPassphrase(id) }
+    }
+
+    override suspend fun provisionUser(
+        serverId: Int,
+        username: String,
+        publicKey: String,
+        password: String?
+    ): Result<Unit> {
+        val session = SshConnectionManager.getActiveSession(serverId)
+            ?: return Result.failure(Exception("No active session found for server $serverId"))
+        
+        return UserProvisioningService().provisionUser(session, username, publicKey, password)
+    }
+
     // ---- password helpers ----
 
     private suspend fun storePassword(serverId: Int, password: String) {
@@ -421,6 +492,39 @@ class JsonServerRepository(
             val pw = readLoginPasswords().toMutableMap()
             pw.remove(loginId)
             writeLoginPasswords(pw)
+        }
+    }
+
+    // ---- key passphrase helpers ----
+
+    private suspend fun storeKeyPassphrase(keyId: Int, passphrase: String) {
+        val secure = secureStorage
+        if (secure != null) {
+            secure.put("key-$keyId", passphrase)
+        } else {
+            val pw = readKeyPassphrases().toMutableMap()
+            pw[keyId] = passphrase
+            writeKeyPassphrases(pw)
+        }
+    }
+
+    private suspend fun loadKeyPassphrase(keyId: Int): String? {
+        val secure = secureStorage
+        return if (secure != null) {
+            secure.get("key-$keyId")
+        } else {
+            readKeyPassphrases()[keyId]
+        }
+    }
+
+    private suspend fun removeKeyPassphrase(keyId: Int) {
+        val secure = secureStorage
+        if (secure != null) {
+            secure.remove("key-$keyId")
+        } else {
+            val pw = readKeyPassphrases().toMutableMap()
+            pw.remove(keyId)
+            writeKeyPassphrases(pw)
         }
     }
 
@@ -550,5 +654,36 @@ class JsonServerRepository(
 
     private fun writeWorkspaces(workspaces: List<Workspace>) {
         workspacesFile.writeText(gson.toJson(workspaces))
+    }
+
+    private fun readSshKeys(): List<SshKey> {
+        if (!keysFile.exists()) return emptyList()
+        return try {
+            val type = object : TypeToken<List<SshKey>>() {}.type
+            val list: List<SshKey> = gson.fromJson(keysFile.readText(), type)
+            list ?: emptyList()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
+    }
+
+    private fun writeSshKeys(keys: List<SshKey>) {
+        keysFile.writeText(gson.toJson(keys))
+    }
+
+    private fun readKeyPassphrases(): Map<Int, String> {
+        if (!keyPasswordsFile.exists()) return emptyMap()
+        return try {
+            val type = object : TypeToken<Map<String, String>>() {}.type
+            val raw: Map<String, String> = gson.fromJson(keyPasswordsFile.readText(), type) ?: emptyMap()
+            raw.mapKeys { it.key.toInt() }
+        } catch (e: Exception) {
+            emptyMap()
+        }
+    }
+
+    private fun writeKeyPassphrases(passwords: Map<Int, String>) {
+        keyPasswordsFile.writeText(gson.toJson(passwords.mapKeys { it.key.toString() }))
     }
 }

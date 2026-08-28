@@ -14,21 +14,33 @@ interface SftpController {
     val isConnected: StateFlow<Boolean>
     val error: StateFlow<String?>
     val currentPath: StateFlow<String>
+    val files: StateFlow<List<RemoteFile>>
+    
+    val showHiddenFiles: StateFlow<Boolean>
+    val selectedFiles: StateFlow<Set<String>>
+    val transferProgress: StateFlow<Float>
+    val isTransferring: StateFlow<Boolean>
 
     /** Establishes the SFTP channel (reusing the shared SSH session). */
     fun connect()
 
     /** Lists the contents of [path] and updates [currentPath] on success. */
-    fun listDirectory(path: String = currentPath.value)
+    suspend fun listDirectory(path: String = currentPath.value)
 
     /** Lists the contents of [path] and returns them. */
     suspend fun listFiles(path: String): List<RemoteFile>
 
     fun goUp()
     fun goTo(path: String)
+    fun toggleHiddenFiles()
+    fun toggleSelection(path: String)
+    fun clearSelection()
 
-    /** Downloads [remoteFile] from [remoteDir] into the local directory [destinationDirPath]. */
-    suspend fun download(remoteDir: String, remoteFile: RemoteFile, destinationDirPath: String): Boolean
+    /** Downloads [remoteFile] from [remoteDir] into the local file [target]. */
+    suspend fun download(remoteDir: String, remoteFile: RemoteFile, target: com.neytron.sshcommander.ui.PlatformTransferFile): Boolean
+
+    /** Downloads [remoteFile] from [remoteDir] into the local directory [targetDir]. */
+    suspend fun downloadToDir(remoteDir: String, remoteFile: RemoteFile, targetDir: com.neytron.sshcommander.ui.PlatformTransferDir): Boolean
 
     /**
      * Reads up to [maxBytes] from the beginning of a remote file and returns
@@ -36,17 +48,20 @@ interface SftpController {
      */
     suspend fun readRemoteFile(remotePath: String, maxBytes: Int): ByteArray?
 
-    /** Uploads a local file (by path) into [remoteDir]. */
+    /** Uploads local files into [remoteDir]. */
+    suspend fun upload(files: List<com.neytron.sshcommander.ui.PlatformTransferFile>, remoteDir: String): Boolean
+
+    /** Uploads a single local file (by path) into [remoteDir]. */
     suspend fun upload(localFilePath: String, remoteDir: String): Boolean
 
     /** Creates a directory [name] under [parentDir]. */
     suspend fun makeDirectory(parentDir: String, name: String): Boolean
 
+    /** Renames a remote file. */
+    suspend fun rename(remotePath: String, newName: String): Boolean
+
     /** Deletes a remote file or directory. */
     suspend fun delete(remoteDir: String, remoteFile: RemoteFile): Boolean
-
-    /** Current directory listing (null while not connected). */
-    val files: StateFlow<List<RemoteFile>>
 
     /** Reads the whole remote file as a string. */
     suspend fun readRemoteText(remotePath: String): String?

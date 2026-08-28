@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -22,6 +23,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.neytron.sshcommander.ui.theme.SSHCommanderTheme
+import com.neytron.sshcommander.data.ExportImportManager
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 
@@ -30,6 +33,7 @@ import kotlinx.coroutines.launch
 fun SettingsScreen(
     onNavigateBack: () -> Unit,
     onWidgetSettingsClick: () -> Unit,
+    onSshKeysClick: () -> Unit,
     onAboutClick: () -> Unit,
     appVersion: String = ""
 ) {
@@ -221,6 +225,19 @@ fun SettingsScreen(
                 }
             }
 
+            // SSH Keys Management
+            SettingsSection(title = AppStrings.manageKeys) {
+                OutlinedButton(
+                    onClick = { if (!isTransitioning) onSshKeysClick() },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isTransitioning
+                ) {
+                    Icon(Icons.Default.VpnKey, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(AppStrings.sshKeys)
+                }
+            }
+
             // Widget Settings
             SettingsSection(title = widgetCustomizationLabel) {
                 OutlinedButton(
@@ -247,6 +264,11 @@ fun SettingsScreen(
                     }
                 }
             }
+
+            HorizontalDivider()
+
+            // Cloud Sync
+            CloudSyncSection(backupManager = com.neytron.sshcommander.data.ExportImportManager(deps.repository))
 
             HorizontalDivider()
 

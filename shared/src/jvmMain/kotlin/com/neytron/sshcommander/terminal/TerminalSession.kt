@@ -5,19 +5,16 @@ import com.jcraft.jsch.Session
 import com.neytron.sshcommander.data.ConnectionProfile
 import com.neytron.sshcommander.data.HostKeyStore
 import com.neytron.sshcommander.data.Server
+import com.neytron.sshcommander.data.ServerStats
+import com.neytron.sshcommander.data.MonitorWidget
+import com.neytron.sshcommander.data.WidgetType
 import com.neytron.sshcommander.data.SshConnectionManager
 import com.neytron.sshcommander.data.TerminalDimensions
 import com.neytron.sshcommander.data.TerminalScreen
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.InputStream
@@ -27,9 +24,6 @@ import java.io.OutputStream
  * Cross-platform interactive SSH shell session backed by JSch.
  * Drives a [TerminalScreen] emulator from the server's output stream and
  * forwards user keystrokes back over the channel.
- *
- * Unlike the Android ViewModel this holds no Context/Room dependencies so it
- * runs identically on Windows and Android.
  */
 class TerminalSession(
     private val server: Server,
@@ -50,20 +44,34 @@ class TerminalSession(
     private val _error = MutableStateFlow<String?>(null)
     override val error: StateFlow<String?> = _error
 
+    private val _lastCommand = MutableStateFlow<String?>(null)
+    override val lastCommand: StateFlow<String?> = _lastCommand
+
+    private val _sysStats = MutableStateFlow(ServerStats())
+    override val sysStats: StateFlow<ServerStats> = _sysStats.asStateFlow()
+
+    private val _widgetResults = MutableStateFlow<Map<String, String>>(emptyMap())
+    override val widgetResults: StateFlow<Map<String, String>> = _widgetResults.asStateFlow()
+
+    private val _monitorWidgets = MutableStateFlow<List<MonitorWidget>>(emptyList())
+    override val monitorWidgets: StateFlow<List<MonitorWidget>> = _monitorWidgets.asStateFlow()
+
     private val connectionManager = SshConnectionManager(hostKeyStore)
 
     private var currentSession: Session? = null
     private var currentChannel: ChannelShell? = null
     private var channelOutputStream: OutputStream? = null
     private var shellJob: Job? = null
+    private var statsJob: Job? = null
 
     private var utf8Leftover = ByteArray(0)
     private var notConnectedNotified = false
 
-    // Serializes writes to the channel output stream. sendInput() is invoked
-    // from keystroke handlers AND command buttons, each launching its own IO
-    // coroutine; concurrent writes to JSch's stream can corrupt data or crash.
     private val writeLock = Mutex()
+
+    fun updateWidgets(widgets: List<MonitorWidget>) {
+        _monitorWidgets.value = widgets
+    }
 
     override fun connect() {
         shellJob?.cancel()
@@ -71,54 +79,72 @@ class TerminalSession(
         notConnectedNotified = false
         shellJob = scope.launch(Dispatchers.IO) {
             _isLoading.value = true
-            terminalScreen.feed("Connecting to ${server.host}:${server.port} as ${profile.username}...\r\n")
-            _terminalRevision.value++
-            try {
-                val session = connectionManager.getOrCreateSession(server, profile)
-                currentSession = session
-                if (currentChannel?.isConnected == true) currentChannel?.disconnect()
+            startStatsPolling()
+            
+            var reconnectAttempt = 0
+            val maxAttempts = 5
+            
+            while (isActive) {
+                try {
+                    reconnectAttempt = 0
+                    terminalScreen.feed("Connecting to ${server.host}:${server.port} as ${profile.username}...\r\n")
+                    _terminalRevision.value++
+                    
+                    val session = connectionManager.getOrCreateSession(server, profile)
+                    currentSession = session
+                    if (currentChannel?.isConnected == true) currentChannel?.disconnect()
 
-                val channel = session.openChannel("shell") as ChannelShell
-                channel.setPty(true)
-                // The PTY term string is what OpenSSH uses to set TERM for the
-                // remote shell. "xterm" alone made many servers start the shell as
-                // "dumb"/dash, which disables readline — arrow keys then echo
-                // "^[[A" garbage instead of navigating. xterm-256color keeps
-                // readline/history working for non-root logins too.
-                channel.setPtyType("xterm-256color")
-                // Provide real pixel dimensions as well — some shells also use the
-                // pty size to decide on line-wrapping/readline behavior.
-                channel.setPtySize(TerminalDimensions.COLS, 30, 640, 400)
-                // Belt-and-braces: forwarded for servers that honor sshd SetEnv.
-                channel.setEnv("TERM", "xterm-256color")
+                    val channel = session.openChannel("shell") as ChannelShell
+                    channel.setPty(true)
+                    channel.setPtyType("xterm-256color")
+                    channel.setPtySize(TerminalDimensions.COLS, 30, 640, 400)
+                    channel.setEnv("TERM", "xterm-256color")
 
-                val inputStream: InputStream = channel.inputStream
-                channelOutputStream = channel.outputStream
+                    val inputStream: InputStream = channel.inputStream
+                    channelOutputStream = channel.outputStream
 
-                channel.connect()
-                currentChannel = channel
-                _isLoading.value = false
-                _isConnected.value = true
+                    channel.connect()
+                    currentChannel = channel
+                    _isLoading.value = false
+                    _isConnected.value = true
 
-                val buffer = ByteArray(4096)
-                while (currentCoroutineContext().isActive && channel.isConnected) {
-                    val len = inputStream.read(buffer)
-                    if (len > 0) {
-                        val data = decodeUtf8(buffer.copyOfRange(0, len))
-                        if (data.isNotEmpty()) {
-                            terminalScreen.feed(data)
-                            _terminalRevision.value++
-                        }
-                    } else if (len == -1) break
+                    val buffer = ByteArray(4096)
+                    while (currentCoroutineContext().isActive && channel.isConnected) {
+                        val len = inputStream.read(buffer)
+                        if (len > 0) {
+                            val data = decodeUtf8(buffer.copyOfRange(0, len))
+                            if (data.isNotEmpty()) {
+                                terminalScreen.feed(data)
+                                _terminalRevision.value++
+                            }
+                        } else if (len == -1) break
+                    }
+                    
+                    _isConnected.value = false
+                    if (!isActive) break
+                    
+                    // If we reached here, connection was lost but scope is still active
+                    throw Exception("Connection lost")
+                    
+                } catch (e: Exception) {
+                    _isLoading.value = false
+                    _isConnected.value = false
+                    val message = e.message ?: "Connection failed"
+                    _error.value = message
+                    
+                    if (message != "Connection lost") {
+                        terminalScreen.feed("\r\n\u001b[31mERROR: $message\u001b[0m\r\n")
+                        _terminalRevision.value++
+                    }
+                    
+                    reconnectAttempt++
+                    if (reconnectAttempt > maxAttempts) break
+                    
+                    val delayMs = (2000L * (1L shl (reconnectAttempt - 1))).coerceAtMost(30_000L)
+                    terminalScreen.feed("\r\nRetrying connection ($reconnectAttempt/$maxAttempts) in ${delayMs/1000}s...\r\n")
+                    _terminalRevision.value++
+                    delay(delayMs)
                 }
-                _isConnected.value = false
-            } catch (e: Exception) {
-                _isLoading.value = false
-                _isConnected.value = false
-                val message = e.message ?: "Connection failed"
-                _error.value = message
-                terminalScreen.feed("\r\n\u001b[31mERROR: $message\u001b[0m\r\n")
-                _terminalRevision.value++
             }
         }
     }
@@ -128,8 +154,6 @@ class TerminalSession(
             writeLock.withLock {
                 val out = channelOutputStream
                 if (out == null) {
-                    // Not connected: tell the user once so keystrokes don't silently
-                    // vanish (e.g. they typed before a session was established).
                     if (!_isLoading.value && !notConnectedNotified) {
                         notConnectedNotified = true
                         terminalScreen.feed("\r\n\u001b[33mNot connected — add your server or check credentials.\u001b[0m\r\n")
@@ -140,9 +164,7 @@ class TerminalSession(
                 try {
                     out.write(input.toByteArray(Charsets.UTF_8))
                     out.flush()
-                } catch (e: Exception) {
-                    // Channel closed — ignore.
-                }
+                } catch (e: Exception) {}
             }
         }
     }
@@ -162,13 +184,7 @@ class TerminalSession(
     }
 
     override fun executeCommand(command: String) {
-        // In full-screen apps (nano/vim/htop) a trailing newline would be sent
-        // raw (Ctrl+J → "justify" in nano). In the plain shell we need Enter.
-        //
-        // CRITICAL: command + Enter must be sent in ONE write. Two separate
-        // sendInput() calls each launch their own IO coroutine, so the Enter
-        // can arrive before the command text (they run concurrently) and the
-        // shell would execute an empty line instead of the command.
+        _lastCommand.value = command
         if (terminalScreen.isFullScreen) {
             sendInput(command)
         } else {
@@ -181,8 +197,23 @@ class TerminalSession(
         _terminalRevision.value++
     }
 
+    override fun addWidget(title: String, command: String, type: WidgetType, isWide: Boolean, colorHex: String?) {
+        val current = _monitorWidgets.value.toMutableList()
+        current.add(MonitorWidget(java.util.UUID.randomUUID().toString(), title, command, type, isWide, colorHex))
+        _monitorWidgets.value = current
+    }
+
+    override fun deleteWidget(id: String) {
+        _monitorWidgets.value = _monitorWidgets.value.filter { it.id != id }
+    }
+
+    override fun updateWidget(updatedWidget: MonitorWidget) {
+        _monitorWidgets.value = _monitorWidgets.value.map { if (it.id == updatedWidget.id) updatedWidget else it }
+    }
+
     override fun disconnect() {
         shellJob?.cancel()
+        statsJob?.cancel()
         currentChannel?.disconnect()
         currentChannel = null
         channelOutputStream = null
@@ -193,6 +224,107 @@ class TerminalSession(
     override fun close() {
         disconnect()
         scope.cancel()
+    }
+
+    private fun startStatsPolling() {
+        statsJob?.cancel()
+        statsJob = scope.launch(Dispatchers.IO) {
+            while (isActive) {
+                if (_isConnected.value) {
+                    try {
+                        val currentWidgets = _monitorWidgets.value
+                        val results = mutableMapOf<String, String>()
+                        
+                        currentWidgets.forEach { widget ->
+                            val output = executeSingleCommand(widget.command)
+                            if (output != null) {
+                                results[widget.id] = output.trim()
+                            }
+                        }
+                        _widgetResults.value = results
+
+                        val basicOutput = executeSingleCommand("top -bn1 | grep 'Cpu(s)'; free -b; df -B1 / | tail -n 1; uptime -p; journalctl -n 10 --no-pager 2>/dev/null || tail -n 10 /var/log/syslog")
+                        if (basicOutput != null) {
+                            _sysStats.value = parseStats(basicOutput)
+                        }
+                    } catch (e: Exception) {}
+                }
+                delay(10_000)
+            }
+        }
+    }
+
+    private suspend fun executeSingleCommand(cmd: String): String? {
+        val session = currentSession ?: return null
+        if (!session.isConnected) return null
+        return withContext(Dispatchers.IO) {
+            try {
+                val channel = session.openChannel("exec") as com.jcraft.jsch.ChannelExec
+                channel.setCommand(cmd)
+                val input = channel.inputStream
+                channel.connect()
+                val output = input.bufferedReader().readText()
+                channel.disconnect()
+                output
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
+
+    private fun parseStats(output: String): ServerStats {
+        var cpu = 0f
+        var ramUsed = 0L
+        var ramTotal = 0L
+        var diskUsed = 0L
+        var diskTotal = 0L
+        var uptime = ""
+        val logs = mutableListOf<String>()
+
+        val lines = output.lines()
+        lines.forEach { line ->
+            when {
+                line.contains("Cpu(s)") -> {
+                    val match = Regex("(\\d+[.,]\\d+)\\s+id").find(line)
+                    match?.let {
+                        val idle = it.groupValues[1].replace(',', '.').toFloatOrNull() ?: 100f
+                        cpu = 100f - idle
+                    }
+                }
+                line.startsWith("Mem:") -> {
+                    val parts = line.split(Regex("\\s+")).filter { it.isNotBlank() }
+                    if (parts.size >= 3) {
+                        ramTotal = parts[1].toLongOrNull() ?: 0L
+                        ramUsed = parts[2].toLongOrNull() ?: 0L
+                    }
+                }
+                line.startsWith("/") -> {
+                    val parts = line.split(Regex("\\s+")).filter { it.isNotBlank() }
+                    if (parts.size >= 4) {
+                        diskTotal = parts[1].toLongOrNull() ?: 0L
+                        diskUsed = parts[2].toLongOrNull() ?: 0L
+                    }
+                }
+                line.startsWith("up ") -> {
+                    uptime = line.removePrefix("up ")
+                }
+                else -> {
+                    if (line.isNotBlank() && !line.startsWith("total")) {
+                        logs.add(line)
+                    }
+                }
+            }
+        }
+
+        return ServerStats(
+            cpuLoad = cpu,
+            ramUsed = ramUsed,
+            ramTotal = ramTotal,
+            diskUsed = diskUsed,
+            diskTotal = diskTotal,
+            uptime = uptime,
+            rawLogs = logs.takeLast(10).joinToString("\n")
+        )
     }
 
     private fun decodeUtf8(chunk: ByteArray): String {
@@ -207,9 +339,7 @@ class TerminalSession(
                     .decode(java.nio.ByteBuffer.wrap(combined, 0, len))
                 utf8Leftover = combined.copyOfRange(len, combined.size)
                 return text.toString()
-            } catch (e: java.nio.charset.CharacterCodingException) {
-                // Incomplete/oversized tail — drop one more byte and retry.
-            }
+            } catch (e: java.nio.charset.CharacterCodingException) {}
         }
         val fallback = Charsets.UTF_8.newDecoder()
             .onMalformedInput(java.nio.charset.CodingErrorAction.REPLACE)

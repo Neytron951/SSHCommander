@@ -12,8 +12,8 @@ android {
         applicationId = "com.neytron.sshcommander"
         minSdk = 24
         targetSdk = 35
-        versionCode = 7
-        versionName = "1.6"
+        versionCode = 8
+        versionName = "1.7.0"
     }
 
     buildFeatures {
@@ -25,6 +25,14 @@ android {
     }
     kotlinOptions {
         jvmTarget = "11"
+    }
+
+    packaging {
+        resources {
+            excludes += "/META-INF/versions/**/OSGI-INF/MANIFEST.MF"
+            excludes += "/META-INF/versions/**/module-info.class"
+            excludes += "/META-INF/OSGI-INF/**"
+        }
     }
 }
 
@@ -42,4 +50,13 @@ dependencies {
     implementation(libs.androidx.biometric)
     implementation(libs.yandex.mobileads)
     implementation(libs.jsch)
+    
+    // Ktor
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.android)
+    implementation(libs.ktor.client.content.negotiation)
+    implementation(libs.ktor.serialization.kotlinx.json)
+    
+    // Google Auth
+    implementation(libs.play.services.auth)
 }

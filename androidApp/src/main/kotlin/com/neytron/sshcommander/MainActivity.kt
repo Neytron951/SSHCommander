@@ -30,6 +30,10 @@ import com.neytron.sshcommander.data.SettingsManager
 import com.neytron.sshcommander.data.TerminalScreenStore
 import com.neytron.sshcommander.ui.*
 import com.neytron.sshcommander.ui.theme.SSHCommanderTheme
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.android.Android
+import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.serialization.kotlinx.json.*
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -57,11 +61,22 @@ class MainActivity : FragmentActivity() {
 
             val versionName = remember { packageManager.getPackageInfo(packageName, 0).versionName ?: "" }
 
+            val authManager = remember { com.neytron.sshcommander.sync.createAuthManager(this) }
+            val httpClient = remember {
+                HttpClient(Android) {
+                    install(ContentNegotiation) {
+                        json(kotlinx.serialization.json.Json { ignoreUnknownKeys = true })
+                    }
+                }
+            }
+
             CompositionLocalProvider(
                 LocalAppDeps provides AppDeps(
                     repository = serverRepository,
                     settings = settingsManager,
-                    biometric = AndroidBiometricAuthenticator(this)
+                    biometric = AndroidBiometricAuthenticator(this),
+                    authManager = authManager,
+                    httpClient = httpClient
                 )
             ) {
                 SSHCommanderTheme(darkTheme = darkTheme) {
@@ -184,28 +199,25 @@ fun PhoneApp(
                     onNavigateBack = { navController.popBackStack() },
                     onManageCommands = { navController.navigate("manage_commands") },
                     onManageLogins = { navController.navigate("manage_logins/$serverId") },
-                    onNavigateToSftp = { navController.navigate("sftp_explorer/$serverId") },
+                    onNavigateToSftp = { navController.navigate("sftp_explorer/$serverId/$sessionId") },
                     onSwitchSession = { sid ->
-                        // Switch tabs: replace the current server_control entry
-                        // so the back stack does not grow.
                         val targetServerId = TerminalScreenStore.serverOf(sid)
                         if (targetServerId != null) {
                             navController.navigate("server_control/$targetServerId/$sid") {
                                 launchSingleTop = true
-                                popUpTo("server_control/{serverId}/{sessionId}") { inclusive = true }
+                                // Don't pop up to inclusive here, let the NavHost handle it
+                                // or use a better strategy to avoid destroying VMs of background tabs
                             }
                         }
                     },
                     onAddSession = { targetServerId ->
-                        // "+" always starts a brand-new session, even for a server
-                        // that already has one open.
                         val newSessionId = TerminalScreenStore.createSession(targetServerId)
                         navController.navigate("server_control/$targetServerId/$newSessionId") {
                             launchSingleTop = true
-                            popUpTo("server_control/{serverId}/{sessionId}") { inclusive = true }
                         }
                     },
-                    onCloseSession = { _ ->
+                    onCloseSession = { sid ->
+                        // Managed by SshViewModel and SessionManager
                         navController.popBackStack()
                     }
                 )
@@ -221,12 +233,17 @@ fun PhoneApp(
                 )
             }
             composable(
-                route = "sftp_explorer/{serverId}",
-                arguments = listOf(navArgument("serverId") { type = NavType.IntType })
+                route = "sftp_explorer/{serverId}/{sessionId}",
+                arguments = listOf(
+                    navArgument("serverId") { type = NavType.IntType },
+                    navArgument("sessionId") { type = NavType.IntType }
+                )
             ) { backStackEntry ->
                 val serverId = backStackEntry.arguments?.getInt("serverId") ?: -1
+                val sessionId = backStackEntry.arguments?.getInt("sessionId") ?: -1
                 SftpExplorerScreen(
                     serverId = serverId,
+                    sessionId = sessionId,
                     onNavigateBack = { navController.popBackStack() },
                     onManageLogins = { navController.navigate("manage_logins/$serverId") }
                 )
@@ -235,9 +252,13 @@ fun PhoneApp(
                 SettingsScreen(
                     onNavigateBack = { navController.popBackStack() },
                     onWidgetSettingsClick = { navController.navigate("widget_settings") },
+                    onSshKeysClick = { navController.navigate("ssh_keys") },
                     onAboutClick = { navController.navigate("about") },
                     appVersion = appVersion
                 )
+            }
+            composable("ssh_keys") {
+                SshKeyManagerScreen(onNavigateBack = { navController.popBackStack() })
             }
             composable("about") {
                 AboutScreen(

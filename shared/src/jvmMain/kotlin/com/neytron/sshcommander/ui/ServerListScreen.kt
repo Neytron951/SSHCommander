@@ -26,23 +26,9 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.GroupWork
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -61,7 +47,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.neytron.sshcommander.data.Server
 import com.neytron.sshcommander.data.ServerFolder
 import com.neytron.sshcommander.data.Workspace
+import com.neytron.sshcommander.data.TerminalScreenStore
+import com.neytron.sshcommander.data.SessionManager
+import com.neytron.sshcommander.data.RepositoryHostKeyStore
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -91,6 +81,9 @@ fun ServerListScreen(
     var folderToRename by remember { mutableStateOf<ServerFolder?>(null) }
     var folderDialogName by remember { mutableStateOf("") }
     var folderToDelete by remember { mutableStateOf<ServerFolder?>(null) }
+
+    val pinnedServers = remember(servers) { servers.filter { it.isPinned } }
+    val unpinnedServers = remember(servers) { servers.filter { !it.isPinned } }
 
     LaunchedEffect(servers) {
         viewModel.checkStatuses(servers)
@@ -142,9 +135,40 @@ fun ServerListScreen(
                 WorkspaceList(
                     workspaces = workspaces,
                     onOpen = { ws ->
-                        // On mobile, opening a workspace opens the first server.
-                        // On desktop, the main App.kt overrides this via a side pane.
-                        ws.items.firstOrNull()?.let { onServerClick(it.serverId) }
+                        // On mobile, opening a workspace opens all sessions and jumps to the first one.
+                        scope.launch {
+                            var firstServerId: Int? = null
+                            
+                            ws.items.forEach { item ->
+                                val server = deps.repository.getServerById(item.serverId) ?: return@forEach
+                                val sid = TerminalScreenStore.createSession(server.id)
+                                
+                                val logins = deps.repository.getLoginsForServer(server.id).first()
+                                val login = item.loginId?.let { lid -> logins.firstOrNull { it.id == lid } }
+                                val profile = deps.repository.buildConnectionProfile(server, login)
+                                
+                                // Pre-warm the session in manager
+                                val bundle = SessionManager.getOrCreateBundle(sid, server, profile, RepositoryHostKeyStore(deps.repository))
+                                bundle.lastLoginId = item.loginId
+                                
+                                // Restore state
+                                item.initialPath?.let { path ->
+                                    scope.launch {
+                                        delay(1000) // Give it a moment to connect
+                                        bundle.sftp?.goTo(path)
+                                    }
+                                }
+                                
+                                if (firstServerId == null) {
+                                    firstServerId = server.id
+                                }
+                            }
+                            
+                            if (firstServerId != null) {
+                                // Jump to the first session
+                                onServerClick(firstServerId)
+                            }
+                        }
                     },
                     onDelete = { id -> scope.launch { deps.repository.deleteWorkspace(id) } }
                 )
@@ -176,10 +200,25 @@ fun ServerListScreen(
                         }
                     }
 
-                    servers.filter { it.folderId == null }.forEach { emitServer(it) }
+                    // Pinned Servers Section
+                    if (pinnedServers.isNotEmpty()) {
+                        item {
+                            Text(
+                                text = AppStrings.pinnedServers,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
+                        }
+                        pinnedServers.forEach { emitServer(it) }
+                        item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
+                    }
+
+                    unpinnedServers.filter { it.folderId == null }.forEach { emitServer(it) }
 
                     folders.forEach { folder ->
-                        val inFolder = servers.filter { it.folderId == folder.id }
+                        val inFolder = unpinnedServers.filter { it.folderId == folder.id }
                         item(key = "folder-${folder.id}") {
                             FolderListHeader(
                                 name = folder.name,
@@ -204,13 +243,24 @@ fun ServerListScreen(
             title = { Text(selectedServer!!.name) },
             text = { Text(AppStrings.chooseAction) },
             confirmButton = {
-                TextButton(onClick = {
-                    onEditServer(selectedServer!!.id)
-                    showMenu = false
-                }) {
-                    Icon(Icons.Default.Edit, contentDescription = null)
-                    Spacer(Modifier.width(4.dp))
-                    Text(AppStrings.edit)
+                Column {
+                    TextButton(onClick = {
+                        val updated = selectedServer!!.copy(isPinned = !selectedServer!!.isPinned)
+                        scope.launch { deps.repository.updateServer(updated, null) }
+                        showMenu = false
+                    }) {
+                        Icon(if (selectedServer!!.isPinned) Icons.Default.PushPin else Icons.Outlined.PushPin, contentDescription = null)
+                        Spacer(Modifier.width(4.dp))
+                        Text(if (selectedServer!!.isPinned) AppStrings.unpin else AppStrings.pin)
+                    }
+                    TextButton(onClick = {
+                        onEditServer(selectedServer!!.id)
+                        showMenu = false
+                    }) {
+                        Icon(Icons.Default.Edit, contentDescription = null)
+                        Spacer(Modifier.width(4.dp))
+                        Text(AppStrings.edit)
+                    }
                 }
             },
             dismissButton = {
@@ -427,7 +477,18 @@ fun ServerCard(
             Spacer(Modifier.width(16.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(server.name, style = MaterialTheme.typography.titleMedium)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(server.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f, fill = false))
+                    if (server.isPinned) {
+                        Spacer(Modifier.width(8.dp))
+                        Icon(
+                            Icons.Default.PushPin,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
                 Text(
                     if (privacyMode) PrivacyUtils.maskHost(server.host) else server.host,
                     style = MaterialTheme.typography.bodySmall
