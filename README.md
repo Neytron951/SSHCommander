@@ -14,68 +14,51 @@ SSH Commander is a powerful and user-friendly cross-platform client for remote s
 
 ## Features
 
-### Full-Featured Terminal
-- Full VT100/ANSI emulation with color support — nano, vim, htop work flawlessly
-- Control key panel: ESC, arrow keys, TAB, Ctrl+X/O/G/W/K
-- Key hold with auto-repeat, block cursor, auto-scroll
-- Customizable font and text size for comfortable work
-- Desktop: zoom terminal text with Ctrl + mouse wheel
+### 🚀 Persistent Background Sessions (New in 1.7.0)
+- **Session Continuity** — connections now live in a global `SessionManager`. Navigate to settings or switch apps without losing your SSH/SFTP connection.
+- **Android Background Support** — stable connections that survive UI recreation and system navigation.
+- **Smart Auto-reconnect** — intelligent retry logic with exponential backoff (2s, 4s, 8s...) to handle flickering networks.
 
-### Sessions, Tabs & Workspaces
-- **Workspaces** — save your current set of open sessions (servers, logins, tab settings) and restore them all with one tap.
-- **Session tabs** on both Android and Windows — open as many sessions as you need.
-- **Multiple sessions per server** — start a second (third, …) session for the same server with the "+" button.
-- **Pinning & Colors** — pin important tabs (long press or right-click) and assign one of 5 colors for better organization (e.g., Red for Prod, Blue for Dev).
-- **Full session persistence** — minimize the app, switch servers or tabs; every session keeps its state until the app is closed.
+### 📁 Smart Workspaces & Tabs
+- **Workspaces** — save your entire environment (open servers, specific SFTP paths, and last commands) and restore it with one tap.
+- **Global Sync** — workspaces are now part of the backup and cloud sync, appearing on all your devices.
+- **Session Tabs** — run multiple independent sessions per server (use the "+" button).
+- **Organization** — pin tabs and assign colors (e.g., Red for Production, Blue for Development).
 
-### SFTP File Manager
-- Browse and navigate server file structure.
-- **Built-in Editor** — open and edit text files (configs, scripts) directly on the server and save back with one click.
-- **Sync Engine** — compare local and remote directories by modification time (logic prepared).
-- Upload and download files, create folders, rename and delete.
-- File search, show hidden files, multi-select.
-- Configurable startup folder for quick access.
-- **File preview without download** — text, JSON and images open instantly.
-- **Selection mechanics:** single click — select, Ctrl+click — multi-select, Shift+click — range, double-click — preview / open folder, right-click — context menu with download
-- **Choose the download folder** instead of silently saving to the home directory
-- **Manual path entry** with the keyboard (e.g. `/var/www/site`)
+### 📂 Cross-Platform SFTP Manager
+- **Unified Engine** — a completely redesigned SFTP core that works identically on Android (SAF) and Desktop.
+- **In-place Editor** — edit configuration files directly on the server and save instantly.
+- **Smart Transfers** — reliable upload/download with progress tracking and multi-file support.
+- **Remote Preview** — view text, JSON, and images without downloading them first.
+- **Manual Navigation** — quick jump to any path via keyboard entry.
 
-### Split View (Terminal + SFTP)
-- Split the window 50/50 with a draggable divider — resize panes by dragging the border
-- Quick-commands panel is available in split mode too
+### 🛠 Identity Master & SSH Keys
+- **Unified Identities** — manage login credentials and SSH keys in one place.
+- **Key Generator** — create secure RSA-4096 or Ed25519 keys directly in the app.
+- **Auto-Provisioning** — automatically deploy your public keys to remote servers with one click.
+- **Host Key Verification** — protection against Man-in-the-Middle attacks.
 
-### Command Center & Dashboard
-- **Dashboard & Monitoring** — new tab with CPU, RAM, and Disk usage widgets + real-time logs (tail -f).
-- **Advanced Quick Commands** — search by name, filter by categories, and use **variables** like `{{variable_name}}` for template-based execution.
-- Ready-to-use commands: df -h, free -m, htop, uptime, ps aux, tail -f.
-- Create custom commands with confirmation and biometric authentication for dangerous actions.
-- Android home screen widget: server status (online/offline) and quick command execution.
+### 📊 Monitoring & Command Center
+- **Real-time Dashboard** — widgets for CPU, RAM, and Disk usage + live log streaming (`tail -f`).
+- **Smart Snippets** — custom commands with variable support `{{var}}` and category filtering.
+- **Home Screen Widgets** — (Android) check server status and run commands without opening the app.
 
-### Security
-- App lock with fingerprint or Face ID
-- Host key change verification (Man-in-the-Middle protection)
-- Privacy mode — hide part of IP addresses in the list
-
-### Flexibility & Settings
-- Unlimited number of servers with grouping by folders and icons
-- Folders can be created, renamed and deleted on both platforms
-- Multiple logins per server
-- Light and dark theme, terminal appearance customization
-- Auto-reconnect on connection drop
-- Backup & restore (JSON export/import, compatible between Android and desktop)
-- English and Russian language support
+### 🛡 Security & Privacy
+- **Biometric Lock** — secure the app with Fingerprint or Face ID.
+- **Secure Storage** — encryption of all sensitive data using system-level providers (DPAPI on Windows).
+- **Privacy Mode** — mask IP addresses in lists for safe presentations or screenshots.
 
 ## Platforms
 
-- **Android** — full-featured mobile client with home-screen widgets and biometric lock
+- **Android** — full-featured mobile client with home-screen widgets and biometric lock.
 - **Windows** — desktop client with resizable panes, Terminal+SFTP split view, and MSI/EXE installers.
 - **Linux** — desktop client for Linux systems (tested on Debian/Ubuntu), supports DEB and RPM packages.
 
 ## Requirements
 
-- **Android 7.0** (API level 24) or higher
-- **Windows 10** or higher
-- **Linux** (modern distributions like Ubuntu 22.04+, Debian 11+, etc.)
+- **Android 7.0** (API level 24) or higher.
+- **Windows 10** or higher.
+- **Linux** (modern distributions like Ubuntu 22.04+, Debian 11+, etc.).
 
 ## Installation
 
@@ -99,8 +82,7 @@ cd SSHCommander
 ./gradlew :desktopAppWindows:packageMsi
 ./gradlew :desktopAppWindows:packageExe
 
-# Or build both installers with the interactive script (asks for name/version)
-# and puts ready .msi / .exe into the dist\ folder
+# Or build both installers with the interactive script
 build-windows.bat
 
 # Windows desktop app — unpacked folder
@@ -113,10 +95,6 @@ build-windows.bat
 # Build Linux packages (DEB or RPM)
 ./gradlew :desktopAppLinux:packageDeb
 ./gradlew :desktopAppLinux:packageRpm
-
-# Or use the build script for Linux
-chmod +x build-linux.sh
-./build-linux.sh
 
 # Tests
 ./gradlew :shared:desktopTest
