@@ -14,31 +14,31 @@ SSH Commander is a powerful and user-friendly cross-platform client for remote s
 
 ## Features
 
-### 🚀 Persistent Background Sessions (New in 1.7.0)
+### Persistent Background Sessions (New in 1.7.0)
 - **Session Continuity** — connections now live in a global `SessionManager`. Navigate to settings or switch apps without losing your SSH/SFTP connection.
 - **Android Background Support** — stable connections that survive UI recreation and system navigation.
 - **Smart Auto-reconnect** — intelligent retry logic with exponential backoff (2s, 4s, 8s...) to handle flickering networks.
 
-### 📁 Smart Workspaces & Tabs
+### Smart Workspaces & Tabs
 - **Workspaces** — save your entire environment (open servers, specific SFTP paths, and last commands) and restore it with one tap.
 - **Global Sync** — workspaces are now part of the backup and cloud sync, appearing on all your devices.
 - **Session Tabs** — run multiple independent sessions per server (use the "+" button).
 - **Organization** — pin tabs and assign colors (e.g., Red for Production, Blue for Development).
 
-### 📂 Cross-Platform SFTP Manager
+### Cross-Platform SFTP Manager
 - **Unified Engine** — a completely redesigned SFTP core that works identically on Android (SAF) and Desktop.
 - **In-place Editor** — edit configuration files directly on the server and save instantly.
 - **Smart Transfers** — reliable upload/download with progress tracking and multi-file support.
 - **Remote Preview** — view text, JSON, and images without downloading them first.
 - **Manual Navigation** — quick jump to any path via keyboard entry.
 
-### 🛠 Identity Master & SSH Keys
+### Identity Master & SSH Keys
 - **Unified Identities** — manage login credentials and SSH keys in one place.
 - **Key Generator** — create secure RSA-4096 or Ed25519 keys directly in the app.
 - **Auto-Provisioning** — automatically deploy your public keys to remote servers with one click.
 - **Host Key Verification** — protection against Man-in-the-Middle attacks.
 
-### 📊 Monitoring & Command Center
+### Monitoring & Command Center
 - **Real-time Dashboard** — widgets for CPU, RAM, and Disk usage + live log streaming (`tail -f`).
 - **Smart Snippets** — custom commands with variable support `{{var}}` and category filtering.
 - **Home Screen Widgets** — (Android) check server status and run commands without opening the app.
