@@ -43,7 +43,7 @@ SSH Commander is a powerful and user-friendly cross-platform client for remote s
 - **Smart Snippets** — custom commands with variable support `{{var}}` and category filtering.
 - **Home Screen Widgets** — (Android) check server status and run commands without opening the app.
 
-### 🛡 Security & Privacy
+### Security & Privacy
 - **Biometric Lock** — secure the app with Fingerprint or Face ID.
 - **Secure Storage** — encryption of all sensitive data using system-level providers (DPAPI on Windows).
 - **Privacy Mode** — mask IP addresses in lists for safe presentations or screenshots.
