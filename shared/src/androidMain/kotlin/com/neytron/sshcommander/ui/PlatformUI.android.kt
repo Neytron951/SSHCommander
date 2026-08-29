@@ -33,4 +33,19 @@ actual fun platformToast(message: String) {
 }
 
 @Composable
+actual fun getSystemFontFamily(name: String): androidx.compose.ui.text.font.FontFamily {
+    return androidx.compose.runtime.remember(name) {
+        when (name) {
+            "Monospace" -> androidx.compose.ui.text.font.FontFamily.Monospace
+            "JetBrains Mono" -> androidx.compose.ui.text.font.FontFamily.Monospace // Defaulting to system mono for now
+            else -> try {
+                androidx.compose.ui.text.font.FontFamily(android.graphics.Typeface.create(name, android.graphics.Typeface.NORMAL))
+            } catch (e: Exception) {
+                androidx.compose.ui.text.font.FontFamily.Monospace
+            }
+        }
+    }
+}
+
+@Composable
 actual fun Modifier.platformDragAndDrop(onFilesDropped: (List<String>) -> Unit): Modifier = this

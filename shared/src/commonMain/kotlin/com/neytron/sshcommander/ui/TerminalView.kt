@@ -1,5 +1,7 @@
 package com.neytron.sshcommander.ui
 
+import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
@@ -19,14 +21,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -48,6 +43,7 @@ import androidx.compose.ui.input.pointer.isPrimaryPressed
 import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
@@ -66,6 +62,7 @@ import kotlinx.coroutines.flow.StateFlow
  * Fully cross-platform: receives the emulator and its revision flow.
  * When [controller] is supplied, keystrokes are forwarded to the SSH session.
  */
+@OptIn(ExperimentalTextApi::class)
 @Composable
 fun TerminalView(
     terminalScreen: TerminalScreen,
@@ -75,10 +72,24 @@ fun TerminalView(
     bgColor: Color = Color(0xFF0D1117),
     textColor: Color = Color(0xFFC9D1D9),
     fontSizeSp: Float = 13f,
+    fontFamily: String = "JetBrains Mono",
     onFontSizeChange: (Float) -> Unit = {},
     modifier: Modifier = Modifier,
     focusRequester: FocusRequester? = null
 ) {
+    val currentFontFamily = getSystemFontFamily(fontFamily)
+    
+    // Local state for immediate smooth scaling
+    var localFontSize by remember(fontSizeSp) { mutableFloatStateOf(fontSizeSp) }
+    
+    // Debounced sync back to persistent settings
+    LaunchedEffect(localFontSize) {
+        if (abs(localFontSize - fontSizeSp) > 0.1f) {
+            kotlinx.coroutines.delay(800)
+            onFontSizeChange(localFontSize)
+        }
+    }
+
     val revision by terminalRevision.collectAsState()
     val loading by isLoading.collectAsState()
     val scrollState = rememberScrollState()
@@ -135,10 +146,8 @@ fun TerminalView(
         modifier = modifier
             .fillMaxSize()
             .background(bgColor)
-            .pointerInput(onFontSizeChange) {
-                // Ctrl + mouse wheel → zoom the terminal font (desktop). Uses the
-                // Initial pass so we can consume the scroll before the inner
-                // verticalScroll modifier would turn it into page scrolling.
+            .pointerInput(Unit) {
+                // Ctrl + mouse wheel → zoom the terminal font (desktop).
                 awaitPointerEventScope {
                     while (true) {
                         val event = awaitPointerEvent(PointerEventPass.Initial)
@@ -147,14 +156,29 @@ fun TerminalView(
                         ) {
                             val delta = event.changes.firstOrNull()?.scrollDelta?.y ?: 0f
                             if (delta != 0f) {
-                                val step = if (delta > 0) 1f else -1f
-                                onFontSizeChange((fontSizeSp + step).coerceIn(6f, 40f))
+                                // Scale faster but within limits
+                                val direction = if (delta > 0) 1.5f else -1.5f
+                                val newSize = (localFontSize + direction).coerceIn(10f, 120f)
+                                if (abs(newSize - localFontSize) > 0.01f) {
+                                    localFontSize = newSize
+                                    onFontSizeChange(newSize)
+                                }
                                 event.changes.forEach { it.consume() }
                             }
                         }
                     }
                 }
             }
+            .transformable(state = rememberTransformableState { zoomChange, _, _ ->
+                // Pinch-to-zoom for mobile
+                if (zoomChange != 1f) {
+                    val newSize = (localFontSize * zoomChange).coerceIn(10f, 120f)
+                    if (abs(newSize - localFontSize) > 0.05f) {
+                        localFontSize = newSize
+                        onFontSizeChange(newSize)
+                    }
+                }
+            })
             .pointerInput(Unit) {
                 // Right-click → context menu (Copy / Select All / Clear).
                 awaitPointerEventScope {
@@ -261,11 +285,17 @@ fun TerminalView(
                 .verticalScroll(scrollState)
                 .padding(10.dp)
         ) {
+            // Using round for localFontSize on Android to avoid jagged/blurry text.
+            // Desktop handles fractional scaling better, but rounding is safer for both.
+            val displayFontSize = kotlin.math.round(localFontSize)
+            
             Text(
                 text = displayText,
-                fontFamily = FontFamily.Monospace,
-                fontSize = fontSizeSp.sp,
-                lineHeight = (fontSizeSp * 1.2f).sp,
+                fontFamily = currentFontFamily,
+                fontSize = displayFontSize.sp,
+                lineHeight = (displayFontSize * 1.15f).sp,
+                letterSpacing = 0.sp,
+                softWrap = true,
                 color = textColor,
                 onTextLayout = { layoutResult = it },
                 modifier = Modifier

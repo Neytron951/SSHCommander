@@ -14,7 +14,7 @@ val jpackageJdk: String = javaToolchains.launcherFor {
 }.get().metadata.installationPath.asFile.absolutePath
 
 val appName: String = (project.findProperty("appName") as? String)?.takeIf { it.isNotBlank() } ?: "SSHCommander"
-val appVersion: String = (project.findProperty("appVersion") as? String)?.takeIf { it.isNotBlank() } ?: "1.5.0"
+val appVersion: String = (project.findProperty("appVersion") as? String)?.takeIf { it.isNotBlank() } ?: "1.8.1"
 
 dependencies {
     implementation(project(":shared"))
@@ -34,6 +34,10 @@ compose.desktop {
             packageVersion = appVersion
             description = "SSH/SFTP client for Linux"
             vendor = "Neytron"
+
+            // Явно добавляем модули, которые jpackage не может определить автоматически
+            modules("java.net.http", "java.scripting", "jdk.unsupported")
+
             linux {
                 iconFile.set(project.file("src/main/resources/icon.png"))
                 shortcut = true

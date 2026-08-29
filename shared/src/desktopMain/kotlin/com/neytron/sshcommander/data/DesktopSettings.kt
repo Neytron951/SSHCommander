@@ -48,9 +48,11 @@ class DesktopSettings(private val dataDir: File) : AppSettings {
     override val fontSize: Flow<String> = str("font_size", "medium")
     override val timeout: Flow<Int> = int("timeout", 10)
     override val rebootConfirm: Flow<String> = str("reboot_confirm", "always")
-    override val termBgColor: Flow<String> = str("term_bg_color", "#000000")
-    override val termTextColor: Flow<String> = str("term_text_color", "#FFFFFF")
+    override val termBgColor: Flow<String> = str("term_bg_color", "#1A1B26")
+    override val termTextColor: Flow<String> = str("term_text_color", "#A9B1D6")
     override val termFontSizePx: Flow<Float> = flt("term_font_size_px", 14f)
+    override val termThemeId: Flow<String> = str("term_theme_id", "tokyo_night")
+    override val termFontFamily: Flow<String> = str("term_font_family", "JetBrains Mono")
     override val privacyMode: Flow<Boolean> = bool("privacy_mode", false)
     override val autoReconnect: Flow<Boolean> = bool("auto_reconnect", true)
     override val biometricLock: Flow<Boolean> = bool("biometric_lock", false)
@@ -76,6 +78,8 @@ class DesktopSettings(private val dataDir: File) : AppSettings {
     override suspend fun setTermBgColor(color: String) { props.setProperty("term_bg_color", color); persist() }
     override suspend fun setTermTextColor(color: String) { props.setProperty("term_text_color", color); persist() }
     override suspend fun setTermFontSizePx(size: Float) { props.setProperty("term_font_size_px", size.toString()); persist() }
+    override suspend fun setTermThemeId(themeId: String) { props.setProperty("term_theme_id", themeId); persist() }
+    override suspend fun setTermFontFamily(family: String) { props.setProperty("term_font_family", family); persist() }
     override suspend fun setPrivacyMode(enabled: Boolean) { props.setProperty("privacy_mode", enabled.toString()); persist() }
     override suspend fun setAutoReconnect(enabled: Boolean) { props.setProperty("auto_reconnect", enabled.toString()); persist() }
     override suspend fun setBiometricLock(enabled: Boolean) { props.setProperty("biometric_lock", enabled.toString()); persist() }

@@ -12,27 +12,25 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
-// Синяя палитра (Material 3 "Blue"), фирменный цвет SSH Commander.
+// Storm Tokyo Night Palette: Сбалансированная тёмная тема без лишнего неона.
 private val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFF9CCBFF),
-    onPrimary = Color(0xFF003257),
-    primaryContainer = Color(0xFF00497C),
-    onPrimaryContainer = Color(0xFFD0E4FF),
-    secondary = Color(0xFF66D0F0),
-    onSecondary = Color(0xFF003544),
-    secondaryContainer = Color(0xFF004E62),
-    onSecondaryContainer = Color(0xFFB8EAFF),
-    tertiary = Color(0xFFA9C8FF),
-    onTertiary = Color(0xFF0A315F),
-    tertiaryContainer = Color(0xFF1D4879),
-    onTertiaryContainer = Color(0xFFD2E4FF),
-    background = Color(0xFF0F141A),
-    onBackground = Color(0xFFDEE3EB),
-    surface = Color(0xFF0F141A),
-    onSurface = Color(0xFFDEE3EB),
-    surfaceVariant = Color(0xFF42474E),
-    onSurfaceVariant = Color(0xFFC2C7CF),
-    outline = Color(0xFF8C9199)
+    primary = Color(0xFF7AA2F7),
+    onPrimary = Color(0xFF1A1B26),
+    primaryContainer = Color(0xFF2C335E),
+    onPrimaryContainer = Color(0xFFC0CAF5),
+    secondary = Color(0xFFBB9AF7),
+    onSecondary = Color(0xFF1A1B26),
+    secondaryContainer = Color(0xFF333856),
+    onSecondaryContainer = Color(0xFFC0CAF5),
+    tertiary = Color(0xFF9ECE6A),
+    onTertiary = Color(0xFF1A1B26),
+    background = Color(0xFF1A1B26),
+    onBackground = Color(0xFFC0CAF5),
+    surface = Color(0xFF1F2335),
+    onSurface = Color(0xFFC0CAF5),
+    surfaceVariant = Color(0xFF24283B),
+    onSurfaceVariant = Color(0xFFA9B1D6),
+    outline = Color(0xFF565F89)
 )
 
 private val LightColorScheme = lightColorScheme(

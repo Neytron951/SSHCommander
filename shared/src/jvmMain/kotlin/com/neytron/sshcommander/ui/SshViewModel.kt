@@ -25,7 +25,7 @@ class SshViewModel(
     var currentServer by mutableStateOf<Server?>(null)
     var sessionId by mutableIntStateOf(-1)
 
-    private var activeController: TerminalController? = null
+    private var activeController by mutableStateOf<TerminalController?>(null)
 
     override val terminalScreen: TerminalScreen get() = activeController?.terminalScreen ?: TerminalScreen()
     override val terminalRevision: StateFlow<Int> get() = activeController?.terminalRevision ?: MutableStateFlow(0)

@@ -19,9 +19,12 @@ class UserProvisioningService {
             }
 
             // 1. Create user if not exists
-            // We use sudo -S to read password from stdin if needed, 
-            // but usually we hope for passwordless sudo or already being root.
-            val createUserCmd = "sudo useradd -m -s /bin/bash $username"
+            // We use id command to check for existence and useradd only if needed.
+            val createUserCmd = """
+                if ! id "$username" >/dev/null 2>&1; then
+                    sudo useradd -m -s /bin/bash "$username"
+                fi
+            """.trimIndent()
             executeCommand(session, createUserCmd)
 
             // 2. Set password if provided
@@ -30,13 +33,19 @@ class UserProvisioningService {
                 executeCommand(session, setPwCmd)
             }
 
-            // 3. Setup SSH directory
+            // 3. Setup SSH directory (SOFT APPEND)
             val homeDir = "/home/$username"
             val setupSshCmd = """
                 sudo mkdir -p $homeDir/.ssh
                 sudo chmod 700 $homeDir/.ssh
-                echo "$publicKey" | sudo tee $homeDir/.ssh/authorized_keys > /dev/null
+                sudo touch $homeDir/.ssh/authorized_keys
                 sudo chmod 600 $homeDir/.ssh/authorized_keys
+                
+                # Append key only if it doesn't already exist in the file
+                if ! sudo grep -qF "$publicKey" $homeDir/.ssh/authorized_keys; then
+                    echo "$publicKey" | sudo tee -a $homeDir/.ssh/authorized_keys > /dev/null
+                fi
+                
                 sudo chown -R $username:$username $homeDir/.ssh
             """.trimIndent()
             

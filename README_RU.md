@@ -72,11 +72,8 @@ SSH Commander — мощный и удобный кроссплатформен�
 git clone https://github.com/Neytron951/SSHCommander.git
 cd SSHCommander
 
-# Android-приложение (современная версия на Compose Multiplatform)
+# Android-приложение
 ./gradlew :androidApp:assembleDebug
-
-# Android-приложение (старая нативная версия)
-./gradlew :appLegacy:assembleDebug
 
 # Windows-десктоп (установщик MSI или EXE)
 ./gradlew :desktopAppWindows:packageMsi

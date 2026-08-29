@@ -20,7 +20,7 @@ class SftpViewModel(private val repository: ServerRepository) : ViewModel(), Sft
     var currentServer by mutableStateOf<Server?>(null)
     var sessionId by mutableIntStateOf(-1)
 
-    private var activeController: SftpController? = null
+    private var activeController by mutableStateOf<SftpController?>(null)
 
     override val isLoading: StateFlow<Boolean> get() = activeController?.isLoading ?: MutableStateFlow(false)
     override val isConnected: StateFlow<Boolean> get() = activeController?.isConnected ?: MutableStateFlow(false)
@@ -50,6 +50,10 @@ class SftpViewModel(private val repository: ServerRepository) : ViewModel(), Sft
             if (bundle != null) {
                 activeController = bundle.sftp
                 selectedLogin = list.firstOrNull { it.id == bundle.lastLoginId }
+                // Ensure the list is loaded if it's currently empty
+                if (activeController?.files?.value?.isEmpty() == true) {
+                    activeController?.connect()
+                }
             } else {
                 val defaultLogin = list.firstOrNull { it.isDefault }
                 selectedLogin = defaultLogin

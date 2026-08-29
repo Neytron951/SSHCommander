@@ -15,7 +15,7 @@ val jpackageJdk: String = javaToolchains.launcherFor {
 
 // Overridable via -PappName=MyApp / -PappVersion=1.5.0 (used by build-windows.bat).
 val appName: String = (project.findProperty("appName") as? String)?.takeIf { it.isNotBlank() } ?: "SSH Commander"
-val appVersion: String = (project.findProperty("appVersion") as? String)?.takeIf { it.isNotBlank() } ?: "1.5.0"
+val appVersion: String = (project.findProperty("appVersion") as? String)?.takeIf { it.isNotBlank() } ?: "1.8.1"
 
 dependencies {
     implementation(project(":shared"))
@@ -34,6 +34,10 @@ compose.desktop {
             packageVersion = appVersion
             description = "SSH/SFTP client for Windows"
             vendor = "Neytron"
+            
+            // Явно добавляем модули, которые jpackage не может определить автоматически
+            modules("java.net.http", "java.scripting", "jdk.unsupported")
+
             windows {
                 iconFile.set(project.file("src/main/resources/icon.ico"))
                 // Per-machine install to Program Files + Start Menu shortcut.

@@ -1,5 +1,7 @@
 package com.neytron.sshcommander
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
@@ -72,7 +74,15 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -149,8 +159,11 @@ import com.neytron.sshcommander.ui.PlatformInputStream
 import com.neytron.sshcommander.ui.PrivacyUtils
 import com.neytron.sshcommander.ui.resizeHoverCursor
 import com.neytron.sshcommander.ui.SftpView
+import com.neytron.sshcommander.ui.TerminalTheme
+import com.neytron.sshcommander.ui.TerminalThemes
 import com.neytron.sshcommander.ui.TerminalView
 import com.neytron.sshcommander.ui.MonitoringDashboard
+import com.neytron.sshcommander.ui.getSystemFontFamily
 import com.neytron.sshcommander.ui.platformToast
 import com.neytron.sshcommander.ui.rememberSavePicker
 import com.neytron.sshcommander.ui.rememberUploadPicker
@@ -393,6 +406,8 @@ fun SSHCommanderLayout(
         ?: remember { mutableStateOf("#00FF00") })
     val termFontSizePx by (settings?.termFontSizePx?.collectAsState(initial = 14f)
         ?: remember { mutableStateOf(14f) })
+    val termFontFamily by (settings?.termFontFamily?.collectAsState(initial = "JetBrains Mono")
+        ?: remember { mutableStateOf("JetBrains Mono") })
     val rebootConfirmMode by (settings?.rebootConfirm?.collectAsState(initial = "always")
         ?: remember { mutableStateOf("always") })
     val privacyMode by (settings?.privacyMode?.collectAsState(initial = false)
@@ -624,6 +639,7 @@ fun SSHCommanderLayout(
                         termBgHex = termBgHex,
                         termTextHex = termTextHex,
                         termFontSizePx = termFontSizePx,
+                        termFontFamily = termFontFamily,
                         onFontSizeChange = { newSize ->
                             scope.launch { settings?.setTermFontSizePx(newSize) }
                         },
@@ -933,141 +949,153 @@ private fun SessionTabBar(
     onColorChange: (Int, String?) -> Unit,
     onAdd: () -> Unit
 ) {
-    Surface(
-        shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 10.dp)
+            .background(MaterialTheme.colorScheme.surface)
     ) {
         Row(
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = Alignment.Bottom,
             modifier = Modifier
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 8.dp, vertical = 8.dp)
+                .fillMaxWidth()
+                .padding(top = 8.dp)
         ) {
-            // Sort sessions: pinned first.
-            val sortedSessions = sessions.sortedWith(compareByDescending<SessionTab> { it.isPinned }.thenBy { it.id })
+            Row(
+                verticalAlignment = Alignment.Bottom,
+                modifier = Modifier
+                    .weight(1f)
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 12.dp)
+            ) {
+                val sortedSessions = sessions.sortedWith(compareByDescending<SessionTab> { it.isPinned }.thenBy { it.id })
 
-            sortedSessions.forEach { tab ->
-                val selected = tab.id == activeSessionId
-                var showContextMenu by remember { mutableStateOf(false) }
+                sortedSessions.forEachIndexed { index, tab ->
+                    val selected = tab.id == activeSessionId
+                    var showContextMenu by remember { mutableStateOf(false) }
+                    val tabColor = tab.tabColorHex?.let { parseHexColor(it) } ?: MaterialTheme.colorScheme.primary
 
-                Surface(
-                    onClick = { onSelect(tab.id) },
-                    shape = RoundedCornerShape(10.dp),
-                    color = if (selected) MaterialTheme.colorScheme.primaryContainer
-                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                    border = when {
-                        selected -> BorderStroke(2.dp, tab.tabColorHex?.let { parseHexColor(it) } ?: MaterialTheme.colorScheme.primary)
-                        tab.tabColorHex != null -> BorderStroke(2.dp, parseHexColor(tab.tabColorHex!!).copy(alpha = 0.5f))
-                        else -> BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                    },
-                    modifier = Modifier
-                        .padding(end = 8.dp)
-                        .pointerInput(tab.id) {
-                            detectTapGestures(
-                                onLongPress = { showContextMenu = true },
-                                onTap = { onSelect(tab.id) }
-                            )
-                        }
-                ) {
-                    Box {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
+                    Box(
                         modifier = Modifier
-                            .height(44.dp)
-                            .widthIn(min = 100.dp, max = 220.dp)
-                            .padding(start = 10.dp, end = 6.dp)
+                            .widthIn(min = 120.dp, max = 240.dp)
+                            .clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp))
+                            .background(
+                                if (selected) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                else Color.Transparent
+                            )
+                            .clickable { onSelect(tab.id) }
+                            .pointerInput(tab.id) {
+                                detectTapGestures(
+                                    onLongPress = { showContextMenu = true },
+                                    onTap = { onSelect(tab.id) }
+                                )
+                            }
                     ) {
-                        if (tab.isPinned) {
-                            Icon(
-                                Icons.Default.PushPin,
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp).padding(end = 4.dp),
-                                tint = MaterialTheme.colorScheme.primary
+                        Column {
+                            // Top Indicator Line
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(3.dp)
+                                    .background(if (selected) tabColor else Color.Transparent)
                             )
-                        }
-                        Text(
-                            tab.server.name,
-                            style = MaterialTheme.typography.titleSmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
-                        )
-                        IconButton(
-                            onClick = { onClose(tab.id) },
-                            modifier = Modifier.size(26.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Close,
-                                contentDescription = AppStrings.closeSession,
-                                tint = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
-                                else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    }
 
-                    DropdownMenu(expanded = showContextMenu, onDismissRequest = { showContextMenu = false }) {
-                        DropdownMenuItem(
-                            text = { Text(if (tab.isPinned) "Unpin" else "Pin") },
-                            leadingIcon = { Icon(if (tab.isPinned) Icons.Outlined.PushPin else Icons.Default.PushPin, null) },
-                            onClick = { onPin(tab.id); showContextMenu = false }
-                        )
-                        HorizontalDivider()
-                        Text("Tab Color", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(8.dp))
-                        val colors = listOf("#F44336", "#4CAF50", "#2196F3", "#FFEB3B", "#9C27B0")
-                        Row(modifier = Modifier.padding(horizontal = 8.dp)) {
-                            colors.forEach { hex ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .height(40.dp)
+                                    .padding(start = 12.dp, end = 4.dp)
+                            ) {
+                                if (tab.isPinned) {
+                                    Icon(
+                                        Icons.Default.PushPin,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(12.dp).padding(end = 4.dp),
+                                        tint = tabColor
+                                    )
+                                }
+                                Text(
+                                    tab.server.name,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (selected) MaterialTheme.colorScheme.onSurface
+                                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                
+                                IconButton(
+                                    onClick = { onClose(tab.id) },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Close,
+                                        contentDescription = AppStrings.closeSession,
+                                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = if (selected) 0.8f else 0.4f),
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        DropdownMenu(expanded = showContextMenu, onDismissRequest = { showContextMenu = false }) {
+                            DropdownMenuItem(
+                                text = { Text(if (tab.isPinned) "Unpin" else "Pin") },
+                                leadingIcon = { Icon(if (tab.isPinned) Icons.Outlined.PushPin else Icons.Default.PushPin, null) },
+                                onClick = { onPin(tab.id); showContextMenu = false }
+                            )
+                            HorizontalDivider()
+                            Text("Tab Color", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(8.dp))
+                            val colors = listOf("#F44336", "#4CAF50", "#2196F3", "#FFEB3B", "#9C27B0")
+                            Row(modifier = Modifier.padding(horizontal = 8.dp)) {
+                                colors.forEach { hex ->
+                                    Box(
+                                        modifier = Modifier
+                                            .size(24.dp)
+                                            .clip(CircleShape)
+                                            .background(parseHexColor(hex))
+                                            .clickable { onColorChange(tab.id, hex); showContextMenu = false }
+                                            .padding(4.dp)
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                }
                                 Box(
                                     modifier = Modifier
                                         .size(24.dp)
-                                        .clip(CircleShape)
-                                        .background(parseHexColor(hex))
-                                        .clickable { onColorChange(tab.id, hex); showContextMenu = false }
-                                        .padding(4.dp)
-                                )
-                                Spacer(Modifier.width(4.dp))
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .size(24.dp)
-                                    .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
-                                    .clickable { onColorChange(tab.id, null); showContextMenu = false },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Default.Close, null, modifier = Modifier.size(12.dp))
+                                        .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                                        .clickable { onColorChange(tab.id, null); showContextMenu = false },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.Close, null, modifier = Modifier.size(12.dp))
+                                }
                             }
                         }
                     }
+                    
+                    if (!selected && index < sortedSessions.size - 1 && sortedSessions[index+1].id != activeSessionId) {
+                        VerticalDivider(
+                            modifier = Modifier.height(20.dp).align(Alignment.CenterVertically),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                        )
                     }
                 }
             }
-            // "+" button styled to match the chips, same fixed size.
-            Surface(
+
+            IconButton(
                 onClick = onAdd,
-                shape = RoundedCornerShape(10.dp),
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                modifier = Modifier
+                    .padding(end = 12.dp, bottom = 4.dp)
+                    .size(32.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier
-                        .height(44.dp)
-                        .width(48.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Add,
-                        contentDescription = AppStrings.addSession,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
+                Icon(
+                    Icons.Default.Add,
+                    contentDescription = AppStrings.addSession,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     }
 }
 
@@ -1093,56 +1121,72 @@ private fun ServerListPane(
     var sidePaneType by remember { mutableStateOf(SidePaneType.Servers) }
 
     Surface(modifier = modifier, color = MaterialTheme.colorScheme.surfaceVariant) {
-        Column {
-            // Tab switcher for Servers / Workspaces
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(8.dp)
-                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
-            ) {
-                SidePaneTab(
-                    label = if (AppStrings.language == "ru") "Серверы" else "Servers",
-                    selected = sidePaneType == SidePaneType.Servers,
-                    onClick = { sidePaneType = SidePaneType.Servers },
-                    modifier = Modifier.weight(1f)
-                )
-                SidePaneTab(
-                    label = if (AppStrings.language == "ru") "Пространства" else "Workspaces",
-                    selected = sidePaneType == SidePaneType.Workspaces,
-                    onClick = { sidePaneType = SidePaneType.Workspaces },
-                    modifier = Modifier.weight(1f)
-                )
-            }
+        BoxWithConstraints {
+            val paneWidth = this.maxWidth
+            val isNarrow = paneWidth < 180.dp
+            val isUltraNarrow = paneWidth < 100.dp
 
-            if (sidePaneType == SidePaneType.Servers) {
-                ServerListContent(
-                    servers = servers,
-                    folders = folders,
-                    selectedId = selectedId,
-                    onSelect = onSelect,
-                    onAddServer = onAddServer,
-                    onEditServer = onEditServer,
-                    onDeleteServer = onDeleteServer,
-                    onManageLogins = onManageLogins,
-                    onAddFolder = onAddFolder,
-                    onRenameFolder = onRenameFolder,
-                    onDeleteFolder = onDeleteFolder,
-                    privacyMode = privacyMode
-                )
-            } else {
-                WorkspaceListContent(
-                    workspaces = workspaces,
-                    onOpen = onOpenWorkspace,
-                    onDelete = onDeleteWorkspace
-                )
+            Column {
+                // Tab switcher for Servers / Workspaces
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp)
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                ) {
+                    SidePaneTab(
+                        label = if (isNarrow) null else (if (AppStrings.language == "ru") "Серверы" else "Servers"),
+                        icon = Icons.Default.Dns,
+                        selected = sidePaneType == SidePaneType.Servers,
+                        onClick = { sidePaneType = SidePaneType.Servers },
+                        modifier = Modifier.weight(1f)
+                    )
+                    SidePaneTab(
+                        label = if (isNarrow) null else (if (AppStrings.language == "ru") "Пространства" else "Workspaces"),
+                        icon = Icons.Default.GroupWork,
+                        selected = sidePaneType == SidePaneType.Workspaces,
+                        onClick = { sidePaneType = SidePaneType.Workspaces },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                if (sidePaneType == SidePaneType.Servers) {
+                    ServerListContent(
+                        servers = servers,
+                        folders = folders,
+                        selectedId = selectedId,
+                        onSelect = onSelect,
+                        onAddServer = onAddServer,
+                        onEditServer = onEditServer,
+                        onDeleteServer = onDeleteServer,
+                        onManageLogins = onManageLogins,
+                        onAddFolder = onAddFolder,
+                        onRenameFolder = onRenameFolder,
+                        onDeleteFolder = onDeleteFolder,
+                        privacyMode = privacyMode,
+                        isUltraNarrow = isUltraNarrow
+                    )
+                } else {
+                    WorkspaceListContent(
+                        workspaces = workspaces,
+                        onOpen = onOpenWorkspace,
+                        onDelete = onDeleteWorkspace,
+                        isUltraNarrow = isUltraNarrow
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-private fun SidePaneTab(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun SidePaneTab(
+    label: String?, 
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    selected: Boolean, 
+    onClick: () -> Unit, 
+    modifier: Modifier = Modifier
+) {
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(6.dp))
@@ -1151,11 +1195,22 @@ private fun SidePaneTab(label: String, selected: Boolean, onClick: () -> Unit, m
             .padding(vertical = 6.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (label == null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                    tint = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
     }
 }
 
@@ -1172,7 +1227,8 @@ private fun ServerListContent(
     onAddFolder: () -> Unit,
     onRenameFolder: (ServerFolder) -> Unit,
     onDeleteFolder: (ServerFolder) -> Unit,
-    privacyMode: Boolean
+    privacyMode: Boolean,
+    isUltraNarrow: Boolean = false
 ) {
     Column {
             // Folders start expanded; toggles are remembered per folder id.
@@ -1183,25 +1239,32 @@ private fun ServerListContent(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
-                Text(
-                    text = AppStrings.servers,
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.weight(1f),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                if (!isUltraNarrow) {
+                    Text(
+                        text = AppStrings.servers,
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.weight(1f),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    Spacer(Modifier.weight(1f))
+                }
+                
                 // Add folder button (folder icon).
-                IconButton(onClick = onAddFolder) {
+                IconButton(onClick = onAddFolder, modifier = Modifier.size(if (isUltraNarrow) 24.dp else 40.dp)) {
                     Icon(
                         imageVector = Icons.Default.CreateNewFolder,
                         contentDescription = AppStrings.newFolder,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(if (isUltraNarrow) 16.dp else 24.dp)
                     )
                 }
-                IconButton(onClick = onAddServer) {
+                IconButton(onClick = onAddServer, modifier = Modifier.size(if (isUltraNarrow) 24.dp else 40.dp)) {
                     Icon(
                         imageVector = Icons.Default.Add,
                         contentDescription = AppStrings.addServer,
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(if (isUltraNarrow) 16.dp else 24.dp)
                     )
                 }
             }
@@ -1246,7 +1309,8 @@ private fun ServerListContent(
                                 expanded = expanded,
                                 onToggle = { expandedFolders[folder.id] = !expanded },
                                 onRename = { onRenameFolder(folder) },
-                                onDelete = { onDeleteFolder(folder) }
+                                onDelete = { onDeleteFolder(folder) },
+                                isUltraNarrow = isUltraNarrow
                             )
                         }
                         if (expanded) {
@@ -1272,15 +1336,18 @@ private fun ServerListContent(
 private fun WorkspaceListContent(
     workspaces: List<Workspace>,
     onOpen: (Workspace) -> Unit,
-    onDelete: (Int) -> Unit
+    onDelete: (Int) -> Unit,
+    isUltraNarrow: Boolean = false
 ) {
     Column {
-        Text(
-            text = if (AppStrings.language == "ru") "Рабочие пространства" else "Workspaces",
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(16.dp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        if (!isUltraNarrow) {
+            Text(
+                text = if (AppStrings.language == "ru") "Рабочие пространства" else "Workspaces",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(16.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
         if (workspaces.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
@@ -1298,18 +1365,31 @@ private fun WorkspaceListContent(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                         border = ws.colorHex?.let { BorderStroke(2.dp, parseHexColor(it)) }
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(12.dp)
-                        ) {
-                            Icon(Icons.Default.GroupWork, null, tint = ws.colorHex?.let { parseHexColor(it) } ?: MaterialTheme.colorScheme.primary)
-                            Spacer(Modifier.width(12.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(ws.name, style = MaterialTheme.typography.titleSmall)
-                                Text("${ws.items.size} tabs", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            IconButton(onClick = { onDelete(ws.id) }) {
-                                Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+                        BoxWithConstraints {
+                            val width = this.maxWidth
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(12.dp)
+                            ) {
+                                Icon(Icons.Default.GroupWork, null, tint = ws.colorHex?.let { parseHexColor(it) } ?: MaterialTheme.colorScheme.primary)
+                                
+                                if (width > 80.dp) {
+                                    Spacer(Modifier.width(12.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text(ws.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        if (width > 160.dp) {
+                                            Text("${ws.items.size} tabs", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
+                                } else {
+                                    Spacer(Modifier.weight(1f))
+                                }
+
+                                if (width > 120.dp) {
+                                    IconButton(onClick = { onDelete(ws.id) }) {
+                                        Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+                                    }
+                                }
                             }
                         }
                     }
@@ -1327,7 +1407,8 @@ private fun FolderHeader(
     expanded: Boolean,
     onToggle: () -> Unit,
     onRename: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    isUltraNarrow: Boolean = false
 ) {
     Surface(
         shape = RoundedCornerShape(10.dp),
@@ -1336,47 +1417,53 @@ private fun FolderHeader(
             .fillMaxWidth()
             .padding(horizontal = 10.dp, vertical = 2.dp)
     ) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onToggle)
-            .padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp)
-    ) {
-        Icon(
-            imageVector = if (expanded) Icons.Default.ExpandMore else Icons.Default.ChevronRight,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(18.dp)
-        )
-        Icon(
-            imageVector = Icons.Default.Folder,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(horizontal = 8.dp).size(16.dp)
-        )
-        Text(
-            text = folder.name,
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.weight(1f),
-            maxLines = 1
-        )
-        if (count > 0) {
-            Text(
-                text = count.toString(),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(end = 4.dp)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onToggle)
+                .padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp)
+        ) {
+            Icon(
+                imageVector = if (expanded) Icons.Default.ExpandMore else Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp)
             )
+            Icon(
+                imageVector = Icons.Default.Folder,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = 8.dp).size(16.dp)
+            )
+
+            if (!isUltraNarrow) {
+                Text(
+                    text = folder.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (count > 0) {
+                    Text(
+                        text = count.toString(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(end = 4.dp)
+                    )
+                }
+                IconButton(onClick = onRename, modifier = Modifier.size(28.dp)) {
+                    Icon(Icons.Default.Edit, contentDescription = AppStrings.rename, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))
+                }
+                IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
+                    Icon(Icons.Default.Delete, contentDescription = AppStrings.delete, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(14.dp))
+                }
+            } else {
+                Spacer(Modifier.weight(1f))
+            }
         }
-        IconButton(onClick = onRename, modifier = Modifier.size(28.dp)) {
-            Icon(Icons.Default.Edit, contentDescription = AppStrings.rename, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))
-        }
-        IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
-            Icon(Icons.Default.Delete, contentDescription = AppStrings.delete, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(14.dp))
-        }
-    }
     }
 }
 
@@ -1401,42 +1488,58 @@ private fun ServerRow(
             .fillMaxWidth()
             .padding(horizontal = 10.dp, vertical = 5.dp)
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp)
-        ) {
-            Icon(
-                imageVector = IconUtils.getIcon(server.iconName),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(end = 12.dp)
-            )
-            Column(Modifier.weight(1f)) {
-                Text(
-                    text = server.name,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
+        BoxWithConstraints {
+            val width = this.maxWidth
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp)
+            ) {
+                Icon(
+                    imageVector = IconUtils.getIcon(server.iconName),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(end = if (width > 80.dp) 12.dp else 0.dp)
                 )
-                Text(
-                    text = if (privacyMode) {
-                        "${server.username}@${PrivacyUtils.maskHost(server.host)}"
-                    } else {
-                        "${server.username}@${server.host}:${server.port}"
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            // Row actions (edit / delete / logins) — visible on selection.
-            if (selected) {
-                IconButton(onClick = onEdit, modifier = Modifier.size(28.dp)) {
-                    Icon(Icons.Default.Edit, contentDescription = AppStrings.editServer, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                
+                if (width > 80.dp) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            text = server.name,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (width > 180.dp) {
+                            Text(
+                                text = if (privacyMode) {
+                                    "${server.username}@${PrivacyUtils.maskHost(server.host)}"
+                                } else {
+                                    "${server.username}@${server.host}:${server.port}"
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                } else {
+                    Spacer(Modifier.weight(1f))
                 }
-                IconButton(onClick = onManageLogins, modifier = Modifier.size(28.dp)) {
-                    Icon(Icons.Default.Policy, contentDescription = AppStrings.identities, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
-                }
-                IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
-                    Icon(Icons.Default.Delete, contentDescription = AppStrings.deleteServer, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+
+                // Row actions (edit / delete / logins) — visible on selection.
+                // Hide buttons if extremely narrow to avoid overlapping
+                if (selected && width > 130.dp) {
+                    IconButton(onClick = onEdit, modifier = Modifier.size(28.dp)) {
+                        Icon(Icons.Default.Edit, contentDescription = AppStrings.editServer, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                    }
+                    IconButton(onClick = onManageLogins, modifier = Modifier.size(28.dp)) {
+                        Icon(Icons.Default.Policy, contentDescription = AppStrings.identities, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                    }
+                    IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
+                        Icon(Icons.Default.Delete, contentDescription = AppStrings.deleteServer, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+                    }
                 }
             }
         }
@@ -1463,6 +1566,7 @@ private fun InteractionPane(
     termBgHex: String = "#000000",
     termTextHex: String = "#00FF00",
     termFontSizePx: Float = 14f,
+    termFontFamily: String = "JetBrains Mono",
     onFontSizeChange: (Float) -> Unit = {},
     rebootConfirmMode: String = "always",
     privacyMode: Boolean = false,
@@ -1482,7 +1586,7 @@ private fun InteractionPane(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
                 ) {
                     Column(Modifier.weight(1f)) {
                         Text(server.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -1520,6 +1624,7 @@ private fun InteractionPane(
                             bgColor = parseHexColor(termBgHex),
                             textColor = parseHexColor(termTextHex),
                             fontSizeSp = termFontSizePx,
+                            fontFamily = termFontFamily,
                             onFontSizeChange = onFontSizeChange,
                             focusRequester = terminalFocusRequester,
                             modifier = Modifier.weight(1f)
@@ -1565,6 +1670,7 @@ private fun InteractionPane(
                                 bgColor = parseHexColor(termBgHex),
                                 textColor = parseHexColor(termTextHex),
                                 fontSizeSp = termFontSizePx,
+                                fontFamily = termFontFamily,
                                 onFontSizeChange = onFontSizeChange,
                                 focusRequester = terminalFocusRequester,
                                 modifier = Modifier.weight(terminalWeight.floatValue)
@@ -2909,6 +3015,13 @@ private fun DesktopSettingsDialog(
         ?: remember { mutableStateOf("#000000") })
     val termTextHex by (settings?.termTextColor?.collectAsState(initial = "#00FF00")
         ?: remember { mutableStateOf("#00FF00") })
+    val termThemeId by (settings?.termThemeId?.collectAsState(initial = "tokyo_night")
+        ?: remember { mutableStateOf("tokyo_night") })
+    val termFontFamily by (settings?.termFontFamily?.collectAsState(initial = "JetBrains Mono")
+        ?: remember { mutableStateOf("JetBrains Mono") })
+    
+    var themeToPreview by remember { mutableStateOf<TerminalTheme?>(null) }
+
     val privacyMode by (settings?.privacyMode?.collectAsState(initial = false)
         ?: remember { mutableStateOf(false) })
     val autoReconnect by (settings?.autoReconnect?.collectAsState(initial = true)
@@ -2949,16 +3062,36 @@ private fun DesktopSettingsDialog(
                     scope.launch { settings?.setLanguage("ru"); AppStrings.language = "ru" }
                 }
 
-                // Terminal colors
-                SettingsBlockTitle(AppStrings.terminalStyle)
-                Text(AppStrings.backgroundColor, style = MaterialTheme.typography.labelMedium)
-                ColorChipRow(presetBgColors, termBgHex) {
-                    scope.launch { settings?.setTermBgColor(it) }
+                Text(if (AppStrings.language == "ru") "Тема терминала" else "Terminal Theme", style = MaterialTheme.typography.labelMedium)
+                DesktopThemePresetSelector(
+                    selectedThemeId = termThemeId,
+                    onThemeSelected = { themeId ->
+                        val theme = TerminalThemes.presets.find { it.id == themeId }
+                        if (theme != null && themeId != "custom") {
+                            themeToPreview = theme
+                        } else {
+                            scope.launch { settings?.setTermThemeId(themeId) }
+                        }
+                    }
+                )
+
+                if (termThemeId == "custom") {
+                    Text(AppStrings.backgroundColor, style = MaterialTheme.typography.labelSmall)
+                    ColorChipRow(presetBgColors, termBgHex) {
+                        scope.launch { settings?.setTermBgColor(it) }
+                    }
+                    Text(AppStrings.textColor, style = MaterialTheme.typography.labelSmall)
+                    ColorChipRow(presetTextColors, termTextHex) {
+                        scope.launch { settings?.setTermTextColor(it) }
+                    }
                 }
-                Text(AppStrings.textColor, style = MaterialTheme.typography.labelMedium)
-                ColorChipRow(presetTextColors, termTextHex) {
-                    scope.launch { settings?.setTermTextColor(it) }
-                }
+
+                Spacer(Modifier.height(8.dp))
+                Text(if (AppStrings.language == "ru") "Шрифт терминала" else "Terminal Font", style = MaterialTheme.typography.labelMedium)
+                DesktopFontSelector(
+                    selectedFont = termFontFamily,
+                    onFontSelected = { scope.launch { settings?.setTermFontFamily(it) } }
+                )
 
                 // Privacy mode
                 SettingsBlockTitle(AppStrings.privacyMode)
@@ -3012,8 +3145,6 @@ private fun DesktopSettingsDialog(
                     Text(AppStrings.sshKeys)
                 }
 
-                HorizontalDivider()
-
                 // Cloud Sync
                 CloudSyncSection(backupManager = backupManager)
 
@@ -3024,6 +3155,220 @@ private fun DesktopSettingsDialog(
             TextButton(onClick = onDismiss) { Text(AppStrings.dismiss) }
         }
     )
+
+    // Desktop Theme Preview Dialog
+    themeToPreview?.let { theme ->
+        DesktopThemePreviewDialog(
+            theme = theme,
+            fontFamily = termFontFamily,
+            onDismiss = { themeToPreview = null },
+            onApply = {
+                scope.launch {
+                    settings?.setTermThemeId(theme.id)
+                    settings?.setTermBgColor(theme.backgroundColor)
+                    settings?.setTermTextColor(theme.textColor)
+                }
+                themeToPreview = null
+            }
+        )
+    }
+}
+
+@Composable
+private fun DesktopThemePreviewDialog(
+    theme: TerminalTheme,
+    fontFamily: String,
+    onDismiss: () -> Unit,
+    onApply: () -> Unit
+) {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { 
+        kotlinx.coroutines.delay(50)
+        visible = true 
+    }
+
+    val currentFontFamily = getSystemFontFamily(fontFamily)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { 
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Terminal, null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(12.dp))
+                Text(theme.name, fontWeight = FontWeight.ExtraBold)
+            }
+        },
+        text = {
+            AnimatedVisibility(
+                visible = visible,
+                enter = fadeIn(tween(600)) + expandVertically(tween(600)),
+                exit = fadeOut(tween(300))
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    // Large Rich terminal preview box
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(150.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(parseHexColor(theme.backgroundColor))
+                            .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(16.dp))
+                            .padding(16.dp)
+                    ) {
+                        Column {
+                            Text(
+                                "neytron@commander:~$ ls -la /var/log",
+                                color = parseHexColor(theme.textColor).copy(alpha = 0.6f),
+                                fontSize = 13.sp,
+                                fontFamily = currentFontFamily
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "drwxr-xr-x 2 root root 4096 Aug 29 auth.log",
+                                color = parseHexColor(theme.textColor),
+                                fontSize = 13.sp,
+                                fontFamily = currentFontFamily
+                            )
+                            Text(
+                                "-rw-r----- 1 root adm  1285 Aug 29 syslog",
+                                color = parseHexColor(theme.textColor),
+                                fontSize = 13.sp,
+                                fontFamily = currentFontFamily
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            Row {
+                                Text(
+                                    "neytron@commander:~$ ",
+                                    color = parseHexColor(theme.textColor).copy(alpha = 0.6f),
+                                    fontSize = 13.sp,
+                                    fontFamily = currentFontFamily
+                                )
+                                // Animated cursor
+                                var cursorVisible by remember { mutableStateOf(true) }
+                                LaunchedEffect(Unit) {
+                                    while(true) {
+                                        kotlinx.coroutines.delay(500)
+                                        cursorVisible = !cursorVisible
+                                    }
+                                }
+                                if (cursorVisible) {
+                                    Box(Modifier.width(8.dp).height(18.dp).background(parseHexColor(theme.textColor)))
+                                }
+                            }
+                        }
+                    }
+
+                    Text(
+                        theme.description,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 20.sp
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onApply,
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(if (AppStrings.language == "ru") "Применить тему" else "Apply Theme", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(AppStrings.cancel, color = MaterialTheme.colorScheme.error)
+            }
+        }
+    )
+}
+
+@Composable
+private fun DesktopThemePresetSelector(
+    selectedThemeId: String,
+    onThemeSelected: (String) -> Unit
+) {
+    Box(modifier = Modifier.height(350.dp).fillMaxWidth().padding(vertical = 8.dp)) {
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(minSize = 90.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            gridItems(TerminalThemes.presets) { theme ->
+                val isSelected = selectedThemeId == theme.id
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                        .border(
+                            width = if (isSelected) 2.dp else 1.dp,
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        .clickable { onThemeSelected(theme.id) }
+                        .padding(6.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(35.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(parseHexColor(theme.backgroundColor)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("abc", color = parseHexColor(theme.textColor), fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                    }
+                    Text(
+                        theme.name, 
+                        style = MaterialTheme.typography.labelSmall, 
+                        maxLines = 1, 
+                        overflow = TextOverflow.Ellipsis,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalTextApi::class)
+@Composable
+private fun DesktopFontSelector(
+    selectedFont: String,
+    onFontSelected: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded }
+    ) {
+        OutlinedTextField(
+            value = selectedFont,
+            onValueChange = {},
+            readOnly = true,
+            modifier = Modifier.fillMaxWidth().menuAnchor(),
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
+        )
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.exposedDropdownSize()
+        ) {
+            TerminalThemes.modernFonts.forEach { font ->
+                DropdownMenuItem(
+                    text = { Text(font, fontFamily = getSystemFontFamily(font)) },
+                    onClick = {
+                        onFontSelected(font)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
 }
 
 @Composable

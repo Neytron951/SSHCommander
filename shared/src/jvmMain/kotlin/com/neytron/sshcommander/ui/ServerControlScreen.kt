@@ -806,80 +806,93 @@ private fun SessionTabRow(
     onAddServer: (Int) -> Unit
 ) {
     var addMenuExpanded by remember { mutableStateOf(false) }
-    Surface(
-        shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    
+    // Integrated strip look
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 6.dp)
+            .background(MaterialTheme.colorScheme.surface)
     ) {
         Row(
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = Alignment.Bottom,
             modifier = Modifier
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 6.dp, vertical = 6.dp)
+                .padding(horizontal = 8.dp)
         ) {
             openSessions.entries.sortedBy { it.key }.forEach { (sid, serverId) ->
                 val name = allServers.firstOrNull { it.id == serverId }?.name ?: "#$serverId"
                 val selected = sid == currentSessionId
-                Surface(
-                    onClick = { onSelect(sid) },
-                    shape = RoundedCornerShape(10.dp),
-                    color = if (selected) MaterialTheme.colorScheme.primaryContainer
-                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                    border = if (selected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
-                    else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .height(42.dp)
-                            .width(150.dp)
-                            .padding(start = 12.dp, end = 4.dp)
-                    ) {
-                        Text(
-                            name,
-                            style = MaterialTheme.typography.titleSmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
+                
+                Box(
+                    modifier = Modifier
+                        .width(130.dp)
+                        .height(38.dp)
+                        .clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp))
+                        .background(
+                            if (selected) MaterialTheme.colorScheme.surfaceVariant
+                            else Color.Transparent
                         )
-                        IconButton(onClick = { onClose(sid) }, modifier = Modifier.size(26.dp)) {
-                            Icon(
-                                Icons.Default.Close,
-                                contentDescription = AppStrings.closeSession,
-                                tint = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
-                                else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(16.dp)
+                        .clickable { onSelect(sid) }
+                ) {
+                    Column {
+                        // Tiny top indicator
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(2.dp)
+                                .background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent)
+                        )
+                        
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(start = 10.dp, end = 2.dp)
+                        ) {
+                            Text(
+                                name,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
                             )
+                            IconButton(
+                                onClick = { onClose(sid) },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = AppStrings.closeSession,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (selected) 1f else 0.4f),
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
                         }
                     }
                 }
-                Spacer(Modifier.width(6.dp))
+                
+                if (!selected) {
+                    VerticalDivider(
+                        modifier = Modifier.height(16.dp).align(Alignment.CenterVertically).padding(horizontal = 2.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                    )
+                }
             }
+
+            // Plus button
             Box {
-                Surface(
+                IconButton(
                     onClick = { addMenuExpanded = true },
-                    shape = RoundedCornerShape(10.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    modifier = Modifier.size(38.dp).padding(bottom = 2.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
-                        modifier = Modifier
-                            .height(42.dp)
-                            .width(44.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Add,
-                            contentDescription = AppStrings.addSession,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = AppStrings.addSession,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
                 DropdownMenu(expanded = addMenuExpanded, onDismissRequest = { addMenuExpanded = false }) {
                     allServers.forEach { s ->
@@ -894,5 +907,6 @@ private fun SessionTabRow(
                 }
             }
         }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
     }
 }

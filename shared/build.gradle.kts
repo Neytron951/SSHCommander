@@ -30,13 +30,16 @@ kotlin {
 
     sourceSets {
         val commonMain by getting {
-            // Создаем файл с константами "на лету"
-            val generatedDir = File(project.buildDir, "generated/secrets/commonMain/kotlin")
+            // Создаем папку для сгенерированных файлов
+            val generatedDir = layout.buildDirectory.dir("generated/secrets/commonMain/kotlin").get().asFile
             kotlin.srcDir(generatedDir)
             
-            val task = tasks.register("generateSecrets") {
+            val generateSecretsTask = tasks.register("generateSecrets") {
                 val outputFile = File(generatedDir, "com/neytron/sshcommander/Secrets.kt")
+                inputs.property("googleClientId", googleClientId)
+                inputs.property("googleClientSecret", googleClientSecret)
                 outputs.file(outputFile)
+                
                 doLast {
                     outputFile.parentFile.mkdirs()
                     outputFile.writeText("""
@@ -49,9 +52,14 @@ kotlin {
                     """.trimIndent())
                 }
             }
-            // Заставляем Kotlin ждать генерации файла
-            tasks.matching { it.name.startsWith("compile") }.configureEach {
-                dependsOn(task)
+            
+            // Убеждаемся, что генерация происходит ДО компиляции для всех таргетов
+            tasks.matching { 
+                it.name.contains("compile", ignoreCase = true) || 
+                it.name.contains("sourcesJar", ignoreCase = true) ||
+                it.name.contains("metadata", ignoreCase = true)
+            }.configureEach {
+                dependsOn(generateSecretsTask)
             }
 
             dependencies {

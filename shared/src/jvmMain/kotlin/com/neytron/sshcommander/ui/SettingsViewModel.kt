@@ -35,6 +35,13 @@ class SettingsViewModel(
         viewModelScope, SharingStarted.WhileSubscribed(5000), "en"
     )
 
+    val termThemeId: StateFlow<String> = settings.termThemeId.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), "tokyo_night"
+    )
+    val termFontFamily: StateFlow<String> = settings.termFontFamily.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), "JetBrains Mono"
+    )
+
     val termBgColor: StateFlow<String> = settings.termBgColor.stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5000), "#000000"
     )
@@ -63,6 +70,19 @@ class SettingsViewModel(
 
     fun setTermBgColor(color: String) = viewModelScope.launch { settings.setTermBgColor(color) }
     fun setTermTextColor(color: String) = viewModelScope.launch { settings.setTermTextColor(color) }
+    fun setTermThemeId(themeId: String) = viewModelScope.launch { 
+        settings.setTermThemeId(themeId)
+        applyThemePreset(themeId)
+    }
+    fun setTermFontFamily(family: String) = viewModelScope.launch { settings.setTermFontFamily(family) }
+
+    private suspend fun applyThemePreset(themeId: String) {
+        if (themeId == "custom") return
+        val theme = TerminalThemes.presets.find { it.id == themeId } ?: return
+        settings.setTermBgColor(theme.backgroundColor)
+        settings.setTermTextColor(theme.textColor)
+    }
+
     fun setPrivacyMode(enabled: Boolean) = viewModelScope.launch { settings.setPrivacyMode(enabled) }
     fun setAutoReconnect(enabled: Boolean) = viewModelScope.launch { settings.setAutoReconnect(enabled) }
     fun setBiometricLock(enabled: Boolean) = viewModelScope.launch { settings.setBiometricLock(enabled) }

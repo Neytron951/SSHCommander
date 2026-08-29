@@ -72,11 +72,8 @@ SSH Commander is a powerful and user-friendly cross-platform client for remote s
 git clone https://github.com/Neytron951/SSHCommander.git
 cd SSHCommander
 
-# Android app (modern Compose Multiplatform version)
+# Android app
 ./gradlew :androidApp:assembleDebug
-
-# Android app (legacy native version)
-./gradlew :appLegacy:assembleDebug
 
 # Windows desktop app (MSI or EXE installer)
 ./gradlew :desktopAppWindows:packageMsi

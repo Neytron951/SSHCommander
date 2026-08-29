@@ -28,6 +28,21 @@ actual fun platformToast(message: String) {
     println("[SSH Commander] $message")
 }
 
+@OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
+@Composable
+actual fun getSystemFontFamily(name: String): androidx.compose.ui.text.font.FontFamily {
+    return androidx.compose.runtime.remember(name) {
+        when (name) {
+            "Monospace" -> androidx.compose.ui.text.font.FontFamily.Monospace
+            else -> try {
+                androidx.compose.ui.text.font.FontFamily(name)
+            } catch (e: Exception) {
+                androidx.compose.ui.text.font.FontFamily.Monospace
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
 @Composable
 actual fun Modifier.platformDragAndDrop(onFilesDropped: (List<String>) -> Unit): Modifier = this.dragAndDropTarget(

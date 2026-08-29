@@ -17,7 +17,6 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "SSH Commander"
-include(":appLegacy")
 include(":shared")
 include(":androidApp")
 include(":desktopAppWindows")

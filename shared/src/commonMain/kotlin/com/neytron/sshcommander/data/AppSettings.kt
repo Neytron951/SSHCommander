@@ -22,6 +22,8 @@ interface AppSettings {
     val termBgColor: Flow<String>
     val termTextColor: Flow<String>
     val termFontSizePx: Flow<Float>
+    val termThemeId: Flow<String>
+    val termFontFamily: Flow<String>
 
     val privacyMode: Flow<Boolean>
     val autoReconnect: Flow<Boolean>
@@ -60,6 +62,8 @@ interface AppSettings {
     suspend fun setTermBgColor(color: String)
     suspend fun setTermTextColor(color: String)
     suspend fun setTermFontSizePx(size: Float)
+    suspend fun setTermThemeId(themeId: String)
+    suspend fun setTermFontFamily(family: String)
 
     suspend fun setPrivacyMode(enabled: Boolean)
     suspend fun setAutoReconnect(enabled: Boolean)

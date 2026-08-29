@@ -1,5 +1,10 @@
 package com.neytron.sshcommander.ui
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -13,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.*
@@ -21,8 +27,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.shape.RoundedCornerShape
 import com.neytron.sshcommander.ui.theme.SSHCommanderTheme
 import com.neytron.sshcommander.data.ExportImportManager
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -48,6 +59,10 @@ fun SettingsScreen(
 
     val termBgColor by viewModel.termBgColor.collectAsState()
     val termTextColor by viewModel.termTextColor.collectAsState()
+    val termThemeId by viewModel.termThemeId.collectAsState()
+    val termFontFamily by viewModel.termFontFamily.collectAsState()
+
+    var themeToPreview by remember { mutableStateOf<TerminalTheme?>(null) }
 
     val scope = rememberCoroutineScope()
 
@@ -139,12 +154,47 @@ fun SettingsScreen(
 
             // Terminal Customization
             SettingsSection(title = AppStrings.terminalStyle) {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(AppStrings.backgroundColor, style = MaterialTheme.typography.labelLarge)
-                    ColorPickerRow(presetBgColors, termBgColor, !isTransitioning) { viewModel.setTermBgColor(it) }
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Text(
+                        if (AppStrings.language == "ru") "Тема терминала" else "Terminal Theme",
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                    
+                    ThemePresetSelector(
+                        selectedThemeId = termThemeId,
+                        enabled = !isTransitioning,
+                        onThemeSelected = { themeId ->
+                            val theme = TerminalThemes.presets.find { it.id == themeId }
+                            if (theme != null && themeId != "custom") {
+                                themeToPreview = theme
+                            } else {
+                                viewModel.setTermThemeId(themeId)
+                            }
+                        }
+                    )
 
-                    Text(AppStrings.textColor, style = MaterialTheme.typography.labelLarge)
-                    ColorPickerRow(presetTextColors, termTextColor, !isTransitioning) { viewModel.setTermTextColor(it) }
+                    if (termThemeId == "custom") {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text(AppStrings.backgroundColor, style = MaterialTheme.typography.labelSmall)
+                            ColorPickerRow(presetBgColors, termBgColor, !isTransitioning) { viewModel.setTermBgColor(it) }
+
+                            Text(AppStrings.textColor, style = MaterialTheme.typography.labelSmall)
+                            ColorPickerRow(presetTextColors, termTextColor, !isTransitioning) { viewModel.setTermTextColor(it) }
+                        }
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+                    Text(
+                        if (AppStrings.language == "ru") "Шрифт терминала" else "Terminal Font",
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                    
+                    FontSelector(
+                        selectedFont = termFontFamily,
+                        enabled = !isTransitioning,
+                        onFontSelected = { viewModel.setTermFontFamily(it) }
+                    )
                 }
             }
 
@@ -307,6 +357,19 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
         }
+
+        // Theme Preview Dialog
+        themeToPreview?.let { theme ->
+            ThemePreviewDialog(
+                theme = theme,
+                fontFamily = termFontFamily,
+                onDismiss = { themeToPreview = null },
+                onApply = {
+                    viewModel.setTermThemeId(theme.id)
+                    themeToPreview = null
+                }
+            )
+        }
     }
 }
 
@@ -377,6 +440,226 @@ fun RadioButtonOption(text: String, selected: Boolean, enabled: Boolean, onClick
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.padding(start = 12.dp)
         )
+    }
+}
+
+@Composable
+fun ThemePresetSelector(
+    selectedThemeId: String,
+    enabled: Boolean,
+    onThemeSelected: (String) -> Unit
+) {
+    // Increased height to show more rows of the grid
+    Box(modifier = Modifier.height(420.dp).fillMaxWidth()) {
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(minSize = 100.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            items(TerminalThemes.presets) { theme ->
+                val isSelected = selectedThemeId == theme.id
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(
+                            if (isSelected) MaterialTheme.colorScheme.primaryContainer
+                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                        )
+                        .border(
+                            width = if (isSelected) 2.dp else 1.dp,
+                            color = if (isSelected) MaterialTheme.colorScheme.primary 
+                                    else Color.Transparent,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        .clickable(enabled = enabled) { onThemeSelected(theme.id) }
+                        .padding(8.dp)
+                ) {
+                    // Mini preview
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(45.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(parseHexColor(theme.backgroundColor)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "abc",
+                            color = parseHexColor(theme.textColor),
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        theme.name,
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalTextApi::class)
+@Composable
+fun ThemePreviewDialog(
+    theme: TerminalTheme,
+    fontFamily: String,
+    onDismiss: () -> Unit,
+    onApply: () -> Unit
+) {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { 
+        kotlinx.coroutines.delay(100)
+        visible = true 
+    }
+
+    val currentFontFamily = getSystemFontFamily(fontFamily)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { 
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Terminal, null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(12.dp))
+                Text(theme.name, fontWeight = FontWeight.ExtraBold)
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                // Large Modern terminal preview box with animation
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(tween(600)) + expandVertically(tween(600)),
+                    exit = fadeOut(tween(300))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(160.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(parseHexColor(theme.backgroundColor))
+                            .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(16.dp))
+                            .padding(16.dp)
+                    ) {
+                        Column {
+                            Text(
+                                "neytron@commander:~$ ls -la /var/log",
+                                color = parseHexColor(theme.textColor).copy(alpha = 0.6f),
+                                fontSize = 14.sp,
+                                fontFamily = currentFontFamily
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "drwxr-xr-x 2 root root 4096 Aug 29 auth.log",
+                                color = parseHexColor(theme.textColor),
+                                fontSize = 14.sp,
+                                fontFamily = currentFontFamily
+                            )
+                            Text(
+                                "-rw-r----- 1 root adm  1285 Aug 29 syslog",
+                                color = parseHexColor(theme.textColor),
+                                fontSize = 14.sp,
+                                fontFamily = currentFontFamily
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Row {
+                                Text(
+                                    "neytron@commander:~$ ",
+                                    color = parseHexColor(theme.textColor).copy(alpha = 0.6f),
+                                    fontSize = 14.sp,
+                                    fontFamily = currentFontFamily
+                                )
+                                // Flashing cursor effect
+                                var cursorVisible by remember { mutableStateOf(true) }
+                                LaunchedEffect(Unit) {
+                                    while(true) {
+                                        kotlinx.coroutines.delay(500)
+                                        cursorVisible = !cursorVisible
+                                    }
+                                }
+                                if (cursorVisible) {
+                                    Box(Modifier.width(8.dp).height(18.dp).background(parseHexColor(theme.textColor)))
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Text(
+                    theme.description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 20.sp
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onApply,
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+            ) {
+                Text(if (AppStrings.language == "ru") "Применить тему" else "Apply Theme", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(AppStrings.cancel, color = MaterialTheme.colorScheme.error)
+            }
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalTextApi::class)
+@Composable
+fun FontSelector(
+    selectedFont: String,
+    enabled: Boolean,
+    onFontSelected: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { if (enabled) expanded = !expanded }
+    ) {
+        OutlinedTextField(
+            value = selectedFont,
+            onValueChange = {},
+            readOnly = true,
+            enabled = enabled,
+            modifier = Modifier.fillMaxWidth().menuAnchor(),
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
+        )
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.exposedDropdownSize()
+        ) {
+            TerminalThemes.modernFonts.forEach { font ->
+                DropdownMenuItem(
+                    text = { 
+                        Text(
+                            text = font,
+                            fontFamily = getSystemFontFamily(font)
+                        )
+                    },
+                    onClick = {
+                        onFontSelected(font)
+                        expanded = false
+                    }
+                )
+            }
+        }
     }
 }
 

@@ -27,6 +27,8 @@ class SettingsManager(context: Context) : AppSettings {
         val TERM_BG_COLOR = stringPreferencesKey("term_bg_color")
         val TERM_TEXT_COLOR = stringPreferencesKey("term_text_color")
         val TERM_FONT_SIZE_PX = floatPreferencesKey("term_font_size_px")
+        val TERM_THEME_ID = stringPreferencesKey("term_theme_id")
+        val TERM_FONT_FAMILY = stringPreferencesKey("term_font_family")
 
         // Widget Color Preferences
         val WIDGET_BG_COLOR = stringPreferencesKey("widget_bg_color")
@@ -51,9 +53,11 @@ class SettingsManager(context: Context) : AppSettings {
     override val timeout: Flow<Int> = dataStore.data.map { it[TIMEOUT] ?: 10 }
     override val rebootConfirm: Flow<String> = dataStore.data.map { it[REBOOT_CONFIRM] ?: "always" }
 
-    override val termBgColor: Flow<String> = dataStore.data.map { it[TERM_BG_COLOR] ?: "#000000" }
-    override val termTextColor: Flow<String> = dataStore.data.map { it[TERM_TEXT_COLOR] ?: "#FFFFFF" }
+    override val termBgColor: Flow<String> = dataStore.data.map { it[TERM_BG_COLOR] ?: "#1A1B26" }
+    override val termTextColor: Flow<String> = dataStore.data.map { it[TERM_TEXT_COLOR] ?: "#A9B1D6" }
     override val termFontSizePx: Flow<Float> = dataStore.data.map { it[TERM_FONT_SIZE_PX] ?: 14f }
+    override val termThemeId: Flow<String> = dataStore.data.map { it[TERM_THEME_ID] ?: "tokyo_night" }
+    override val termFontFamily: Flow<String> = dataStore.data.map { it[TERM_FONT_FAMILY] ?: "JetBrains Mono" }
 
     // Defaults for Widget: Deep Dark Theme
     val widgetBgColor: Flow<String> = dataStore.data.map { it[WIDGET_BG_COLOR] ?: "#0A0C0E" }
@@ -80,6 +84,8 @@ class SettingsManager(context: Context) : AppSettings {
     override suspend fun setTermBgColor(color: String) { dataStore.edit { it[TERM_BG_COLOR] = color } }
     override suspend fun setTermTextColor(color: String) { dataStore.edit { it[TERM_TEXT_COLOR] = color } }
     override suspend fun setTermFontSizePx(size: Float) { dataStore.edit { it[TERM_FONT_SIZE_PX] = size } }
+    override suspend fun setTermThemeId(themeId: String) { dataStore.edit { it[TERM_THEME_ID] = themeId } }
+    override suspend fun setTermFontFamily(family: String) { dataStore.edit { it[TERM_FONT_FAMILY] = family } }
 
     suspend fun setWidgetBgColor(color: String) { dataStore.edit { it[WIDGET_BG_COLOR] = color } }
     suspend fun setWidgetTextColor(color: String) { dataStore.edit { it[WIDGET_TEXT_COLOR] = color } }
