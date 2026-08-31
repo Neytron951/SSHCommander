@@ -1,0 +1,77 @@
+=== SCRIPT: Nagios Cross Platform Agent (NCPA) ===
+
+[metadata.json]
+{
+  "name": "Nagios Cross Platform Agent (NCPA)",
+  "description": "Installs Nagios NCPA agent for remote monitoring. The default port is 5693.",
+  "category": "Monitoring",
+  "compatibleOs": ["centos9", "alma8", "alma9", "rocky8", "rocky9", "oracle8", "oracle9", "debian11", "debian12", "ubuntu2004", "ubuntu2204", "ubuntu2404"],
+  "isDangerous": false
+}
+
+[command.sh]
+#!/bin/bash
+# tags: centos9,alma8,alma9,rocky8,rocky9,oracle8,oracle9,debian11,debian12,ubuntu2004,ubuntu2204,ubuntu2404
+set -x
+
+LOG_PIPE=/tmp/log.pipe.$$
+
+mkfifo ${LOG_PIPE}
+LOG_FILE=/root/ncpa.log
+touch ${LOG_FILE}
+chmod 600 ${LOG_FILE}
+
+tee < ${LOG_PIPE} ${LOG_FILE} &
+
+exec > ${LOG_PIPE}
+exec 2> ${LOG_PIPE}
+
+if [ -f /etc/redhat-release ]; then
+    OSNAME=centos
+else
+    OSNAME=debian
+fi
+
+if [ "${OSNAME}" = "debian" ]; then
+    export DEBIAN_FRONTEND="noninteractive"
+	# Wait firstrun script
+	while ps uxaww | grep  -v grep | grep -Eq 'apt-get|dpkg' ; do echo "waiting..." ; sleep 3 ; done
+    apt-get update
+    which which 2>/dev/null || apt-get -y install which
+    which lsb_release 2>/dev/null || apt-get -y install lsb-release
+    which wget 2>/dev/null || apt-get -y install wget
+    apt-get -y install gpg
+    wget -qO - https://repo.nagios.com/GPG-KEY-NAGIOS-V3 | gpg --dearmor -o /usr/share/keyrings/nagios-key.gpg
+    DEB_VERSION=$(lsb_release -r -s)
+    if [ "${DEB_VERSION}" = "11" ]; then
+        echo 'deb [signed-by=/usr/share/keyrings/nagios-key.gpg] https://repo.nagios.com/deb/bullseye /' > /etc/apt/sources.list.d/nagios.list
+    elif [ "${DEB_VERSION}" = "12" ]; then
+        echo 'deb [signed-by=/usr/share/keyrings/nagios-key.gpg] https://repo.nagios.com/deb/bookworm /' > /etc/apt/sources.list.d/nagios.list
+    elif [ "${DEB_VERSION}" = "20.04" ]; then
+        echo 'deb [signed-by=/usr/share/keyrings/nagios-key.gpg] https://repo.nagios.com/deb/focal /' > /etc/apt/sources.list.d/nagios.list
+    elif [ "${DEB_VERSION}" = "22.04" ]; then
+        echo 'deb [signed-by=/usr/share/keyrings/nagios-key.gpg] https://repo.nagios.com/deb/jammy /' > /etc/apt/sources.list.d/nagios.list
+    elif [ "${DEB_VERSION}" = "24.04" ]; then
+        echo 'deb [signed-by=/usr/share/keyrings/nagios-key.gpg] https://repo.nagios.com/deb/noble /' > /etc/apt/sources.list.d/nagios.list
+    fi
+    apt-get -y install apt-transport-https gnupg
+    apt-get update
+    apt-get -y install ncpa
+else
+    OSREL=$(rpm -qf --qf '%{version}' /etc/redhat-release | cut -d . -f 1)
+    if [ "${OSREL}" = "9" ]; then
+        rpm -Uvh https://repo.nagios.com/nagios/9/nagios-repo-9-2.el9.noarch.rpm
+    else
+        rpm -Uvh https://repo.nagios.com/nagios/8/nagios-repo-8-2.el8.noarch.rpm
+    fi
+    yum install ncpa -y
+fi
+
+if [ ! "({{NCPA_TOKEN}})" = "()" ]; then
+    sed -i "/community_string =/ccommunity_string = {{NCPA_TOKEN}}" /usr/local/ncpa/etc/ncpa.cfg
+fi
+
+/etc/init.d/ncpa_listener restart
+which firewall-cmd 2>/dev/null || exit 0
+firewall-cmd --permanent --zone=public --add-port=5693/tcp
+firewall-cmd --reload

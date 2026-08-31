@@ -30,6 +30,9 @@ expect fun isLandscapeLayout(): Boolean
 /** Shows a transient platform message (Toast on Android, console on desktop). */
 expect fun platformToast(message: String)
 
+/** Opens a URL in the default system browser. */
+expect fun platformOpenUrl(url: String)
+
 /** Returns a FontFamily for a given system font name. */
 @Composable
 expect fun getSystemFontFamily(name: String): androidx.compose.ui.text.font.FontFamily

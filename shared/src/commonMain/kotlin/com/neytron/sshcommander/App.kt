@@ -44,7 +44,12 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Computer
@@ -159,6 +164,10 @@ import com.neytron.sshcommander.ui.PlatformInputStream
 import com.neytron.sshcommander.ui.PrivacyUtils
 import com.neytron.sshcommander.ui.resizeHoverCursor
 import com.neytron.sshcommander.ui.SftpView
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.material.icons.filled.Warning
+import com.neytron.sshcommander.ui.platformOpenUrl
+import com.neytron.sshcommander.ui.ScriptMarketScreen
 import com.neytron.sshcommander.ui.TerminalTheme
 import com.neytron.sshcommander.ui.TerminalThemes
 import com.neytron.sshcommander.ui.TerminalView
@@ -232,6 +241,9 @@ fun SSHCommanderLayout(
     var showAboutDialog by remember { mutableStateOf(false) }
     var showManageCommandsDialog by remember { mutableStateOf(false) }
     var showSaveWorkspaceDialog by remember { mutableStateOf(false) }
+    var showScriptMarket by remember { mutableStateOf(false) }
+    var commandToEdit by remember { mutableStateOf<CustomCommand?>(null) }
+    var showAddCommandDialog by remember { mutableStateOf(false) }
     val workspaces = remember { mutableStateListOf<Workspace>() }
     val sshKeys = remember { mutableStateListOf<SshKey>() }
     var dataLoaded by remember { mutableStateOf(false) }
@@ -598,6 +610,7 @@ fun SSHCommanderLayout(
                             onAddFolder = { folderNameDialog = FolderNameDialogState.Add },
                             onRenameFolder = { folder -> folderNameDialog = FolderNameDialogState.Rename(folder) },
                             onDeleteFolder = { folderToDelete = it },
+                            onOpenMarket = { showScriptMarket = true },
                             privacyMode = privacyMode,
                             modifier = Modifier
                                 .width(serverPaneWidth.dp)
@@ -645,6 +658,8 @@ fun SSHCommanderLayout(
                         },
                         rebootConfirmMode = rebootConfirmMode,
                         privacyMode = privacyMode,
+                        onAddCommand = { showAddCommandDialog = true },
+                        onEditCommand = { commandToEdit = it },
                         onManageCommands = { showManageCommandsDialog = true },
                         modifier = Modifier
                             .weight(1f)
@@ -843,6 +858,61 @@ fun SSHCommanderLayout(
         )
     }
 
+    if (showAddCommandDialog) {
+        val primary = MaterialTheme.colorScheme.primary
+        val initialColor = String.format(
+            "#%06X",
+            ((primary.red * 255).toInt() shl 16) or
+                ((primary.green * 255).toInt() shl 8) or
+                (primary.blue * 255).toInt()
+        )
+        AddCommandDialogDesktop(
+            initialColorHex = initialColor,
+            onDismiss = { showAddCommandDialog = false },
+            onConfirm = { name, cmd, cat, isDangerous, colorHex ->
+                scope.launch {
+                    serverRepository?.insertCustomCommand(
+                        CustomCommand(
+                            name = name,
+                            command = cmd,
+                            categoryName = cat.ifBlank { null },
+                            iconName = "default",
+                            colorHex = colorHex,
+                            orderIndex = customCommands.size,
+                            isDangerous = isDangerous
+                        )
+                    )
+                }
+                showAddCommandDialog = false
+            }
+        )
+    }
+
+    commandToEdit?.let { editing ->
+        AddCommandDialogDesktop(
+            initialName = editing.name,
+            initialCommand = editing.command,
+            initialCategory = editing.categoryName ?: "",
+            initialIsDangerous = editing.isDangerous,
+            initialColorHex = editing.colorHex,
+            onDismiss = { commandToEdit = null },
+            onConfirm = { name, cmd, cat, isDangerous, colorHex ->
+                scope.launch {
+                    serverRepository?.updateCustomCommand(
+                        editing.copy(
+                            name = name,
+                            command = cmd,
+                            categoryName = cat.ifBlank { null },
+                            isDangerous = isDangerous,
+                            colorHex = colorHex
+                        )
+                    )
+                }
+                commandToEdit = null
+            }
+        )
+    }
+
     if (showSaveWorkspaceDialog) {
         SaveWorkspaceDialog(
             onSave = { name, color ->
@@ -851,6 +921,24 @@ fun SSHCommanderLayout(
             },
             onDismiss = { showSaveWorkspaceDialog = false }
         )
+    }
+
+    if (showScriptMarket) {
+        Dialog(onDismissRequest = { showScriptMarket = false }) {
+            Surface(
+                modifier = Modifier.fillMaxSize(0.95f),
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.background
+            ) {
+                ScriptMarketScreen(
+                    onNavigateBack = { showScriptMarket = false },
+                    onExecuteScript = { cmdStr ->
+                        activeSession?.terminal?.executeCommand(cmdStr)
+                        showScriptMarket = false
+                    }
+                )
+            }
+        }
     }
 
     // First-run guide: welcome → language → tab tour (or JSON import).
@@ -915,7 +1003,65 @@ private fun SaveWorkspaceDialog(
 
 enum class PaneType { Terminal, Sftp, Split, Dashboard }
 
-private enum class SidePaneType { Servers, Workspaces }
+@Composable
+private fun ScriptMarketSideContent(onOpenMarket: () -> Unit, isUltraNarrow: Boolean) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            imageVector = Icons.Default.ShoppingCart,
+            contentDescription = null,
+            modifier = Modifier.size(if (isUltraNarrow) 32.dp else 48.dp),
+            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+        )
+        if (!isUltraNarrow) {
+            Spacer(Modifier.height(16.dp))
+            Text(
+                "ScriptMarket",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Browse community scripts",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+            Spacer(Modifier.height(24.dp))
+            Button(
+                onClick = onOpenMarket,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("Open Market")
+            }
+            
+            Spacer(Modifier.height(8.dp))
+            
+            OutlinedButton(
+                onClick = { platformOpenUrl("https://github.com/Neytron951/SSHC_Scripts") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Default.Cloud, null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Contribute")
+            }
+        } else {
+            IconButton(onClick = onOpenMarket) {
+                Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.primary)
+            }
+            IconButton(onClick = { platformOpenUrl("https://github.com/Neytron951/SSHC_Scripts") }) {
+                Icon(Icons.Default.Cloud, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+private enum class SidePaneType { Servers, Workspaces, Market }
 
 /**
  * One open terminal/SFTP session. Holds the live controllers so the connection
@@ -1115,6 +1261,7 @@ private fun ServerListPane(
     onAddFolder: () -> Unit = {},
     onRenameFolder: (ServerFolder) -> Unit = {},
     onDeleteFolder: (ServerFolder) -> Unit = {},
+    onOpenMarket: () -> Unit = {},
     privacyMode: Boolean = false,
     modifier: Modifier = Modifier
 ) {
@@ -1148,6 +1295,13 @@ private fun ServerListPane(
                         onClick = { sidePaneType = SidePaneType.Workspaces },
                         modifier = Modifier.weight(1f)
                     )
+                    SidePaneTab(
+                        label = if (isNarrow) null else (if (AppStrings.language == "ru") "Маркет" else "Market"),
+                        icon = Icons.Default.ShoppingCart,
+                        selected = sidePaneType == SidePaneType.Market,
+                        onClick = { sidePaneType = SidePaneType.Market },
+                        modifier = Modifier.weight(1f)
+                    )
                 }
 
                 if (sidePaneType == SidePaneType.Servers) {
@@ -1166,11 +1320,16 @@ private fun ServerListPane(
                         privacyMode = privacyMode,
                         isUltraNarrow = isUltraNarrow
                     )
-                } else {
+                } else if (sidePaneType == SidePaneType.Workspaces) {
                     WorkspaceListContent(
                         workspaces = workspaces,
                         onOpen = onOpenWorkspace,
                         onDelete = onDeleteWorkspace,
+                        isUltraNarrow = isUltraNarrow
+                    )
+                } else {
+                    ScriptMarketSideContent(
+                        onOpenMarket = onOpenMarket,
                         isUltraNarrow = isUltraNarrow
                     )
                 }
@@ -1570,6 +1729,8 @@ private fun InteractionPane(
     onFontSizeChange: (Float) -> Unit = {},
     rebootConfirmMode: String = "always",
     privacyMode: Boolean = false,
+    onAddCommand: () -> Unit = {},
+    onEditCommand: (CustomCommand) -> Unit = {},
     onManageCommands: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -1642,6 +1803,8 @@ private fun InteractionPane(
                                     terminalSession.executeCommand(it)
                                     terminalFocusRequester.requestFocus()
                                 },
+                                onAddCommand = onAddCommand,
+                                onEditCommand = onEditCommand,
                                 onManageCommands = onManageCommands,
                                 modifier = Modifier.width(commandPaneWidth.dp).fillMaxHeight()
                             )
@@ -1706,6 +1869,8 @@ private fun InteractionPane(
                                     terminalSession?.executeCommand(it)
                                     terminalFocusRequester.requestFocus()
                                 },
+                                onAddCommand = onAddCommand,
+                                onEditCommand = onEditCommand,
                                 onManageCommands = onManageCommands,
                                 modifier = Modifier.width(commandPaneWidth.dp).fillMaxHeight()
                             )
@@ -1753,10 +1918,13 @@ private fun readAllText(input: PlatformInputStream): String {
  * arranged as a vertical list as requested for the desktop layout).
  */
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 private fun CommandPanel(
     customCommands: List<CustomCommand>,
     rebootConfirmMode: String,
     onExecute: (String) -> Unit,
+    onAddCommand: () -> Unit = {},
+    onEditCommand: (CustomCommand) -> Unit = {},
     onManageCommands: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -1764,16 +1932,6 @@ private fun CommandPanel(
     var templateToFill by remember { mutableStateOf<String?>(null) }
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf<String?>(null) }
-
-    val baseCommands = listOf(
-        "ls -la" to AppStrings.cmdList,
-        "top" to AppStrings.cmdTop,
-        "df -h" to AppStrings.cmdDisk,
-        "free -m" to AppStrings.cmdRam,
-        "uptime" to AppStrings.cmdUptime,
-        "ps aux" to AppStrings.cmdProcesses,
-        "dmesg" to AppStrings.cmdLogs
-    )
 
     val categories = customCommands.mapNotNull { it.categoryName }.distinct().sorted()
     val filteredCommands = customCommands.filter { cmd ->
@@ -1800,15 +1958,35 @@ private fun CommandPanel(
     Column(
         modifier = modifier.background(MaterialTheme.colorScheme.surfaceVariant)
     ) {
+        // Toolbar with Add and Manage actions
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                AppStrings.commands,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f)
+            )
+            IconButton(onClick = onAddCommand, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+            }
+            IconButton(onClick = onManageCommands, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.Default.Settings, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+            }
+        }
+
         // Search and Categories
         Column(Modifier.padding(8.dp)) {
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Search...", fontSize = 12.sp) },
+                placeholder = { Text("Search scripts...", fontSize = 12.sp) },
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodySmall,
+                shape = RoundedCornerShape(8.dp),
                 trailingIcon = { if (searchQuery.isNotEmpty()) IconButton(onClick = { searchQuery = "" }) { Icon(Icons.Default.Close, null, modifier = Modifier.size(14.dp)) } }
             )
             
@@ -1827,69 +2005,52 @@ private fun CommandPanel(
         }
         
         HorizontalDivider()
+        
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(8.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            if (searchQuery.isEmpty() && selectedCategory == null) {
-                item {
-                    Text(
-                        text = AppStrings.commands,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+            items(filteredCommands, key = { it.id }) { cmd ->
+                val color = parseHexColor(cmd.colorHex).let { c ->
+                    if (c == Color.Black) MaterialTheme.colorScheme.primary else c
                 }
-                items(baseCommands) { (cmd, label) ->
-                    OutlinedButton(
-                        onClick = { onExecute(cmd) },
-                        modifier = Modifier.fillMaxWidth(),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = color.copy(alpha = 0.9f),
+                    contentColor = if (color.luminance() > 0.5f) Color.Black else Color.White,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .combinedClickable(
+                                onClick = { run(cmd) },
+                                onLongClick = { onEditCommand(cmd) }
+                            )
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(label, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                        Text(
+                            cmd.name,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (cmd.isDangerous) {
+                            Icon(Icons.Default.Warning, null, modifier = Modifier.size(14.dp).alpha(0.7f))
+                        }
                     }
                 }
+            }
+
+            if (filteredCommands.isEmpty()) {
                 item {
-                    Text(
-                        text = AppStrings.manageCommands,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 8.dp)
-                    )
-                }
-            }
-            
-            items(filteredCommands) { cmd ->
-                Button(
-                    onClick = { run(cmd) },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = parseHexColor(cmd.colorHex).let { c ->
-                            if (c == Color.Black) MaterialTheme.colorScheme.primary else c
-                        }
-                    ),
-                    modifier = Modifier.fillMaxWidth(),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
-                ) {
-                    Text(cmd.name, style = MaterialTheme.typography.labelSmall, maxLines = 1)
-                }
-            }
-            item {
-                OutlinedButton(
-                    onClick = onManageCommands,
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        AppStrings.newCommand,
-                        style = MaterialTheme.typography.labelSmall,
-                        maxLines = 1
-                    )
+                    Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                        Text("No commands found", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             }
         }

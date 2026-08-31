@@ -254,6 +254,7 @@ fun PhoneApp(
                     onWidgetSettingsClick = { navController.navigate("widget_settings") },
                     onSshKeysClick = { navController.navigate("ssh_keys") },
                     onAboutClick = { navController.navigate("about") },
+                    onScriptMarketClick = { navController.navigate("script_market") },
                     appVersion = appVersion
                 )
             }
@@ -271,6 +272,16 @@ fun PhoneApp(
             }
             composable("widget_settings") {
                 WidgetSettingsScreen(onNavigateBack = { navController.popBackStack() })
+            }
+            composable("script_market") {
+                ScriptMarketScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onExecuteScript = { cmd ->
+                        // This logic needs to handle jump-to-server or current session
+                        // For now, let's just toast or logic to be refined
+                        navController.popBackStack()
+                    }
+                )
             }
         }
 

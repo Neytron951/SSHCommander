@@ -6,7 +6,7 @@
 
 **SSH Commander** — a powerful SSH/SFTP client with terminal, widgets, and biometric authentication.
 
-> **Current version:** 1.5 — first-run setup & in-app guide, Windows & Linux support.
+> **Current version:** 1.9.1 — Scripts Market, Advanced Mobile UX, Windows & Linux support.
 
 ![App Screenshot](ScreenShots/screenshot.png)
 
@@ -14,33 +14,43 @@ SSH Commander is a powerful and user-friendly cross-platform client for remote s
 
 ## Features
 
-### Persistent Background Sessions (New in 1.7.0)
-- **Session Continuity** — connections now live in a global `SessionManager`. Navigate to settings or switch apps without losing your SSH/SFTP connection.
+### Scripts Market (New in 1.9.0)
+- **Centralized Repository** — browse and install community-driven scripts directly from the app.
+- **Auto-Sync** — backend automatically updates from GitHub, providing instant access to new recipes.
+- **Smart Templates** — support for {{VARIABLE}} syntax in scripts that prompts for values before execution.
+- **Categorization** — filter scripts by category: Voice Servers, VPN, Monitoring, Utils and more.
+
+### Advanced Mobile UX (New in 1.9.1)
+- **Focus Mode** — headers and tabs automatically collapse when the keyboard is open to maximize terminal height.
+- **Compact Toolbar** — unified scrollable bar with essential keys (Esc, Tab, Ctrl, Arrows) directly above the keyboard.
+- **Landscape Sidebar** — vertical control panel for landscape orientation, providing full vertical space for the console.
+- **Intelligent Tabs** — removed redundant server titles in the header to save space, using session tabs as the main navigation.
+
+### Persistent Background Sessions
+- **Session Continuity** — connections live in a global SessionManager. Navigate to settings or switch apps without losing your connection.
 - **Android Background Support** — stable connections that survive UI recreation and system navigation.
-- **Smart Auto-reconnect** — intelligent retry logic with exponential backoff (2s, 4s, 8s...) to handle flickering networks.
+- **Smart Auto-reconnect** — intelligent retry logic with exponential backoff to handle flickering networks.
 
 ### Smart Workspaces & Tabs
 - **Workspaces** — save your entire environment (open servers, specific SFTP paths, and last commands) and restore it with one tap.
-- **Global Sync** — workspaces are now part of the backup and cloud sync, appearing on all your devices.
-- **Session Tabs** — run multiple independent sessions per server (use the "+" button).
-- **Organization** — pin tabs and assign colors (e.g., Red for Production, Blue for Development).
+- **Global Sync** — workspaces are part of the backup and cloud sync, appearing on all your devices.
+- **Session Tabs** — run multiple independent sessions per server.
+- **Organization** — pin tabs and assign colors (e.g. Red for Production, Blue for Development).
 
 ### Cross-Platform SFTP Manager
-- **Unified Engine** — a completely redesigned SFTP core that works identically on Android (SAF) and Desktop.
+- **Unified Engine** — redesigned SFTP core that works identically on Android (SAF) and Desktop.
 - **In-place Editor** — edit configuration files directly on the server and save instantly.
 - **Smart Transfers** — reliable upload/download with progress tracking and multi-file support.
 - **Remote Preview** — view text, JSON, and images without downloading them first.
-- **Manual Navigation** — quick jump to any path via keyboard entry.
 
 ### Identity Master & SSH Keys
 - **Unified Identities** — manage login credentials and SSH keys in one place.
 - **Key Generator** — create secure RSA-4096 or Ed25519 keys directly in the app.
 - **Auto-Provisioning** — automatically deploy your public keys to remote servers with one click.
-- **Host Key Verification** — protection against Man-in-the-Middle attacks.
 
 ### Monitoring & Command Center
-- **Real-time Dashboard** — widgets for CPU, RAM, and Disk usage + live log streaming (`tail -f`).
-- **Smart Snippets** — custom commands with variable support `{{var}}` and category filtering.
+- **Real-time Dashboard** — widgets for CPU, RAM, and Disk usage + live log streaming.
+- **Smart Snippets** — custom commands with variable support and category filtering.
 - **Home Screen Widgets** — (Android) check server status and run commands without opening the app.
 
 ### Security & Privacy

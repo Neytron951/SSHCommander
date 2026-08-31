@@ -32,6 +32,14 @@ actual fun platformToast(message: String) {
     }
 }
 
+actual fun platformOpenUrl(url: String) {
+    AndroidAppContext.appContext?.let { ctx ->
+        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
+        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        ctx.startActivity(intent)
+    }
+}
+
 @Composable
 actual fun getSystemFontFamily(name: String): androidx.compose.ui.text.font.FontFamily {
     return androidx.compose.runtime.remember(name) {

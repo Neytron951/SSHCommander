@@ -266,6 +266,7 @@ object AppStrings {
     // SSH Keys
     val manageKeys get() = s.manageKeys
     val sshKeys get() = s.sshKeys
+    val scriptMarket get() = s.scriptMarket
     val addKey get() = s.addKey
     val generateKey get() = s.generateKey
     val keyName get() = s.keyName
@@ -353,8 +354,9 @@ object AppStrings {
         val fileInfo: String, val previewUnavailable: String, val fileType: String,
         val fileSize: String, val modified: String, val permissions: String, val folder: String,
         val manageKeys: String, val sshKeys: String, val addKey: String, val generateKey: String,
-        val keyName: String, val keyType: String, val keyBits: String, val passphrase: String,
+            val keyName: String, val keyType: String, val keyBits: String, val passphrase: String,
         val copyPublicKey: String, val publicKeyCopied: String, val deleteKeyConfirm: String,
+        val scriptMarket: String,
         val identities: String, val authMethod: String, val usePassword: String,
         val useSshKey: String, val autoProvisionDesc: String, val provisioningWarning: String,
         val importKeyContent: String, val generateNewKey: String, val selectExistingKey: String,
@@ -460,6 +462,7 @@ object AppStrings {
         keyName = "Key Name", keyType = "Key Type", keyBits = "Bits", passphrase = "Passphrase (optional)",
         copyPublicKey = "Copy Public Key", publicKeyCopied = "Public key copied to clipboard",
         deleteKeyConfirm = "Delete this SSH key?",
+        scriptMarket = "Script Market",
         identities = "Identities & Access", authMethod = "Authentication Method",
         usePassword = "Use Password", useSshKey = "Use SSH Key",
         autoProvisionDesc = "Auto-provision on server",
@@ -573,6 +576,7 @@ object AppStrings {
         keyName = "Название ключа", keyType = "Тип ключа", keyBits = "Бит", passphrase = "Пароль (необязательно)",
         copyPublicKey = "Скопировать Pub Key", publicKeyCopied = "Публичный ключ скопирован",
         deleteKeyConfirm = "Удалить этот SSH ключ?",
+        scriptMarket = "Маркет скриптов",
         identities = "Личности и Доступ", authMethod = "Способ входа",
         usePassword = "Использовать пароль", useSshKey = "Использовать SSH ключ",
         autoProvisionDesc = "Развернуть на сервере автоматически",

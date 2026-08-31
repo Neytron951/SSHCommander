@@ -54,6 +54,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -110,7 +111,6 @@ fun ServerControlScreen(
     val termBgColor by viewModel.termBgColor.collectAsState()
     val termTextColor by viewModel.termTextColor.collectAsState()
     val termFontSizePx by viewModel.termFontSizePx.collectAsState()
-    val privacyMode by deps.settings.privacyMode.collectAsState(initial = false)
 
     val consoleFontFamily = when(fontFamilyStr) {
         "monospace" -> FontFamily.Monospace
@@ -163,6 +163,11 @@ fun ServerControlScreen(
         map
     }
 
+    // UI Optimization for Terminal
+    val density = LocalDensity.current
+    val isKeyboardVisible = WindowInsets.ime.getBottom(density) > 0
+    val hideTopUI = (isLandscape || isKeyboardVisible) && selectedTab == 0
+
     // Handle back press to show confirmation
     PlatformBackHandler(enabled = true) {
         showExitConfirmation = true
@@ -170,88 +175,81 @@ fun ServerControlScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(viewModel.currentServer?.name ?: AppStrings.loading, style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            if (privacyMode) PrivacyUtils.maskHost(viewModel.currentServer?.host ?: "")
-                            else viewModel.currentServer?.host ?: "",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = { showExitConfirmation = true }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = AppStrings.back)
-                    }
-                },
-                actions = {
-                    // Login switcher
-                    var loginMenuExpanded by remember { mutableStateOf(false) }
-                    Box {
-                        TextButton(onClick = { loginMenuExpanded = true }) {
-                            Text(
-                                viewModel.selectedLogin?.label ?: viewModel.currentServer?.username ?: "",
-                                maxLines = 1,
-                                style = MaterialTheme.typography.labelMedium
-                            )
-                            Icon(
-                                Icons.Default.KeyboardArrowDown,
-                                contentDescription = AppStrings.selectLogin,
-                                modifier = Modifier.size(if (isLandscape) 16.dp else 18.dp)
-                            )
+            if (!hideTopUI) {
+                TopAppBar(
+                    title = { /* Название сервера удалено по просьбе пользователя */ },
+                    navigationIcon = {
+                        IconButton(onClick = { showExitConfirmation = true }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = AppStrings.back)
                         }
-                        DropdownMenu(expanded = loginMenuExpanded, onDismissRequest = { loginMenuExpanded = false }) {
-                            DropdownMenuItem(
-                                text = { Text(String.format(AppStrings.mainLoginLabel, viewModel.currentServer?.username ?: "")) },
-                                onClick = {
-                                    viewModel.selectLogin(null)
-                                    loginMenuExpanded = false
-                                }
-                            )
-                            viewModel.logins.forEach { login ->
+                    },
+                    actions = {
+                        // Login switcher
+                        var loginMenuExpanded by remember { mutableStateOf(false) }
+                        Box {
+                            TextButton(onClick = { loginMenuExpanded = true }) {
+                                Text(
+                                    viewModel.selectedLogin?.label ?: viewModel.currentServer?.username ?: "",
+                                    maxLines = 1,
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                                Icon(
+                                    Icons.Default.KeyboardArrowDown,
+                                    contentDescription = AppStrings.selectLogin,
+                                    modifier = Modifier.size(if (isLandscape) 16.dp else 18.dp)
+                                )
+                            }
+                            DropdownMenu(expanded = loginMenuExpanded, onDismissRequest = { loginMenuExpanded = false }) {
                                 DropdownMenuItem(
-                                    text = { Text(login.label.ifBlank { login.username }) },
-                                    trailingIcon = {
-                                        if (login.id == viewModel.selectedLogin?.id) {
-                                            Icon(Icons.Default.Apps, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                        }
-                                    },
+                                    text = { Text(String.format(AppStrings.mainLoginLabel, viewModel.currentServer?.username ?: "")) },
                                     onClick = {
-                                        viewModel.selectLogin(login)
+                                        viewModel.selectLogin(null)
                                         loginMenuExpanded = false
                                     }
                                 )
-                            }
-                            HorizontalDivider()
-                            DropdownMenuItem(
-                                text = { Text(AppStrings.manageLogins) },
-                                onClick = {
-                                    loginMenuExpanded = false
-                                    onManageLogins()
+                                viewModel.logins.forEach { login ->
+                                    DropdownMenuItem(
+                                        text = { Text(login.label.ifBlank { login.username }) },
+                                        trailingIcon = {
+                                            if (login.id == viewModel.selectedLogin?.id) {
+                                                Icon(Icons.Default.Apps, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                            }
+                                        },
+                                        onClick = {
+                                            viewModel.selectLogin(login)
+                                            loginMenuExpanded = false
+                                        }
+                                    )
                                 }
+                                HorizontalDivider()
+                                DropdownMenuItem(
+                                    text = { Text(AppStrings.manageLogins) },
+                                    onClick = {
+                                        loginMenuExpanded = false
+                                        onManageLogins()
+                                    }
+                                )
+                            }
+                        }
+                        IconButton(onClick = { quickCommandsVisible = !quickCommandsVisible }) {
+                            Icon(
+                                Icons.Default.Apps,
+                                contentDescription = AppStrings.quickCommands,
+                                tint = if (quickCommandsVisible) MaterialTheme.colorScheme.primary else LocalContentColor.current
                             )
                         }
+                        IconButton(onClick = onNavigateToSftp) {
+                            Icon(Icons.Default.Folder, contentDescription = AppStrings.sftpExplorer)
+                        }
+                        IconButton(onClick = onManageCommands) {
+                            Icon(Icons.Default.Build, contentDescription = AppStrings.manageCommands)
+                        }
+                        IconButton(onClick = { showSaveWorkspaceDialog = true }) {
+                            Icon(Icons.Default.Save, contentDescription = "Save Workspace")
+                        }
                     }
-                    IconButton(onClick = { quickCommandsVisible = !quickCommandsVisible }) {
-                        Icon(
-                            Icons.Default.Apps,
-                            contentDescription = AppStrings.quickCommands,
-                            tint = if (quickCommandsVisible) MaterialTheme.colorScheme.primary else LocalContentColor.current
-                        )
-                    }
-                    IconButton(onClick = onNavigateToSftp) {
-                        Icon(Icons.Default.Folder, contentDescription = AppStrings.sftpExplorer)
-                    }
-                    IconButton(onClick = onManageCommands) {
-                        Icon(Icons.Default.Build, contentDescription = AppStrings.manageCommands)
-                    }
-                    IconButton(onClick = { showSaveWorkspaceDialog = true }) {
-                        Icon(Icons.Default.Save, contentDescription = "Save Workspace")
-                    }
-                }
-            )
+                )
+            }
         }
     ) { padding ->
         Column(
@@ -260,36 +258,41 @@ fun ServerControlScreen(
                 .fillMaxSize()
                 .imePadding()
         ) {
-            TabRow(selectedTabIndex = selectedTab) {
-                Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }) {
-                    Text("Terminal", modifier = Modifier.padding(12.dp))
-                }
-                Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }) {
-                    Text("Monitoring", modifier = Modifier.padding(12.dp))
+            if (!hideTopUI) {
+                TabRow(selectedTabIndex = selectedTab) {
+                    Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }) {
+                        Text("Terminal", modifier = Modifier.padding(12.dp))
+                    }
+                    Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }) {
+                        Text("Monitoring", modifier = Modifier.padding(12.dp))
+                    }
                 }
             }
 
             if (selectedTab == 1) {
                 MonitoringDashboard(viewModel)
             } else {
-                // Session tabs: one tab per open session, "+" to add, "×" to close.
-                SessionTabRow(
-                    openSessions = openSessions,
-                    allServers = allServers,
-                    currentSessionId = sessionId,
-                    onSelect = { sid ->
-                        if (sid != sessionId) onSwitchSession(sid)
-                    },
-                    onClose = { sid ->
-                        viewModel.closeSession(sid)
-                        if (sid == sessionId) onCloseSession(sid) else sessionsVersion++
-                    },
-                    onAddServer = { id ->
-                        onAddSession(id)
-                    }
-                )
-                // Quick & Base Commands Row
-                if (quickCommandsVisible) {
+                if (!hideTopUI) {
+                    // Session tabs: one tab per open session, "+" to add, "×" to close.
+                    SessionTabRow(
+                        openSessions = openSessions,
+                        allServers = allServers,
+                        currentSessionId = sessionId,
+                        onSelect = { sid ->
+                            if (sid != sessionId) onSwitchSession(sid)
+                        },
+                        onClose = { sid ->
+                            viewModel.closeSession(sid)
+                            if (sid == sessionId) onCloseSession(sid) else sessionsVersion++
+                        },
+                        onAddServer = { id ->
+                            onAddSession(id)
+                        }
+                    )
+                }
+                
+                // Quick & Base Commands Row (Only show if not collapsed by keyboard)
+                if (quickCommandsVisible && !isKeyboardVisible) {
                     LazyRow(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -327,8 +330,6 @@ fun ServerControlScreen(
                     }
                 }
 
-                // Terminal View
-                val scrollState = rememberScrollState()
                 val terminalRevision by viewModel.terminalRevision.collectAsState()
                 val parsedOutput = remember(terminalRevision, termTextColor) {
                     viewModel.terminalScreen.render(
@@ -336,210 +337,250 @@ fun ServerControlScreen(
                     )
                 }
 
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .background(colorFromHex(termBgColor, Color.Black))
-                        // Tap the console to open the device keyboard.
-                        .pointerInput(Unit) {
-                            detectTapGestures {
-                                terminalFocusRequester.requestFocus()
-                                keyboardController?.show()
-                            }
-                        }
-                        .pointerInput(Unit) {
-                            detectTransformGestures { _, _, zoom, _ ->
-                                if (zoom != 1f) {
-                                    viewModel.updateTerminalFontSize(termFontSizePx * zoom)
+                Row(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                    // Terminal View
+                    val scrollState = rememberScrollState()
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .background(colorFromHex(termBgColor, Color.Black))
+                            // Tap the console to open the device keyboard.
+                            .pointerInput(Unit) {
+                                detectTapGestures {
+                                    terminalFocusRequester.requestFocus()
+                                    keyboardController?.show()
                                 }
                             }
+                            .pointerInput(Unit) {
+                                detectTransformGestures { _, _, zoom, _ ->
+                                    if (zoom != 1f) {
+                                        viewModel.updateTerminalFontSize(termFontSizePx * zoom)
+                                    }
+                                }
+                            }
+                    ) {
+                        SelectionContainer {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .verticalScroll(scrollState)
+                                    .padding(8.dp)
+                            ) {
+                                Text(
+                                    text = parsedOutput,
+                                    fontFamily = consoleFontFamily,
+                                    fontSize = termFontSizePx.sp,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    lineHeight = (termFontSizePx * 1.2f).sp,
+                                    color = colorFromHex(termTextColor, Color.Unspecified)
+                                )
+                            }
                         }
-                ) {
-                    SelectionContainer {
-                        Column(
+
+                        BasicTextField(
+                            value = terminalInputBuffer,
+                            onValueChange = { newValue ->
+                                val old = terminalInputBuffer
+                                terminalInputBuffer = newValue
+                                if (newValue.length > old.length) {
+                                    newValue.substring(old.length).forEach { ch ->
+                                        if (ch == '\n') viewModel.sendEnter() else viewModel.sendInput(ch.toString())
+                                    }
+                                } else if (newValue.length < old.length) {
+                                    repeat(old.length - newValue.length) { viewModel.sendBackspace() }
+                                }
+                            },
                             modifier = Modifier
-                                .fillMaxSize()
-                                .verticalScroll(scrollState)
-                                .padding(8.dp)
-                        ) {
-                            Text(
-                                text = parsedOutput,
-                                fontFamily = consoleFontFamily,
-                                fontSize = termFontSizePx.sp,
-                                modifier = Modifier.fillMaxWidth(),
-                                lineHeight = (termFontSizePx * 1.2f).sp,
-                                color = colorFromHex(termTextColor, Color.Unspecified)
+                                .size(1.dp)
+                                .alpha(0f)
+                                .focusRequester(terminalFocusRequester)
+                                .onPreviewKeyEvent { event ->
+                                    if (event.type == KeyEventType.KeyDown) {
+                                        when {
+                                            event.key == Key.Enter -> { viewModel.sendEnter(); true }
+                                            event.key == Key.Backspace -> { viewModel.sendBackspace(); true }
+                                            event.key == Key.Tab -> { viewModel.sendInput("\t"); true }
+                                            event.key == Key.Escape -> { viewModel.sendEscape(); true }
+                                            event.key == Key.DirectionUp -> { viewModel.sendArrowUp(); true }
+                                            event.key == Key.DirectionDown -> { viewModel.sendArrowDown(); true }
+                                            event.key == Key.DirectionLeft -> { viewModel.sendArrowLeft(); true }
+                                            event.key == Key.DirectionRight -> { viewModel.sendArrowRight(); true }
+                                            else -> false
+                                        }
+                                    } else false
+                                },
+                            textStyle = TextStyle(color = Color.Transparent, fontSize = 1.sp),
+                            cursorBrush = SolidColor(Color.Transparent),
+                            singleLine = false,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default)
+                        )
+
+                        LaunchedEffect(terminalRevision) {
+                            if (!viewModel.terminalScreen.isFullScreen) {
+                                scrollState.scrollTo(scrollState.maxValue)
+                            }
+                        }
+
+                        val loading by viewModel.isLoading.collectAsState()
+                        if (loading) {
+                            LinearProgressIndicator(
+                                modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter),
+                                color = colorFromHex(termTextColor, Color.Green),
+                                trackColor = Color.Transparent
                             )
                         }
-                    }
 
-                    BasicTextField(
-                        value = terminalInputBuffer,
-                        onValueChange = { newValue ->
-                            val old = terminalInputBuffer
-                            terminalInputBuffer = newValue
-                            if (newValue.length > old.length) {
-                                newValue.substring(old.length).forEach { ch ->
-                                    if (ch == '\n') viewModel.sendEnter() else viewModel.sendInput(ch.toString())
-                                }
-                            } else if (newValue.length < old.length) {
-                                repeat(old.length - newValue.length) { viewModel.sendBackspace() }
+                        // Floating Back Button when header is hidden
+                        if (hideTopUI) {
+                            IconButton(
+                                onClick = { showExitConfirmation = true },
+                                modifier = Modifier
+                                    .align(Alignment.TopStart)
+                                    .padding(8.dp)
+                                    .size(32.dp)
+                                    .background(Color.Black.copy(alpha = 0.4f), CircleShape)
+                            ) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = AppStrings.back,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(18.dp)
+                                )
                             }
-                        },
-                        modifier = Modifier
-                            .size(1.dp)
-                            .alpha(0f)
-                            .focusRequester(terminalFocusRequester)
-                            .onPreviewKeyEvent { event ->
-                                if (event.type == KeyEventType.KeyDown) {
-                                    when {
-                                        event.key == Key.Enter -> { viewModel.sendEnter(); true }
-                                        event.key == Key.Backspace -> { viewModel.sendBackspace(); true }
-                                        event.key == Key.Tab -> { viewModel.sendInput("\t"); true }
-                                        event.key == Key.Escape -> { viewModel.sendEscape(); true }
-                                        event.key == Key.DirectionUp -> { viewModel.sendArrowUp(); true }
-                                        event.key == Key.DirectionDown -> { viewModel.sendArrowDown(); true }
-                                        event.key == Key.DirectionLeft -> { viewModel.sendArrowLeft(); true }
-                                        event.key == Key.DirectionRight -> { viewModel.sendArrowRight(); true }
-                                        else -> false
+                        }
+                    }
+
+                    // Landscape Sidebar
+                    if (isLandscape) {
+                        TerminalSidebar(viewModel)
+                    }
+                }
+
+                // Bottom Controls (Only in Portrait or non-landscape)
+                if (!isLandscape) {
+                    val isCompact = isKeyboardVisible
+                    if (isCompact) {
+                        // Merged Row for Keyboard Focus
+                        CompactControlRow(viewModel)
+                    } else {
+                        // Standard Two-Row Layout
+                        Column {
+                            // Console Utilities Toolbar
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                                    .padding(horizontal = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row {
+                                    IconButton(
+                                        onClick = {
+                                            customCommandInput = viewModel.navigateHistory(true, customCommandInput)
+                                        },
+                                        modifier = Modifier.size(48.dp)
+                                    ) {
+                                        Icon(Icons.Default.KeyboardArrowUp, AppStrings.historyUp)
                                     }
-                                } else false
-                            },
-                        textStyle = TextStyle(color = Color.Transparent, fontSize = 1.sp),
-                        cursorBrush = SolidColor(Color.Transparent),
-                        singleLine = false,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default)
-                    )
+                                    IconButton(
+                                        onClick = {
+                                            customCommandInput = viewModel.navigateHistory(false, customCommandInput)
+                                        },
+                                        modifier = Modifier.size(48.dp)
+                                    ) {
+                                        Icon(Icons.Default.KeyboardArrowDown, AppStrings.historyDown)
+                                    }
+                                }
 
-                    LaunchedEffect(terminalRevision) {
-                        if (!viewModel.terminalScreen.isFullScreen) {
-                            scrollState.scrollTo(scrollState.maxValue)
-                        }
-                    }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    TextButton(
+                                        onClick = { viewModel.sendInput("\t") },
+                                        contentPadding = PaddingValues(horizontal = 12.dp)
+                                    ) {
+                                        Text(AppStrings.tabKey, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    }
+                                    VerticalDivider(modifier = Modifier.height(24.dp).padding(horizontal = 4.dp))
+                                    TextButton(
+                                        onClick = { viewModel.sendCtrlC() },
+                                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                                        contentPadding = PaddingValues(horizontal = 12.dp)
+                                    ) {
+                                        Text(AppStrings.ctrlCKey, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    }
+                                    VerticalDivider(modifier = Modifier.height(24.dp).padding(horizontal = 4.dp))
+                                    TextButton(
+                                        onClick = { viewModel.clearTerminal() },
+                                        contentPadding = PaddingValues(horizontal = 12.dp)
+                                    ) {
+                                        Text(AppStrings.clearKey, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    }
+                                }
+                            }
 
-                    val loading by viewModel.isLoading.collectAsState()
-                    if (loading) {
-                        LinearProgressIndicator(
-                            modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter),
-                            color = colorFromHex(termTextColor, Color.Green),
-                            trackColor = Color.Transparent
-                        )
-                    }
-                }
-
-                // Console Utilities Toolbar
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .padding(horizontal = if (isLandscape) 2.dp else 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row {
-                        IconButton(
-                            onClick = {
-                                customCommandInput = viewModel.navigateHistory(true, customCommandInput)
-                            },
-                            modifier = Modifier.size(if (isLandscape) 36.dp else 48.dp)
-                        ) {
-                            Icon(Icons.Default.KeyboardArrowUp, AppStrings.historyUp, modifier = Modifier.size(if (isLandscape) 20.dp else 24.dp))
-                        }
-                        IconButton(
-                            onClick = {
-                                customCommandInput = viewModel.navigateHistory(false, customCommandInput)
-                            },
-                            modifier = Modifier.size(if (isLandscape) 36.dp else 48.dp)
-                        ) {
-                            Icon(Icons.Default.KeyboardArrowDown, AppStrings.historyDown, modifier = Modifier.size(if (isLandscape) 20.dp else 24.dp))
-                        }
-                    }
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        TextButton(
-                            onClick = { viewModel.sendInput("\t") },
-                            contentPadding = PaddingValues(horizontal = if (isLandscape) 6.dp else 12.dp)
-                        ) {
-                            Text(AppStrings.tabKey, fontWeight = FontWeight.Bold, fontSize = if (isLandscape) 12.sp else 14.sp)
-                        }
-                        VerticalDivider(modifier = Modifier.height(if (isLandscape) 20.dp else 24.dp).padding(horizontal = 4.dp))
-                        TextButton(
-                            onClick = { viewModel.sendCtrlC() },
-                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                            contentPadding = PaddingValues(horizontal = if (isLandscape) 6.dp else 12.dp)
-                        ) {
-                            Text(AppStrings.ctrlCKey, fontWeight = FontWeight.Bold, fontSize = if (isLandscape) 12.sp else 14.sp)
-                        }
-                        VerticalDivider(modifier = Modifier.height(if (isLandscape) 20.dp else 24.dp).padding(horizontal = 4.dp))
-                        TextButton(
-                            onClick = { viewModel.clearTerminal() },
-                            contentPadding = PaddingValues(horizontal = if (isLandscape) 6.dp else 12.dp)
-                        ) {
-                            Text(AppStrings.clearKey, fontWeight = FontWeight.Bold, fontSize = if (isLandscape) 12.sp else 14.sp)
-                        }
-                    }
-                }
-
-                // Control Keys Bar
-                LazyRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .padding(vertical = if (isLandscape) 2.dp else 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(if (isLandscape) 2.dp else 4.dp),
-                    contentPadding = PaddingValues(horizontal = if (isLandscape) 4.dp else 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    item { ControlKeyButton(AppStrings.escKey, { viewModel.sendEscape() }, isLandscape) }
-                    item {
-                        HoldableKeyButton(
-                            onClick = { viewModel.sendBackspace() },
-                            modifier = Modifier.height(if (isLandscape) 32.dp else 40.dp)
-                        ) {
-                            Text("⌫", fontWeight = FontWeight.Bold, fontSize = if (isLandscape) 11.sp else 13.sp)
+                            // Control Keys Bar
+                            LazyRow(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                                    .padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                item { ControlKeyButton(AppStrings.escKey, { viewModel.sendEscape() }, false) }
+                                item {
+                                    HoldableKeyButton(
+                                        onClick = { viewModel.sendBackspace() },
+                                        modifier = Modifier.height(40.dp)
+                                    ) {
+                                        Text("⌫", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    }
+                                }
+                                item { ControlKeyButton(AppStrings.enterKey, { viewModel.sendEnter() }, false) }
+                                item {
+                                    HoldableKeyButton(
+                                        onClick = { viewModel.sendArrowLeft() },
+                                        modifier = Modifier.size(40.dp)
+                                    ) {
+                                        Icon(Icons.Default.KeyboardArrowLeft, contentDescription = null)
+                                    }
+                                }
+                                item {
+                                    HoldableKeyButton(
+                                        onClick = { viewModel.sendArrowUp() },
+                                        modifier = Modifier.size(40.dp)
+                                    ) {
+                                        Icon(Icons.Default.KeyboardArrowUp, contentDescription = null)
+                                    }
+                                }
+                                item {
+                                    HoldableKeyButton(
+                                        onClick = { viewModel.sendArrowDown() },
+                                        modifier = Modifier.size(40.dp)
+                                    ) {
+                                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = null)
+                                    }
+                                }
+                                item {
+                                    HoldableKeyButton(
+                                        onClick = { viewModel.sendArrowRight() },
+                                        modifier = Modifier.size(40.dp)
+                                    ) {
+                                        Icon(Icons.Default.KeyboardArrowRight, contentDescription = null)
+                                    }
+                                }
+                                item { VerticalDivider(modifier = Modifier.height(24.dp)) }
+                                item { ControlKeyButton("Ctrl+X", { viewModel.sendCtrlKey('x') }, false) }
+                                item { ControlKeyButton("Ctrl+O", { viewModel.sendCtrlKey('o') }, false) }
+                                item { ControlKeyButton("Ctrl+G", { viewModel.sendCtrlKey('g') }, false) }
+                                item { ControlKeyButton("Ctrl+W", { viewModel.sendCtrlKey('w') }, false) }
+                                item { ControlKeyButton("Ctrl+K", { viewModel.sendCtrlKey('k') }, false) }
+                                item { ControlKeyButton("Ctrl+U", { viewModel.sendCtrlKey('u') }, false) }
+                            }
                         }
                     }
-                    item { ControlKeyButton(AppStrings.enterKey, { viewModel.sendEnter() }, isLandscape) }
-                    item {
-                        HoldableKeyButton(
-                            onClick = { viewModel.sendArrowLeft() },
-                            modifier = Modifier.size(if (isLandscape) 32.dp else 40.dp)
-                        ) {
-                            Icon(Icons.Default.KeyboardArrowLeft, contentDescription = null, modifier = Modifier.size(if (isLandscape) 20.dp else 24.dp))
-                        }
-                    }
-                    item {
-                        HoldableKeyButton(
-                            onClick = { viewModel.sendArrowUp() },
-                            modifier = Modifier.size(if (isLandscape) 32.dp else 40.dp)
-                        ) {
-                            Icon(Icons.Default.KeyboardArrowUp, contentDescription = null, modifier = Modifier.size(if (isLandscape) 20.dp else 24.dp))
-                        }
-                    }
-                    item {
-                        HoldableKeyButton(
-                            onClick = { viewModel.sendArrowDown() },
-                            modifier = Modifier.size(if (isLandscape) 32.dp else 40.dp)
-                        ) {
-                            Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, modifier = Modifier.size(if (isLandscape) 20.dp else 24.dp))
-                        }
-                    }
-                    item {
-                        HoldableKeyButton(
-                            onClick = { viewModel.sendArrowRight() },
-                            modifier = Modifier.size(if (isLandscape) 32.dp else 40.dp)
-                        ) {
-                            Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, modifier = Modifier.size(if (isLandscape) 20.dp else 24.dp))
-                        }
-                    }
-                    item { VerticalDivider(modifier = Modifier.height(if (isLandscape) 18.dp else 24.dp)) }
-                    item { ControlKeyButton("Ctrl+X", { viewModel.sendCtrlKey('x') }, isLandscape) }
-                    item { ControlKeyButton("Ctrl+O", { viewModel.sendCtrlKey('o') }, isLandscape) }
-                    item { ControlKeyButton("Ctrl+G", { viewModel.sendCtrlKey('g') }, isLandscape) }
-                    item { ControlKeyButton("Ctrl+W", { viewModel.sendCtrlKey('w') }, isLandscape) }
-                    item { ControlKeyButton("Ctrl+K", { viewModel.sendCtrlKey('k') }, isLandscape) }
-                    item { ControlKeyButton("Ctrl+U", { viewModel.sendCtrlKey('u') }, isLandscape) }
                 }
             }
         }
@@ -803,39 +844,41 @@ private fun SessionTabRow(
     currentSessionId: Int,
     onSelect: (Int) -> Unit,
     onClose: (Int) -> Unit,
-    onAddServer: (Int) -> Unit
+    onAddServer: (Int) -> Unit,
+    isCompact: Boolean = false
 ) {
     var addMenuExpanded by remember { mutableStateOf(false) }
     
-    // Integrated strip look
-    Column(
+    val backgroundColor = if (isCompact) Color.Transparent else MaterialTheme.colorScheme.surface
+    val tabHeight = if (isCompact) 42.dp else 38.dp
+
+    Row(
+        verticalAlignment = Alignment.Bottom,
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface)
+            .background(backgroundColor)
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = if (isCompact) 0.dp else 8.dp)
     ) {
-        Row(
-            verticalAlignment = Alignment.Bottom,
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 8.dp)
-        ) {
-            openSessions.entries.sortedBy { it.key }.forEach { (sid, serverId) ->
-                val name = allServers.firstOrNull { it.id == serverId }?.name ?: "#$serverId"
-                val selected = sid == currentSessionId
-                
-                Box(
-                    modifier = Modifier
-                        .width(130.dp)
-                        .height(38.dp)
-                        .clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp))
-                        .background(
-                            if (selected) MaterialTheme.colorScheme.surfaceVariant
-                            else Color.Transparent
-                        )
-                        .clickable { onSelect(sid) }
-                ) {
-                    Column {
+        openSessions.entries.sortedBy { it.key }.forEach { (sid, serverId) ->
+            val name = allServers.firstOrNull { it.id == serverId }?.name ?: "#$serverId"
+            val selected = sid == currentSessionId
+            
+            Box(
+                modifier = Modifier
+                    .width(if (isCompact) 110.dp else 130.dp)
+                    .height(tabHeight)
+                    .clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp))
+                    .background(
+                        if (selected) {
+                            if (isCompact) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+                            else MaterialTheme.colorScheme.surfaceVariant
+                        } else Color.Transparent
+                    )
+                    .clickable { onSelect(sid) }
+            ) {
+                Column {
+                    if (!isCompact) {
                         // Tiny top indicator
                         Box(
                             modifier = Modifier
@@ -843,70 +886,160 @@ private fun SessionTabRow(
                                 .height(2.dp)
                                 .background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent)
                         )
-                        
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(start = 10.dp, end = 2.dp)
+                    }
+                    
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(start = if (isCompact) 8.dp else 10.dp, end = 2.dp)
+                    ) {
+                        Text(
+                            name,
+                            style = if (isCompact) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelMedium,
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(
+                            onClick = { onClose(sid) },
+                            modifier = Modifier.size(if (isCompact) 20.dp else 24.dp)
                         ) {
-                            Text(
-                                name,
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f)
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = AppStrings.closeSession,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (selected) 1f else 0.4f),
+                                modifier = Modifier.size(if (isCompact) 12.dp else 14.dp)
                             )
-                            IconButton(
-                                onClick = { onClose(sid) },
-                                modifier = Modifier.size(24.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.Close,
-                                    contentDescription = AppStrings.closeSession,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (selected) 1f else 0.4f),
-                                    modifier = Modifier.size(14.dp)
-                                )
-                            }
                         }
                     }
                 }
-                
-                if (!selected) {
-                    VerticalDivider(
-                        modifier = Modifier.height(16.dp).align(Alignment.CenterVertically).padding(horizontal = 2.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                    )
-                }
             }
+            
+            if (!selected) {
+                VerticalDivider(
+                    modifier = Modifier.height(16.dp).align(Alignment.CenterVertically).padding(horizontal = 2.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                )
+            }
+        }
 
-            // Plus button
-            Box {
-                IconButton(
-                    onClick = { addMenuExpanded = true },
-                    modifier = Modifier.size(38.dp).padding(bottom = 2.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Add,
-                        contentDescription = AppStrings.addSession,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(18.dp)
+        // Plus button
+        Box {
+            IconButton(
+                onClick = { addMenuExpanded = true },
+                modifier = Modifier.size(tabHeight).padding(bottom = if (isCompact) 0.dp else 2.dp)
+            ) {
+                Icon(
+                    Icons.Default.Add,
+                    contentDescription = AppStrings.addSession,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(if (isCompact) 16.dp else 18.dp)
+                )
+            }
+            DropdownMenu(expanded = addMenuExpanded, onDismissRequest = { addMenuExpanded = false }) {
+                allServers.forEach { s ->
+                    DropdownMenuItem(
+                        text = { Text(s.name) },
+                        onClick = {
+                            addMenuExpanded = false
+                            onAddServer(s.id)
+                        }
                     )
-                }
-                DropdownMenu(expanded = addMenuExpanded, onDismissRequest = { addMenuExpanded = false }) {
-                    allServers.forEach { s ->
-                        DropdownMenuItem(
-                            text = { Text(s.name) },
-                            onClick = {
-                                addMenuExpanded = false
-                                onAddServer(s.id)
-                            }
-                        )
-                    }
                 }
             }
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+    }
+}
+
+@Composable
+private fun TerminalSidebar(viewModel: SshViewModel) {
+    Column(
+        modifier = Modifier
+            .width(54.dp)
+            .fillMaxHeight()
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .verticalScroll(rememberScrollState())
+            .padding(vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        // Essential terminal keys in vertical layout
+        ControlKeyButton(AppStrings.escKey, { viewModel.sendEscape() }, true)
+        HoldableKeyButton(onClick = { viewModel.sendBackspace() }, modifier = Modifier.size(40.dp)) {
+            Text("⌫", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+        }
+        ControlKeyButton(AppStrings.tabKey, { viewModel.sendInput("\t") }, true)
+        ControlKeyButton(AppStrings.enterKey, { viewModel.sendEnter() }, true)
+        
+        HorizontalDivider(modifier = Modifier.padding(horizontal = 8.dp))
+        
+        HoldableKeyButton(onClick = { viewModel.sendArrowUp() }, modifier = Modifier.size(40.dp)) {
+            Icon(Icons.Default.KeyboardArrowUp, null)
+        }
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+            HoldableKeyButton(onClick = { viewModel.sendArrowLeft() }, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Default.KeyboardArrowLeft, null)
+            }
+            HoldableKeyButton(onClick = { viewModel.sendArrowRight() }, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Default.KeyboardArrowRight, null)
+            }
+        }
+        HoldableKeyButton(onClick = { viewModel.sendArrowDown() }, modifier = Modifier.size(40.dp)) {
+            Icon(Icons.Default.KeyboardArrowDown, null)
+        }
+        
+        HorizontalDivider(modifier = Modifier.padding(horizontal = 8.dp))
+
+        ControlKeyButton("Ctrl+C", { viewModel.sendCtrlC() }, true)
+        ControlKeyButton("Ctrl+X", { viewModel.sendCtrlKey('x') }, true)
+        ControlKeyButton("Ctrl+O", { viewModel.sendCtrlKey('o') }, true)
+        ControlKeyButton("Ctrl+W", { viewModel.sendCtrlKey('w') }, true)
+    }
+}
+
+@Composable
+private fun CompactControlRow(viewModel: SshViewModel) {
+    LazyRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(vertical = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        contentPadding = PaddingValues(horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        item { ControlKeyButton(AppStrings.escKey, { viewModel.sendEscape() }, true) }
+        item { ControlKeyButton(AppStrings.tabKey, { viewModel.sendInput("\t") }, true) }
+        item { ControlKeyButton("Ctrl+C", { viewModel.sendCtrlC() }, true) }
+        item { VerticalDivider(modifier = Modifier.height(20.dp)) }
+        item {
+            HoldableKeyButton(onClick = { viewModel.sendArrowLeft() }, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.Default.KeyboardArrowLeft, null, modifier = Modifier.size(20.dp))
+            }
+        }
+        item {
+            HoldableKeyButton(onClick = { viewModel.sendArrowUp() }, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.Default.KeyboardArrowUp, null, modifier = Modifier.size(20.dp))
+            }
+        }
+        item {
+            HoldableKeyButton(onClick = { viewModel.sendArrowDown() }, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.Default.KeyboardArrowDown, null, modifier = Modifier.size(20.dp))
+            }
+        }
+        item {
+            HoldableKeyButton(onClick = { viewModel.sendArrowRight() }, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.Default.KeyboardArrowRight, null, modifier = Modifier.size(20.dp))
+            }
+        }
+        item { VerticalDivider(modifier = Modifier.height(20.dp)) }
+        item { ControlKeyButton("Ctrl+X", { viewModel.sendCtrlKey('x') }, true) }
+        item { ControlKeyButton("Ctrl+O", { viewModel.sendCtrlKey('o') }, true) }
+        item { ControlKeyButton("Ctrl+G", { viewModel.sendCtrlKey('g') }, true) }
+        item { ControlKeyButton("Ctrl+W", { viewModel.sendCtrlKey('w') }, true) }
+        item { ControlKeyButton("⌫", { viewModel.sendBackspace() }, true) }
+        item { ControlKeyButton("ENTER", { viewModel.sendEnter() }, true) }
     }
 }

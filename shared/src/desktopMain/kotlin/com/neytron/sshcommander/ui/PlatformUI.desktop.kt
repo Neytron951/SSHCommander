@@ -28,6 +28,20 @@ actual fun platformToast(message: String) {
     println("[SSH Commander] $message")
 }
 
+actual fun platformOpenUrl(url: String) {
+    try {
+        val os = System.getProperty("os.name").lowercase()
+        val rt = Runtime.getRuntime()
+        when {
+            os.contains("win") -> rt.exec("rundll32 url.dll,FileProtocolHandler $url")
+            os.contains("mac") -> rt.exec("open $url")
+            else -> rt.exec("xdg-open $url")
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+}
+
 @OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
 @Composable
 actual fun getSystemFontFamily(name: String): androidx.compose.ui.text.font.FontFamily {

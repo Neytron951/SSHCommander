@@ -609,7 +609,17 @@ class JsonServerRepository(
     }
 
     private fun readCommands(): List<CustomCommand> {
-        if (!commandsFile.exists()) return emptyList()
+        if (!commandsFile.exists()) {
+            val defaults = listOf(
+                CustomCommand(id = 1, name = "List Files", command = "ls -la", iconName = "default", colorHex = "#7AA2F7", orderIndex = 0, categoryName = "System"),
+                CustomCommand(id = 2, name = "Disk Usage", command = "df -h", iconName = "default", colorHex = "#7AA2F7", orderIndex = 1, categoryName = "System"),
+                CustomCommand(id = 3, name = "Memory Info", command = "free -m", iconName = "default", colorHex = "#7AA2F7", orderIndex = 2, categoryName = "System"),
+                CustomCommand(id = 4, name = "Processes", command = "ps aux", iconName = "default", colorHex = "#7AA2F7", orderIndex = 3, categoryName = "System"),
+                CustomCommand(id = 5, name = "Uptime", command = "uptime", iconName = "default", colorHex = "#7AA2F7", orderIndex = 4, categoryName = "System")
+            )
+            writeCommands(defaults)
+            return defaults
+        }
         return try {
             val type = object : TypeToken<List<CustomCommand>>() {}.type
             val list: List<CustomCommand> = gson.fromJson(commandsFile.readText(), type)

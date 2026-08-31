@@ -17,6 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.VpnKey
@@ -46,6 +47,7 @@ fun SettingsScreen(
     onWidgetSettingsClick: () -> Unit,
     onSshKeysClick: () -> Unit,
     onAboutClick: () -> Unit,
+    onScriptMarketClick: () -> Unit = {},
     appVersion: String = ""
 ) {
     val deps = LocalAppDeps.current
@@ -285,6 +287,20 @@ fun SettingsScreen(
                     Icon(Icons.Default.VpnKey, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
                     Text(AppStrings.sshKeys)
+                }
+            }
+
+            // Script Market
+            SettingsSection(title = AppStrings.scriptMarket) {
+                Button(
+                    onClick = { if (!isTransitioning) onScriptMarketClick() },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isTransitioning,
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
+                ) {
+                    Icon(Icons.Default.Code, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(AppStrings.scriptMarket)
                 }
             }
 
