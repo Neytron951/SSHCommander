@@ -192,6 +192,17 @@ class TerminalSession(
         }
     }
 
+    override fun updateSize(cols: Int, rows: Int) {
+        terminalScreen.resize(rows, cols)
+        val channel = currentChannel ?: return
+        if (channel.isConnected) {
+            try {
+                // wp/hp (pixels) are less critical than cols/rows for layout
+                channel.setPtySize(cols, rows, cols * 8, rows * 16)
+            } catch (e: Exception) {}
+        }
+    }
+
     override fun clearTerminal() {
         terminalScreen.clear()
         _terminalRevision.value++

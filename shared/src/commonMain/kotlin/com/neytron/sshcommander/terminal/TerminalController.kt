@@ -40,6 +40,7 @@ interface TerminalController {
     fun sendCtrlKey(letter: Char)
     /** Runs a command line: sends the text then Enter (newline) if not full-screen. */
     fun executeCommand(command: String)
+    fun updateSize(cols: Int, rows: Int)
     fun clearTerminal()
     fun disconnect()
     fun close()

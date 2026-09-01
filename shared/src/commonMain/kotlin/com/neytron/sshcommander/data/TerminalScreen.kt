@@ -16,8 +16,8 @@ import androidx.compose.ui.text.font.FontWeight
  * grid buffer (with a large scrollback) and render the visible screen.
  */
 object TerminalDimensions {
-    const val ROWS = 400   // large scrollback for normal shell output
-    const val COLS = 100   // matches the PTY width we advertise
+    const val ROWS = 1000   // large scrollback
+    const val COLS = 500    // max width to avoid truncation
 }
 
 internal class TerminalCell {
@@ -26,9 +26,7 @@ internal class TerminalCell {
     var bold: Boolean = false
 }
 
-internal class ScreenBuffer(rows: Int, cols: Int) {
-    val rows = rows
-    val cols = cols
+internal class ScreenBuffer(var rows: Int, var cols: Int) {
     val cells = Array(rows) { Array(cols) { TerminalCell() } }
 
     // Cursor rendering: reverse-video block. Space under the cursor becomes a
@@ -37,6 +35,9 @@ internal class ScreenBuffer(rows: Int, cols: Int) {
 
     var cursorRow = 0
     var cursorCol = 0
+
+    var topMargin = 0
+    var bottomMargin = rows - 1
 
     var fg = -1
     var bold = false
@@ -48,17 +49,17 @@ internal class ScreenBuffer(rows: Int, cols: Int) {
         for (r in 0 until rows) for (c in 0 until cols) cells[r][c] = TerminalCell()
         cursorRow = 0
         cursorCol = 0
+        topMargin = 0
+        bottomMargin = rows - 1
     }
 
     fun putChar(ch: Char) {
         when (ch) {
             '\n' -> {
-                // Never let cursorRow leave [0, rows-1] — even transiently. feed()
-                // runs on a background thread while render() reads on the UI
-                // thread, so a temporary rows value would crash render as
-                // "Index 400 out of bounds for length 400".
-                if (cursorRow + 1 >= rows) {
-                    scrollUp(cursorRow + 1 - rows + 1)
+                if (cursorRow == bottomMargin) {
+                    scrollUp(1, topMargin, bottomMargin)
+                } else if (cursorRow + 1 >= rows) {
+                    scrollUp(1, 0, rows - 1)
                     cursorRow = rows - 1
                 } else {
                     cursorRow++
@@ -91,20 +92,24 @@ internal class ScreenBuffer(rows: Int, cols: Int) {
         text.forEach { putChar(it) }
     }
 
-    fun scrollUp(n: Int) {
-        val count = n.coerceIn(1, rows)
-        for (r in 0 until rows - count) {
+    fun scrollUp(n: Int, top: Int = topMargin, bottom: Int = bottomMargin) {
+        val count = n.coerceIn(1, (bottom - top + 1).coerceAtLeast(1))
+        for (r in top until bottom - count + 1) {
             for (c in 0 until cols) cells[r][c] = cells[r + count][c]
         }
-        for (r in (rows - count) until rows) for (c in 0 until cols) cells[r][c] = TerminalCell()
-        cursorRow = (cursorRow - count).coerceAtLeast(0)
+        for (r in (bottom - count + 1)..bottom) {
+            for (c in 0 until cols) cells[r][c] = TerminalCell()
+        }
     }
 
-    fun scrollDown(n: Int) {
-        val count = n.coerceIn(1, rows)
-        for (r in (rows - 1) downTo count) for (c in 0 until cols) cells[r][c] = cells[r - count][c]
-        for (r in 0 until count) for (c in 0 until cols) cells[r][c] = TerminalCell()
-        cursorRow = (cursorRow + count).coerceAtMost(rows - 1)
+    fun scrollDown(n: Int, top: Int = topMargin, bottom: Int = bottomMargin) {
+        val count = n.coerceIn(1, (bottom - top + 1).coerceAtLeast(1))
+        for (r in bottom downTo top + count) {
+            for (c in 0 until cols) cells[r][c] = cells[r - count][c]
+        }
+        for (r in top until top + count) {
+            for (c in 0 until cols) cells[r][c] = TerminalCell()
+        }
     }
 
     fun cursorUp(n: Int) { cursorRow = (cursorRow - n.coerceAtLeast(1)).coerceAtLeast(0) }
@@ -159,15 +164,23 @@ internal class ScreenBuffer(rows: Int, cols: Int) {
     }
 
     fun deleteLines(n: Int) {
-        val count = n.coerceIn(1, rows - cursorRow)
-        for (r in cursorRow until rows - count) for (c in 0 until cols) cells[r][c] = cells[r + count][c]
-        for (r in (rows - count) until rows) for (c in 0 until cols) cells[r][c] = TerminalCell()
+        val count = n.coerceIn(1, bottomMargin - cursorRow + 1)
+        for (r in cursorRow until bottomMargin - count + 1) {
+            for (c in 0 until cols) cells[r][c] = cells[r + count][c]
+        }
+        for (r in (bottomMargin - count + 1)..bottomMargin) {
+            for (c in 0 until cols) cells[r][c] = TerminalCell()
+        }
     }
 
     fun insertLines(n: Int) {
-        val count = n.coerceIn(1, rows - cursorRow)
-        for (r in (rows - 1) downTo (cursorRow + count)) for (c in 0 until cols) cells[r][c] = cells[r - count][c]
-        for (r in cursorRow until (cursorRow + count).coerceAtMost(rows)) for (c in 0 until cols) cells[r][c] = TerminalCell()
+        val count = n.coerceIn(1, bottomMargin - cursorRow + 1)
+        for (r in bottomMargin downTo cursorRow + count) {
+            for (c in 0 until cols) cells[r][c] = cells[r - count][c]
+        }
+        for (r in cursorRow until cursorRow + count) {
+            for (c in 0 until cols) cells[r][c] = TerminalCell()
+        }
     }
 
     fun saveCursor() { savedRow = cursorRow; savedCol = cursorCol }
@@ -267,11 +280,36 @@ internal class ScreenBuffer(rows: Int, cols: Int) {
 }
 
 class TerminalScreen(
-    rows: Int = TerminalDimensions.ROWS,
-    cols: Int = TerminalDimensions.COLS
+    initialRows: Int = 30, // Default to a reasonable PTY height
+    initialCols: Int = 100
 ) {
-    private val mainBuffer = ScreenBuffer(rows, cols)
-    private val altBuffer = ScreenBuffer(rows, cols)
+    private var ptyRows = initialRows
+    private var ptyCols = initialCols
+    
+    private val mainBuffer = ScreenBuffer(TerminalDimensions.ROWS, TerminalDimensions.COLS)
+    private val altBuffer = ScreenBuffer(TerminalDimensions.ROWS, TerminalDimensions.COLS)
+    
+    init {
+        mainBuffer.rows = TerminalDimensions.ROWS
+        mainBuffer.cols = initialCols
+        altBuffer.rows = initialRows
+        altBuffer.cols = initialCols
+    }
+    
+    fun resize(newRows: Int, newCols: Int) {
+        ptyRows = newRows
+        ptyCols = newCols
+        
+        mainBuffer.cols = newCols.coerceAtMost(TerminalDimensions.COLS)
+        altBuffer.rows = newRows.coerceAtMost(TerminalDimensions.ROWS)
+        altBuffer.cols = newCols.coerceAtMost(TerminalDimensions.COLS)
+        
+        // Reset margins to full screen on resize
+        mainBuffer.topMargin = 0
+        mainBuffer.bottomMargin = mainBuffer.rows - 1
+        altBuffer.topMargin = 0
+        altBuffer.bottomMargin = altBuffer.rows - 1
+    }
     private var useAlt = false
 
     /** True while a full-screen app (nano/vim/htop) owns the screen via the
@@ -281,6 +319,9 @@ class TerminalScreen(
     val isFullScreen: Boolean get() = useAlt
 
     private val current get() = if (useAlt) altBuffer else mainBuffer
+
+    val cursorRow get() = current.cursorRow
+    val cursorCol get() = current.cursorCol
 
     // Holds bytes/sequences that arrived split across TCP reads.
     private var pending = ""
@@ -326,8 +367,8 @@ class TerminalScreen(
                         '8' -> { current.restoreCursor(); i += 2 }
                         '(', ')' -> { i += 3 } // character set — skip
                         '=', '>' -> i += 2   // keypad mode
-                        'D' -> { current.scrollUp(1); i += 2 }   // IND
-                        'M' -> { current.scrollDown(1); i += 2 } // RI
+                        'D' -> { current.scrollUp(1, current.topMargin, current.bottomMargin); i += 2 }   // IND
+                        'M' -> { current.scrollDown(1, current.topMargin, current.bottomMargin); i += 2 } // RI
                         'E' -> { current.nextLine(1); i += 2 }
                         'c' -> { current.clear(); i += 2 } // RIS
                         else -> i += 2 // unknown — drop
@@ -367,6 +408,13 @@ class TerminalScreen(
             'S' -> buf.scrollUp(p)
             'T' -> buf.scrollDown(p)
             'm' -> buf.applySgr(parts)
+            'r' -> {
+                val top = parts.getOrElse(0) { 1 }
+                val bottom = parts.getOrElse(1) { buf.rows }
+                buf.topMargin = (top - 1).coerceIn(0, buf.rows - 1)
+                buf.bottomMargin = (bottom - 1).coerceIn(buf.topMargin, buf.rows - 1)
+                buf.cursorPosition(1, 1)
+            }
             'd' -> buf.verticalPosition(p)
             's' -> buf.saveCursor()
             'u' -> buf.restoreCursor()

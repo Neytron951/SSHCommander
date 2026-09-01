@@ -9,6 +9,7 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -43,12 +44,12 @@ import androidx.compose.ui.input.pointer.isPrimaryPressed
 import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -94,12 +95,8 @@ fun TerminalView(
     val loading by isLoading.collectAsState()
     val scrollState = rememberScrollState()
     val internalFocusRequester = remember { FocusRequester() }
-    // An optional externally-owned FocusRequester lets callers re-focus the
-    // terminal after e.g. clicking a command button (which steals focus).
     val effectiveFocusRequester = focusRequester ?: internalFocusRequester
     val interactionSource = remember { MutableInteractionSource() }
-    // Caps Lock isn't exposed by the common KeyEvent API, so we track it
-    // ourselves by observing the Caps Lock key itself.
     val capsLock = remember { mutableStateOf(false) }
 
     val parsedOutput: AnnotatedString = remember(revision, textColor) {
@@ -113,9 +110,8 @@ fun TerminalView(
     var contextMenuAnchor by remember { mutableStateOf<Offset?>(null) }
     var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
     val currentLayout by rememberUpdatedState(layoutResult)
-    // Double-click detection: last primary-click timestamp + char offset.
-    var lastClickUptime by remember { mutableStateOf(0L) }
-    var lastClickOffset by remember { mutableStateOf(0) }
+    var lastClickUptime by remember { mutableLongStateOf(0L) }
+    var lastClickOffset by remember { mutableIntStateOf(0) }
 
     val hasSelection = selectionStart != null && selectionEnd != null &&
         selectionStart != selectionEnd
@@ -142,279 +138,274 @@ fun TerminalView(
         }
     }
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(bgColor)
-            .pointerInput(Unit) {
-                // Ctrl + mouse wheel → zoom the terminal font (desktop).
-                awaitPointerEventScope {
-                    while (true) {
-                        val event = awaitPointerEvent(PointerEventPass.Initial)
-                        if (event.type == PointerEventType.Scroll &&
-                            event.keyboardModifiers.isCtrlPressed
-                        ) {
-                            val delta = event.changes.firstOrNull()?.scrollDelta?.y ?: 0f
-                            if (delta != 0f) {
-                                // Scale faster but within limits
-                                val direction = if (delta > 0) 1.5f else -1.5f
-                                val newSize = (localFontSize + direction).coerceIn(10f, 120f)
-                                if (abs(newSize - localFontSize) > 0.01f) {
-                                    localFontSize = newSize
-                                    onFontSizeChange(newSize)
-                                }
-                                event.changes.forEach { it.consume() }
-                            }
-                        }
-                    }
-                }
-            }
-            .transformable(state = rememberTransformableState { zoomChange, _, _ ->
-                // Pinch-to-zoom for mobile
-                if (zoomChange != 1f) {
-                    val newSize = (localFontSize * zoomChange).coerceIn(10f, 120f)
-                    if (abs(newSize - localFontSize) > 0.05f) {
-                        localFontSize = newSize
-                        onFontSizeChange(newSize)
-                    }
-                }
-            })
-            .pointerInput(Unit) {
-                // Right-click → context menu (Copy / Select All / Clear).
-                awaitPointerEventScope {
-                    while (true) {
-                        val event = awaitPointerEvent(PointerEventPass.Main)
-                        val change = event.changes.firstOrNull()
-                        if (event.type == PointerEventType.Press &&
-                            change != null &&
-                            event.buttons.isSecondaryPressed
-                        ) {
-                            contextMenuAnchor = change.position
-                            change.consume()
-                        }
-                    }
-                }
-            }
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null
-            ) {
-                // Click anywhere in the terminal → keyboard goes to the terminal.
-                effectiveFocusRequester.requestFocus()
-            }
-            .focusRequester(effectiveFocusRequester)
-            .focusable()
-            .onPreviewKeyEvent { event ->
-                if (controller != null && event.type == KeyEventType.KeyDown) {
-                    when {
-                        // Keep track of Caps Lock ourselves (not in common API).
-                        event.key == Key.CapsLock -> {
-                            capsLock.value = !capsLock.value
-                            true
-                        }
-                        // Modifier-only keys (Shift/Ctrl/Alt/Caps...) carry no
-                        // character of their own; AWT reports CHAR_UNDEFINED
-                        // (0xFFFF) for them and forwarding it would put a stray
-                        // space/glyph into the terminal.
-                        event.key in modifierKeys -> false
-                        // Ctrl+C copies when there is an active text selection,
-                        // otherwise it keeps its terminal meaning (SIGINT). This
-                        // is what native terminal apps do — selection wins over
-                        // the interrupt signal.
-                        event.isCtrlPressed && event.key == Key.C -> {
-                            if (hasSelection) {
-                                copySelection()
-                                selectionStart = null
-                                selectionEnd = null
-                            } else {
-                                controller.sendCtrlKey('c')
-                            }
-                            true
-                        }
-                        // Ctrl+V or Ctrl+Shift+V pastes from the local clipboard.
-                        event.isCtrlPressed && event.key == Key.V -> {
-                            clipboard.getText()?.text?.let { text ->
-                                // Remove trailing newline so it doesn't execute immediately
-                                val cleanText = when {
-                                    text.endsWith("\r\n") -> text.dropLast(2)
-                                    text.endsWith("\n") || text.endsWith("\r") -> text.dropLast(1)
-                                    else -> text
-                                }
-                                controller.sendInput(cleanText)
-                            }
-                            true
-                        }
-                        // Ctrl+letter → control character (Ctrl+X exits nano,
-                        // Ctrl+O saves, Ctrl+G cancels...).
-                        event.isCtrlPressed && event.key.toLetter() != null -> {
-                            controller.sendCtrlKey(event.key.toLetter()!!)
-                            true
-                        }
-                        event.key == Key.Enter -> { controller.sendEnter(); true }
-                        event.key == Key.Backspace -> { controller.sendBackspace(); true }
-                        event.key == Key.DirectionUp -> { controller.sendArrowUp(); true }
-                        event.key == Key.DirectionDown -> { controller.sendArrowDown(); true }
-                        event.key == Key.DirectionLeft -> { controller.sendArrowLeft(); true }
-                        event.key == Key.DirectionRight -> { controller.sendArrowRight(); true }
-                        event.key == Key.Escape -> { controller.sendEscape(); true }
-                        event.key == Key.Tab -> { controller.sendInput("\t"); true }
-                        event.key == Key.Delete -> { controller.sendInput("\u001b[3~"); true }
-                        event.key == Key.MoveHome -> { controller.sendInput("\u001b[H"); true }
-                        event.key == Key.MoveEnd -> { controller.sendInput("\u001b[F"); true }
-                        event.key == Key.PageUp -> { controller.sendInput("\u001b[5~"); true }
-                        event.key == Key.PageDown -> { controller.sendInput("\u001b[6~"); true }
-                        else -> {
-                            val cp = event.utf16CodePoint
-                            // 0xFFFF = AWT CHAR_UNDEFINED (modifier keys).
-                            if (cp != 0 && cp != 0xFFFF && !Char(cp).isISOControl()) {
-                                controller.sendInput(Char(cp).toString())
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    }
-                } else {
-                    false
-                }
-            }
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(scrollState)
-                .padding(10.dp)
-        ) {
-            // Using round for localFontSize on Android to avoid jagged/blurry text.
-            // Desktop handles fractional scaling better, but rounding is safer for both.
-            val displayFontSize = kotlin.math.round(localFontSize)
-            
-            Text(
-                text = displayText,
-                fontFamily = currentFontFamily,
-                fontSize = displayFontSize.sp,
-                lineHeight = (displayFontSize * 1.15f).sp,
-                letterSpacing = 0.sp,
-                softWrap = true,
-                color = textColor,
-                onTextLayout = { layoutResult = it },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .pointerInput(Unit) {
-                        // Mouse drag → text selection (single click positions the
-                        // caret-ish point, double click selects a whole word).
-                        awaitEachGesture {
-                            val pressEvent = awaitPointerEvent()
-                            val down = pressEvent.changes.firstOrNull() ?: return@awaitEachGesture
-                            if (pressEvent.type != PointerEventType.Press) return@awaitEachGesture
-                            if (down.type != PointerType.Mouse) return@awaitEachGesture
-                            if (!pressEvent.buttons.isPrimaryPressed) return@awaitEachGesture
-                            val layout = currentLayout ?: return@awaitEachGesture
-                            val offset = layout.getOffsetForPosition(down.position)
-                            val isDoubleClick = down.uptimeMillis - lastClickUptime < 500 &&
-                                abs(offset - lastClickOffset) <= 3
-                            lastClickUptime = down.uptimeMillis
-                            lastClickOffset = offset
-                            if (isDoubleClick) {
-                                val word = wordRange(parsedOutput.text, offset)
-                                if (word.isEmpty()) {
-                                    selectionStart = null
-                                    selectionEnd = null
-                                } else {
-                                    selectionStart = word.first
-                                    selectionEnd = word.last + 1
-                                }
-                            } else {
-                                selectionStart = offset
-                                selectionEnd = offset
-                            }
-                            effectiveFocusRequester.requestFocus()
-                            val dragged = drag(down.id) { change ->
-                                currentLayout?.let { l ->
-                                    selectionEnd = l.getOffsetForPosition(change.position)
-                                    change.consume()
-                                }
-                            }
-                            // Plain click with no drag: collapse the selection.
-                            if (dragged && selectionStart != null && selectionEnd == selectionStart) {
-                                selectionStart = null
-                                selectionEnd = null
-                            }
-                        }
-                    }
-            )
+    BoxWithConstraints(modifier = modifier) {
+        val density = LocalDensity.current
+        
+        // Estimate dimensions based on font
+        val charWidth = remember(localFontSize, density) {
+            with(density) { (localFontSize * 0.6f).sp.toPx() }
         }
-
+        val charHeight = remember(localFontSize, density) {
+            with(density) { (localFontSize * 1.15f).sp.toPx() }
+        }
+        
+        val availableWidth = with(density) { (maxWidth - 20.dp).toPx() }
+        val availableHeight = with(density) { (maxHeight - 20.dp).toPx() }
+        
+        val cols = (availableWidth / charWidth).toInt().coerceIn(20, 250)
+        val rows = (availableHeight / charHeight).toInt().coerceIn(5, 100)
+        
+        LaunchedEffect(cols, rows) {
+            controller?.updateSize(cols, rows)
+        }
+        
         LaunchedEffect(revision) {
             if (!terminalScreen.isFullScreen) {
                 scrollState.scrollTo(scrollState.maxValue)
-            }
-        }
-
-        LaunchedEffect(terminalScreen) {
-            effectiveFocusRequester.requestFocus()
-        }
-
-        if (loading) {
-            LinearProgressIndicator(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.TopCenter),
-                color = textColor,
-                trackColor = Color.Transparent
-            )
-        }
-
-        contextMenuAnchor?.let { anchor ->
-            // Anchor the DropdownMenu through a zero-size Box: applying offset
-            // directly to DropdownMenu conflicts with its internal Popup
-            // positioning and renders the menu crooked / away from the cursor.
-            Box(
-                modifier = Modifier.offset {
-                    IntOffset(anchor.x.toInt(), anchor.y.toInt())
+            } else {
+                // In full screen, follow the cursor if it goes off-screen
+                val cursorY = terminalScreen.cursorRow * charHeight
+                if (cursorY < scrollState.value) {
+                    scrollState.scrollTo(cursorY.toInt())
+                } else if (cursorY + charHeight > scrollState.value + availableHeight) {
+                    scrollState.scrollTo((cursorY + charHeight - availableHeight).toInt())
                 }
-            ) {
-            DropdownMenu(
-                expanded = true,
-                onDismissRequest = { contextMenuAnchor = null }
-            ) {
-                DropdownMenuItem(
-                    text = { Text(AppStrings.copyText) },
-                    onClick = {
-                        copySelection()
-                        selectionStart = null
-                        selectionEnd = null
-                        contextMenuAnchor = null
-                    },
-                    enabled = hasSelection
-                )
-                DropdownMenuItem(
-                    text = { Text(AppStrings.selectAll) },
-                    onClick = {
-                        selectionStart = 0
-                        selectionEnd = parsedOutput.length
-                        contextMenuAnchor = null
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(bgColor)
+                .pointerInput(Unit) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent(PointerEventPass.Initial)
+                            if (event.type == PointerEventType.Scroll &&
+                                event.keyboardModifiers.isCtrlPressed
+                            ) {
+                                val delta = event.changes.firstOrNull()?.scrollDelta?.y ?: 0f
+                                if (delta != 0f) {
+                                    val direction = if (delta > 0) 1.5f else -1.5f
+                                    val newSize = (localFontSize + direction).coerceIn(10f, 120f)
+                                    if (abs(newSize - localFontSize) > 0.01f) {
+                                        localFontSize = newSize
+                                        onFontSizeChange(newSize)
+                                    }
+                                    event.changes.forEach { it.consume() }
+                                }
+                            }
+                        }
                     }
-                )
-                DropdownMenuItem(
-                    text = { Text(AppStrings.clearSelection) },
-                    onClick = {
-                        selectionStart = null
-                        selectionEnd = null
-                        contextMenuAnchor = null
-                    },
-                    enabled = hasSelection
+                }
+                .transformable(state = rememberTransformableState { zoomChange, _, _ ->
+                    if (zoomChange != 1f) {
+                        val newSize = (localFontSize * zoomChange).coerceIn(10f, 120f)
+                        if (abs(newSize - localFontSize) > 0.05f) {
+                            localFontSize = newSize
+                            onFontSizeChange(newSize)
+                        }
+                    }
+                })
+                .pointerInput(Unit) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent(PointerEventPass.Main)
+                            val change = event.changes.firstOrNull()
+                            if (event.type == PointerEventType.Press &&
+                                change != null &&
+                                event.buttons.isSecondaryPressed
+                            ) {
+                                contextMenuAnchor = change.position
+                                change.consume()
+                            }
+                        }
+                    }
+                }
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null
+                ) {
+                    effectiveFocusRequester.requestFocus()
+                }
+                .focusRequester(effectiveFocusRequester)
+                .focusable()
+                .onPreviewKeyEvent { event ->
+                    if (controller != null && event.type == KeyEventType.KeyDown) {
+                        when {
+                            event.key == Key.CapsLock -> {
+                                capsLock.value = !capsLock.value
+                                true
+                            }
+                            event.key in modifierKeys -> false
+                            event.isCtrlPressed && event.key == Key.C -> {
+                                if (hasSelection) {
+                                    copySelection()
+                                    selectionStart = null
+                                    selectionEnd = null
+                                } else {
+                                    controller.sendCtrlKey('c')
+                                }
+                                true
+                            }
+                            event.isCtrlPressed && event.key == Key.V -> {
+                                clipboard.getText()?.text?.let { text ->
+                                    val cleanText = when {
+                                        text.endsWith("\r\n") -> text.dropLast(2)
+                                        text.endsWith("\n") || text.endsWith("\r") -> text.dropLast(1)
+                                        else -> text
+                                    }
+                                    controller.sendInput(cleanText)
+                                }
+                                true
+                            }
+                            event.isCtrlPressed && event.key.toLetter() != null -> {
+                                controller.sendCtrlKey(event.key.toLetter()!!)
+                                true
+                            }
+                            event.key == Key.Enter -> { controller.sendEnter(); true }
+                            event.key == Key.Backspace -> { controller.sendBackspace(); true }
+                            event.key == Key.DirectionUp -> { controller.sendArrowUp(); true }
+                            event.key == Key.DirectionDown -> { controller.sendArrowDown(); true }
+                            event.key == Key.DirectionLeft -> { controller.sendArrowLeft(); true }
+                            event.key == Key.DirectionRight -> { controller.sendArrowRight(); true }
+                            event.key == Key.Escape -> { controller.sendEscape(); true }
+                            event.key == Key.Tab -> { controller.sendInput("\t"); true }
+                            event.key == Key.Delete -> { controller.sendInput("\u001b[3~"); true }
+                            event.key == Key.MoveHome -> { controller.sendInput("\u001b[H"); true }
+                            event.key == Key.MoveEnd -> { controller.sendInput("\u001b[F"); true }
+                            event.key == Key.PageUp -> { controller.sendInput("\u001b[5~"); true }
+                            event.key == Key.PageDown -> { controller.sendInput("\u001b[6~"); true }
+                            else -> {
+                                val cp = event.utf16CodePoint
+                                if (cp != 0 && cp != 0xFFFF && !Char(cp).isISOControl()) {
+                                    controller.sendInput(Char(cp).toString())
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        }
+                    } else {
+                        false
+                    }
+                }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(scrollState)
+                    .padding(10.dp)
+            ) {
+                val displayFontSize = kotlin.math.round(localFontSize)
+                
+                Text(
+                    text = displayText,
+                    fontFamily = currentFontFamily,
+                    fontSize = displayFontSize.sp,
+                    lineHeight = (displayFontSize * 1.15f).sp,
+                    letterSpacing = 0.sp,
+                    softWrap = true,
+                    color = textColor,
+                    onTextLayout = { layoutResult = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .pointerInput(Unit) {
+                            awaitEachGesture {
+                                val pressEvent = awaitPointerEvent()
+                                val down = pressEvent.changes.firstOrNull() ?: return@awaitEachGesture
+                                if (pressEvent.type != PointerEventType.Press) return@awaitEachGesture
+                                if (down.type != PointerType.Mouse) return@awaitEachGesture
+                                if (!pressEvent.buttons.isPrimaryPressed) return@awaitEachGesture
+                                val layout = currentLayout ?: return@awaitEachGesture
+                                val offset = layout.getOffsetForPosition(down.position)
+                                val isDoubleClick = down.uptimeMillis - lastClickUptime < 500 &&
+                                    abs(offset - lastClickOffset) <= 3
+                                lastClickUptime = down.uptimeMillis
+                                lastClickOffset = offset
+                                if (isDoubleClick) {
+                                    val word = wordRange(parsedOutput.text, offset)
+                                    if (word.isEmpty()) {
+                                        selectionStart = null
+                                        selectionEnd = null
+                                    } else {
+                                        selectionStart = word.first
+                                        selectionEnd = word.last + 1
+                                    }
+                                } else {
+                                    selectionStart = offset
+                                    selectionEnd = offset
+                                }
+                                effectiveFocusRequester.requestFocus()
+                                drag(down.id) { change ->
+                                    currentLayout?.let { l ->
+                                        selectionEnd = l.getOffsetForPosition(change.position)
+                                        change.consume()
+                                    }
+                                }
+                            }
+                        }
                 )
             }
+
+            LaunchedEffect(terminalScreen) {
+                effectiveFocusRequester.requestFocus()
+            }
+
+            if (loading) {
+                LinearProgressIndicator(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.TopCenter),
+                    color = textColor,
+                    trackColor = Color.Transparent
+                )
+            }
+
+            contextMenuAnchor?.let { anchor ->
+                Box(
+                    modifier = Modifier.offset {
+                        IntOffset(anchor.x.toInt(), anchor.y.toInt())
+                    }
+                ) {
+                    DropdownMenu(
+                        expanded = true,
+                        onDismissRequest = { contextMenuAnchor = null }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text(AppStrings.copyText) },
+                            onClick = {
+                                copySelection()
+                                selectionStart = null
+                                selectionEnd = null
+                                contextMenuAnchor = null
+                            },
+                            enabled = hasSelection
+                        )
+                        DropdownMenuItem(
+                            text = { Text(AppStrings.selectAll) },
+                            onClick = {
+                                selectionStart = 0
+                                selectionEnd = parsedOutput.length
+                                contextMenuAnchor = null
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(AppStrings.clearSelection) },
+                            onClick = {
+                                selectionStart = null
+                                selectionEnd = null
+                                contextMenuAnchor = null
+                            },
+                            enabled = hasSelection
+                        )
+                    }
+                }
             }
         }
     }
 }
 
-/**
- * Returns the whitespace-delimited word covering [offset] (the character
- * offset the user double-clicked), or an empty range if it hit whitespace.
- */
 private fun wordRange(text: String, offset: Int): IntRange {
     val clamped = offset.coerceIn(0, text.length)
     var s = clamped
@@ -424,38 +415,14 @@ private fun wordRange(text: String, offset: Int): IntRange {
     return s until e
 }
 
-/** Returns the lowercase letter for a physical A-Z key, or null. */
 private fun Key.toLetter(): Char? = when (this) {
-    Key.A -> 'a'
-    Key.B -> 'b'
-    Key.C -> 'c'
-    Key.D -> 'd'
-    Key.E -> 'e'
-    Key.F -> 'f'
-    Key.G -> 'g'
-    Key.H -> 'h'
-    Key.I -> 'i'
-    Key.J -> 'j'
-    Key.K -> 'k'
-    Key.L -> 'l'
-    Key.M -> 'm'
-    Key.N -> 'n'
-    Key.O -> 'o'
-    Key.P -> 'p'
-    Key.Q -> 'q'
-    Key.R -> 'r'
-    Key.S -> 's'
-    Key.T -> 't'
-    Key.U -> 'u'
-    Key.V -> 'v'
-    Key.W -> 'w'
-    Key.X -> 'x'
-    Key.Y -> 'y'
-    Key.Z -> 'z'
+    Key.A -> 'a'; Key.B -> 'b'; Key.C -> 'c'; Key.D -> 'd'; Key.E -> 'e'; Key.F -> 'f'; Key.G -> 'g'
+    Key.H -> 'h'; Key.I -> 'i'; Key.J -> 'j'; Key.K -> 'k'; Key.L -> 'l'; Key.M -> 'm'; Key.N -> 'n'
+    Key.O -> 'o'; Key.P -> 'p'; Key.Q -> 'q'; Key.R -> 'r'; Key.S -> 's'; Key.T -> 't'; Key.U -> 'u'
+    Key.V -> 'v'; Key.W -> 'w'; Key.X -> 'x'; Key.Y -> 'y'; Key.Z -> 'z'
     else -> null
 }
 
-/** Keys that only modify other keys and must never be sent as text. */
 private val modifierKeys = setOf(
     Key.ShiftLeft, Key.ShiftRight,
     Key.CtrlLeft, Key.CtrlRight,

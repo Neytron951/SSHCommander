@@ -147,6 +147,10 @@ class SshViewModel(
             }
         }
     }
+
+    override fun updateSize(cols: Int, rows: Int) {
+        activeController?.updateSize(cols, rows)
+    }
     override fun sendCtrlC() { activeController?.sendCtrlC() }
     override fun sendEscape() { activeController?.sendEscape() }
     override fun sendBackspace() { activeController?.sendBackspace() }
