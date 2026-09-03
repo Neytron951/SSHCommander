@@ -13,12 +13,14 @@ val jpackageJdk: String = javaToolchains.launcherFor {
     vendor.set(JvmVendorSpec.ADOPTIUM)
 }.get().metadata.installationPath.asFile.absolutePath
 
-val appName: String = (project.findProperty("appName") as? String)?.takeIf { it.isNotBlank() } ?: "SSHCommander"
+val appName: String = (project.findProperty("appName") as? String)?.takeIf { it.isNotBlank() } ?: "SSH Commander"
 val appVersion: String = (project.findProperty("appVersion") as? String)?.takeIf { it.isNotBlank() } ?: "1.9.2"
 
 dependencies {
     implementation(project(":shared"))
     implementation(compose.desktop.currentOs)
+    implementation(compose.material3)
+    implementation(compose.materialIconsExtended)
 }
 
 compose.desktop {

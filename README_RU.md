@@ -62,13 +62,13 @@ SSH Commander — мощный и удобный кроссплатформен�
 
 - **Android** — полнофункциональный мобильный клиент с виджетами и биометрической блокировкой.
 - **Windows** — десктопный клиент с разделенным видом и MSI/EXE установщиками.
-- **Linux** — десктопный клиент для Linux-систем, поддержка пакетов DEB и RPM.
+- **Linux** — десктопный клиент для Linux-систем. Протестировано на Debian/Ubuntu (DEB/RPM) и Arch Linux (нативная сборка с оптимизацией под Hyprland).
 
 ## Требования
 
 - **Android 7.0** (API level 24) или выше.
 - **Windows 10** or higher.
-- **Linux** (Ubuntu 22.04+, Debian 11+ и др.).
+- **Linux** (Ubuntu, Debian, Arch Linux и др.).
 
 ## Установка
 
@@ -78,28 +78,43 @@ SSH Commander — мощный и удобный кроссплатформен�
 3. Установите
 
 ### Из исходников
+
+#### Android
 ```bash
-git clone https://github.com/Neytron951/SSHCommander.git
-cd SSHCommander
+./gradlew :androidApp:assembleRelease
+```
 
-# Android-приложение
-./gradlew :androidApp:assembleDebug
+#### Windows
+```bash
+# Автоматическая сборка установщиков MSI и EXE:
+build-windows.bat
 
-# Windows-десктоп (установщик MSI или EXE)
+# Или ручная сборка:
 ./gradlew :desktopAppWindows:packageMsi
 ./gradlew :desktopAppWindows:packageExe
 
-# Или соберите установщики скриптом
-build-windows.bat
-
-# Запуск десктопного приложения для разработки
+# Запуск для разработки:
 ./gradlew :desktopAppWindows:run
-./gradlew :desktopAppLinux:run
+```
 
-# Сборка Linux-пакетов (DEB или RPM)
+#### Linux (Debian, Ubuntu, Fedora)
+```bash
+# Автоматическая сборка пакетов DEB и RPM:
+./build-linux.sh
+
+# Или ручная сборка:
 ./gradlew :desktopAppLinux:packageDeb
 ./gradlew :desktopAppLinux:packageRpm
+```
 
-# Тесты
-./gradlew :shared:desktopTest
+#### Linux (Arch, Manjaro)
+```bash
+# Сборка, установка и создание ярлыка:
+./install-arch.sh
+
+# Или просто сборка папки с приложением:
+./gradlew :desktopAppLinux:createDistributable
+
+# Запуск для разработки:
+./gradlew :desktopAppLinux:run
 ```

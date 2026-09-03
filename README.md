@@ -62,13 +62,13 @@ SSH Commander is a powerful and user-friendly cross-platform client for remote s
 
 - **Android** — full-featured mobile client with home-screen widgets and biometric lock.
 - **Windows** — desktop client with resizable panes, Terminal+SFTP split view, and MSI/EXE installers.
-- **Linux** — desktop client for Linux systems (tested on Debian/Ubuntu), supports DEB and RPM packages.
+- **Linux** — desktop client for Linux systems. Tested on Debian/Ubuntu (DEB/RPM) and Arch Linux (native build with Hyprland optimization).
 
 ## Requirements
 
 - **Android 7.0** (API level 24) or higher.
 - **Windows 10** or higher.
-- **Linux** (modern distributions like Ubuntu 22.04+, Debian 11+, etc.).
+- **Linux** (Ubuntu, Debian, Arch Linux, etc.).
 
 ## Installation
 
@@ -78,31 +78,43 @@ SSH Commander is a powerful and user-friendly cross-platform client for remote s
 3. Install
 
 ### From Source
+
+#### Android
 ```bash
-git clone https://github.com/Neytron951/SSHCommander.git
-cd SSHCommander
+./gradlew :androidApp:assembleRelease
+```
 
-# Android app
-./gradlew :androidApp:assembleDebug
+#### Windows
+```bash
+# Build both MSI and EXE installers automatically:
+build-windows.bat
 
-# Windows desktop app (MSI or EXE installer)
+# Or build manually:
 ./gradlew :desktopAppWindows:packageMsi
 ./gradlew :desktopAppWindows:packageExe
 
-# Or build both installers with the interactive script
-build-windows.bat
-
-# Windows desktop app — unpacked folder
-./gradlew :desktopAppWindows:createDistributable
-
-# Run desktop app for development
+# Run for development:
 ./gradlew :desktopAppWindows:run
-./gradlew :desktopAppLinux:run
+```
 
-# Build Linux packages (DEB or RPM)
+#### Linux (Debian, Ubuntu, Fedora)
+```bash
+# Build DEB and RPM packages automatically:
+./build-linux.sh
+
+# Or build manually:
 ./gradlew :desktopAppLinux:packageDeb
 ./gradlew :desktopAppLinux:packageRpm
+```
 
-# Tests
-./gradlew :shared:desktopTest
+#### Linux (Arch, Manjaro)
+```bash
+# Build, install and create a desktop shortcut:
+./install-arch.sh
+
+# Or just build the distributable folder:
+./gradlew :desktopAppLinux:createDistributable
+
+# Run for development:
+./gradlew :desktopAppLinux:run
 ```

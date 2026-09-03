@@ -3,7 +3,6 @@ setlocal enabledelayedexpansion
 chcp 65001 >nul
 title SSH Commander - build Windows (MSI + EXE)
 cd /d "%~dp0"
-
 echo ============================================================
 echo   SSH Commander - Windows Installer Builder (MSI + EXE)
 echo.
@@ -27,8 +26,8 @@ REM ------------------------------------------------------------
 REM  2. Package version (without validation)
 REM ------------------------------------------------------------
 set "PACKAGE_VERSION="
-set /p "PACKAGE_VERSION=Version [Enter = 1.5.0]: "
-if "!PACKAGE_VERSION!"=="" set "PACKAGE_VERSION=1.5.0"
+set /p "PACKAGE_VERSION=Version [Enter = 1.9.2]: "
+if "!PACKAGE_VERSION!"=="" set "PACKAGE_VERSION=1.9.2"
 
 echo.
 echo Building: %PACKAGE_NAME% v%PACKAGE_VERSION%
@@ -39,6 +38,7 @@ REM  3. Run jpackage build
 REM ------------------------------------------------------------
 echo [1/2] Running jpackage: MSI + EXE...
 call "%~dp0gradlew.bat" :desktopAppWindows:packageMsi :desktopAppWindows:packageExe "-PappName=%PACKAGE_NAME%" -PappVersion=%PACKAGE_VERSION% --console=plain
+
 if errorlevel 1 (
     echo.
     echo [ERROR] Build failed. Check output above.
@@ -51,6 +51,7 @@ REM  4. Copy installers to dist\
 REM ------------------------------------------------------------
 set "SRC=%~dp0desktopAppWindows\build\compose\binaries\main"
 set "OUT=%~dp0dist"
+
 if not exist "%OUT%" mkdir "%OUT%"
 
 echo.
@@ -79,5 +80,6 @@ echo.
 echo   - %PACKAGE_NAME%.msi  - MSI installer
 echo   - %PACKAGE_NAME%.exe  - EXE installer (same as MSI)
 echo ============================================================
+
 pause
 endlocal
