@@ -30,9 +30,16 @@ class DesktopSettings(private val dataDir: File) : AppSettings {
 
     private suspend fun persist() = withContext(Dispatchers.IO) {
         try {
-            dataDir.mkdirs()
-            file.outputStream().use { props.store(it, "SSH Commander settings") }
-        } catch (e: Exception) { /* ignore */ }
+            if (!dataDir.exists()) {
+                dataDir.mkdirs()
+            }
+            file.outputStream().use { 
+                props.store(it, "SSH Commander settings") 
+                it.flush()
+            }
+        } catch (e: Exception) {
+            System.err.println("Failed to persist settings to ${file.absolutePath}: ${e.message}")
+        }
         _version.value = _version.value + 1
     }
 

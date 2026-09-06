@@ -114,10 +114,20 @@ fun ServerListScreen(
                 )
                 TabRow(selectedTabIndex = selectedTab) {
                     Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }) {
-                        Text(AppStrings.servers, modifier = Modifier.padding(12.dp))
+                        Text(
+                            AppStrings.servers,
+                            modifier = Modifier.padding(12.dp),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                     Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }) {
-                        Text("Workspaces", modifier = Modifier.padding(12.dp))
+                        Text(
+                            "Workspaces",
+                            modifier = Modifier.padding(12.dp),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
             }
@@ -148,7 +158,7 @@ fun ServerListScreen(
                                 val profile = deps.repository.buildConnectionProfile(server, login)
                                 
                                 // Pre-warm the session in manager
-                                val bundle = SessionManager.getOrCreateBundle(sid, server, profile, RepositoryHostKeyStore(deps.repository))
+                                val bundle = SessionManager.getOrCreateBundle(sid, server, profile, deps.settings, RepositoryHostKeyStore(deps.repository))
                                 bundle.lastLoginId = item.loginId
                                 
                                 // Restore state

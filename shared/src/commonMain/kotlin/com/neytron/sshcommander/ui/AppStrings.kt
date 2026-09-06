@@ -30,6 +30,7 @@ object AppStrings {
     val appName get() = s.appName
     val servers get() = s.servers
     val addServer get() = s.addServer
+    val add get() = s.add
     val editServer get() = s.editServer
     val deleteServer get() = s.deleteServer
     val settings get() = s.settings
@@ -289,8 +290,24 @@ object AppStrings {
     val selectExistingKey get() = s.selectExistingKey
     val provisionSuccess get() = s.provisionSuccess
 
+    // Dashboard
+    val dashboard get() = s.dashboard
+    val addWidget get() = s.addWidget
+    val editWidget get() = s.editWidget
+    val systemLogs get() = s.systemLogs
+    val presets get() = s.presets
+    val widgetTitle get() = s.widgetTitle
+    val widgetCommand get() = s.widgetCommand
+    val displayType get() = s.displayType
+    val wideCard get() = s.wideCard
+    val indicatorColor get() = s.indicatorColor
+    val editMode get() = s.editMode
+    val exitEditMode get() = s.exitEditMode
+
     data class Strings(
-        val appName: String, val servers: String, val addServer: String, val editServer: String,
+        val appName: String, val servers: String, val addServer: String,
+        val add: String,
+        val editServer: String,
         val deleteServer: String, val settings: String, val back: String, val exit: String,
         val theme: String, val themeLight: String, val themeDark: String, val themeSystem: String,
         val languageLabel: String, val langEn: String, val langRu: String,
@@ -360,11 +377,18 @@ object AppStrings {
         val identities: String, val authMethod: String, val usePassword: String,
         val useSshKey: String, val autoProvisionDesc: String, val provisioningWarning: String,
         val importKeyContent: String, val generateNewKey: String, val selectExistingKey: String,
-        val provisionSuccess: String
+        val provisionSuccess: String,
+        val dashboard: String, val addWidget: String, val editWidget: String,
+        val systemLogs: String, val presets: String, val widgetTitle: String,
+        val widgetCommand: String, val displayType: String, val wideCard: String,
+        val indicatorColor: String,
+        val editMode: String,
+        val exitEditMode: String
     )
 
     val en = Strings(
         appName = "SSH Commander", servers = "Servers", addServer = "Add Server",
+        add = "Add",
         editServer = "Edit Server", deleteServer = "Delete Server", settings = "Settings",
         back = "Back", exit = "Exit",
         theme = "Theme", themeLight = "Light", themeDark = "Dark", themeSystem = "System",
@@ -469,11 +493,18 @@ object AppStrings {
         provisioningWarning = "Requires an active sudo session on this server",
         importKeyContent = "Import Key Content", generateNewKey = "Generate New Key",
         selectExistingKey = "Select Existing Key",
-        provisionSuccess = "Identity provisioned successfully!"
+        provisionSuccess = "Identity provisioned successfully!",
+        dashboard = "Dashboard", addWidget = "Add Widget", editWidget = "Edit Widget",
+        systemLogs = "System Logs", presets = "Presets", widgetTitle = "Title",
+        widgetCommand = "Command", displayType = "Display Type", wideCard = "Wide card",
+        indicatorColor = "Indicator Color (Hex)",
+        editMode = "Edit Dashboard",
+        exitEditMode = "Save Layout"
     )
 
     val ru = Strings(
         appName = "SSH Commander", servers = "Серверы", addServer = "Добавить сервер",
+        add = "Добавить",
         editServer = "Изменить сервер", deleteServer = "Удалить сервер", settings = "Настройки",
         back = "Назад", exit = "Выход",
         theme = "Тема", themeLight = "Светлая", themeDark = "Тёмная",
@@ -583,6 +614,12 @@ object AppStrings {
         provisioningWarning = "Требуется активная sudo-сессия",
         importKeyContent = "Вставить содержимое ключа", generateNewKey = "Создать новый ключ",
         selectExistingKey = "Выбрать из списка",
-        provisionSuccess = "Личность успешно развернута на сервере!"
+        provisionSuccess = "Личность успешно развернута на сервере!",
+        dashboard = "Дашборд", addWidget = "Добавить виджет", editWidget = "Изменить виджет",
+        systemLogs = "Системные логи", presets = "Пресеты", widgetTitle = "Название",
+        widgetCommand = "Команда", displayType = "Тип отображения", wideCard = "Широкая карточка",
+        indicatorColor = "Цвет индикатора (Hex)",
+        editMode = "Изменить виджеты",
+        exitEditMode = "Сохранить вид"
     )
 }

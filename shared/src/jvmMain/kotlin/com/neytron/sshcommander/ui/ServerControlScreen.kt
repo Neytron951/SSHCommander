@@ -22,17 +22,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Apps
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -191,7 +182,8 @@ fun ServerControlScreen(
                                 Text(
                                     viewModel.selectedLogin?.label ?: viewModel.currentServer?.username ?: "",
                                     maxLines = 1,
-                                    style = MaterialTheme.typography.labelMedium
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold
                                 )
                                 Icon(
                                     Icons.Default.KeyboardArrowDown,
@@ -199,31 +191,66 @@ fun ServerControlScreen(
                                     modifier = Modifier.size(if (isLandscape) 16.dp else 18.dp)
                                 )
                             }
-                            DropdownMenu(expanded = loginMenuExpanded, onDismissRequest = { loginMenuExpanded = false }) {
+                            DropdownMenu(
+                                expanded = loginMenuExpanded, 
+                                onDismissRequest = { loginMenuExpanded = false },
+                                modifier = Modifier.background(MaterialTheme.colorScheme.surface, RoundedCornerShape(16.dp))
+                            ) {
+                                Text(
+                                    AppStrings.selectLogin,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                    fontWeight = FontWeight.Bold
+                                )
+                                HorizontalDivider(modifier = Modifier.padding(bottom = 4.dp))
+                                
+                                val isMainSelected = viewModel.selectedLogin == null
                                 DropdownMenuItem(
-                                    text = { Text(String.format(AppStrings.mainLoginLabel, viewModel.currentServer?.username ?: "")) },
+                                    text = { Text(String.format(AppStrings.mainLoginLabel, viewModel.currentServer?.username ?: ""), fontWeight = if (isMainSelected) FontWeight.Bold else FontWeight.Normal) },
+                                    leadingIcon = { 
+                                        Icon(
+                                            Icons.Default.Person, 
+                                            null, 
+                                            tint = if (isMainSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                        ) 
+                                    },
                                     onClick = {
                                         viewModel.selectLogin(null)
                                         loginMenuExpanded = false
-                                    }
+                                    },
+                                    colors = if (isMainSelected) MenuDefaults.itemColors(textColor = MaterialTheme.colorScheme.primary) else MenuDefaults.itemColors()
                                 )
+                                
                                 viewModel.logins.forEach { login ->
+                                    val isSelected = login.id == viewModel.selectedLogin?.id
                                     DropdownMenuItem(
-                                        text = { Text(login.label.ifBlank { login.username }) },
+                                        text = { Text(login.label.ifBlank { login.username }, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                                        leadingIcon = { 
+                                            Icon(
+                                                Icons.Default.Person, 
+                                                null, 
+                                                tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                            ) 
+                                        },
                                         trailingIcon = {
-                                            if (login.id == viewModel.selectedLogin?.id) {
-                                                Icon(Icons.Default.Apps, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                            if (isSelected) {
+                                                Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                                             }
                                         },
                                         onClick = {
                                             viewModel.selectLogin(login)
                                             loginMenuExpanded = false
-                                        }
+                                        },
+                                        colors = if (isSelected) MenuDefaults.itemColors(textColor = MaterialTheme.colorScheme.primary) else MenuDefaults.itemColors()
                                     )
                                 }
-                                HorizontalDivider()
+                                
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                                
                                 DropdownMenuItem(
                                     text = { Text(AppStrings.manageLogins) },
+                                    leadingIcon = { Icon(Icons.Default.Settings, null, modifier = Modifier.size(18.dp)) },
                                     onClick = {
                                         loginMenuExpanded = false
                                         onManageLogins()
@@ -261,10 +288,20 @@ fun ServerControlScreen(
             if (!hideTopUI) {
                 TabRow(selectedTabIndex = selectedTab) {
                     Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }) {
-                        Text("Terminal", modifier = Modifier.padding(12.dp))
+                        Text(
+                            "Terminal",
+                            modifier = Modifier.padding(12.dp),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                     Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }) {
-                        Text("Monitoring", modifier = Modifier.padding(12.dp))
+                        Text(
+                            "Monitoring",
+                            modifier = Modifier.padding(12.dp),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
             }
@@ -384,7 +421,12 @@ fun ServerControlScreen(
                                 val old = terminalInputBuffer
                                 terminalInputBuffer = newValue
                                 if (newValue.length > old.length) {
-                                    newValue.substring(old.length).forEach { ch ->
+                                    val addedText = newValue.substring(old.length)
+                                    // Send batch instead of char-by-char for performance and reliability
+                                    if (addedText.length > 1) {
+                                        viewModel.sendInput(addedText.replace("\n", "\r"))
+                                    } else {
+                                        val ch = addedText[0]
                                         if (ch == '\n') viewModel.sendEnter() else viewModel.sendInput(ch.toString())
                                     }
                                 } else if (newValue.length < old.length) {

@@ -16,7 +16,10 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class SftpViewModel(private val repository: ServerRepository) : ViewModel(), SftpController {
+class SftpViewModel(
+    private val repository: ServerRepository,
+    private val settings: AppSettings
+) : ViewModel(), SftpController {
     var currentServer by mutableStateOf<Server?>(null)
     var sessionId by mutableIntStateOf(-1)
 
@@ -58,7 +61,7 @@ class SftpViewModel(private val repository: ServerRepository) : ViewModel(), Sft
                 val defaultLogin = list.firstOrNull { it.isDefault }
                 selectedLogin = defaultLogin
                 val profile = repository.buildConnectionProfile(server, defaultLogin)
-                val newBundle = SessionManager.getOrCreateBundle(sessionId, server, profile, RepositoryHostKeyStore(repository))
+                val newBundle = SessionManager.getOrCreateBundle(sessionId, server, profile, settings, RepositoryHostKeyStore(repository))
                 activeController = newBundle.sftp
                 newBundle.lastLoginId = defaultLogin?.id
             }
@@ -75,7 +78,7 @@ class SftpViewModel(private val repository: ServerRepository) : ViewModel(), Sft
         viewModelScope.launch {
             val profile = repository.buildConnectionProfile(server, login)
             SessionManager.closeSession(sid)
-            val bundle = SessionManager.getOrCreateBundle(sid, server, profile, RepositoryHostKeyStore(repository))
+            val bundle = SessionManager.getOrCreateBundle(sid, server, profile, settings, RepositoryHostKeyStore(repository))
             activeController = bundle.sftp
             bundle.lastLoginId = login?.id
         }

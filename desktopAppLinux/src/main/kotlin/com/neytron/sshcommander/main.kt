@@ -104,8 +104,8 @@ fun main() = application {
                             onClose = ::exitApplication
                         )
                         App(
-                            terminalSessionFactory = { server, profile ->
-                                TerminalSession(server, profile, hostKeyStore = null)
+                            terminalSessionFactory = { server, profile, s ->
+                                TerminalSession(server, profile, s, hostKeyStore = null)
                             },
                             sftpSessionFactory = { server, profile ->
                                 SftpSession(server, profile, hostKeyStore = null)

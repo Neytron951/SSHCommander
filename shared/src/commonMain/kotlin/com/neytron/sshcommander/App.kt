@@ -248,6 +248,8 @@ fun SSHCommanderLayout(
     val sshKeys = remember { mutableStateListOf<SshKey>() }
     var dataLoaded by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val deps = LocalAppDeps.current
+    val effectiveSettings = settings ?: deps.settings
 
     // --- Open sessions (tabs) ---------------------------------------------
     // Each tab owns a live terminal + SFTP connection. Sessions are NOT closed
@@ -280,7 +282,7 @@ fun SSHCommanderLayout(
         val password = if (login != null) (loginPasswords[login.id] ?: "") else (passwords[server.id] ?: "")
         val profile = ConnectionProfile(username, password)
         tab.terminal?.close()
-        tab.terminal = if (server.host.isEmpty()) null else terminalSessionFactory?.create(server, profile)
+        tab.terminal = if (server.host.isEmpty()) null else terminalSessionFactory?.create(server, profile, effectiveSettings)
         tab.sftp?.close()
         tab.sftp = sftpSessionFactory?.create(server, profile)
         tab.terminal?.connect()
@@ -1270,7 +1272,7 @@ private fun ServerListPane(
     Surface(modifier = modifier, color = MaterialTheme.colorScheme.surfaceVariant) {
         BoxWithConstraints {
             val paneWidth = this.maxWidth
-            val isNarrow = paneWidth < 180.dp
+            val isNarrow = paneWidth < 220.dp
             val isUltraNarrow = paneWidth < 100.dp
 
             Column {
@@ -1366,7 +1368,9 @@ private fun SidePaneTab(
                 Text(
                     text = label,
                     style = MaterialTheme.typography.labelMedium,
-                    color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                    color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }
@@ -1403,7 +1407,9 @@ private fun ServerListContent(
                         text = AppStrings.servers,
                         style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.weight(1f),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 } else {
                     Spacer(Modifier.weight(1f))
@@ -1503,8 +1509,10 @@ private fun WorkspaceListContent(
             Text(
                 text = if (AppStrings.language == "ru") "Рабочие пространства" else "Workspaces",
                 style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(16.dp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
         if (workspaces.isEmpty()) {
@@ -1967,7 +1975,9 @@ private fun CommandPanel(
                 AppStrings.commands,
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
             IconButton(onClick = onAddCommand, modifier = Modifier.size(32.dp)) {
                 Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
@@ -1983,7 +1993,14 @@ private fun CommandPanel(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Search scripts...", fontSize = 12.sp) },
+                placeholder = { 
+                    Text(
+                        if (AppStrings.language == "ru") "Поиск скриптов..." else "Search scripts...", 
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    ) 
+                },
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodySmall,
                 shape = RoundedCornerShape(8.dp),
@@ -2767,6 +2784,7 @@ private fun ManageLoginsDialog(
     onDismiss: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
+    val deps = LocalAppDeps.current
     val logins = remember { mutableStateListOf<ServerLogin>() }
     val sshKeys = remember { mutableStateListOf<SshKey>() }
     var editing by remember { mutableStateOf<ServerLogin?>(null) }
@@ -3167,6 +3185,8 @@ private fun DesktopSettingsDialog(
     onDismiss: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
+    val deps = LocalAppDeps.current
+    val effectiveSettings = settings ?: deps.settings
 
     val themeMode by (settings?.themeMode?.collectAsState(initial = "system")
         ?: remember { mutableStateOf("system") })
@@ -3580,6 +3600,8 @@ private fun AboutDialog(
     onDismiss: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
+    val deps = LocalAppDeps.current
+    val effectiveSettings = settings ?: deps.settings
     val adsEnabled by (settings?.adsEnabled?.collectAsState(initial = true) ?: remember { mutableStateOf(true) })
     val language by (settings?.language?.collectAsState(initial = AppStrings.language) ?: remember { mutableStateOf("en") })
     val content = remember(language) { AboutContent.forLanguage(language) }
@@ -3733,6 +3755,7 @@ private fun ManageCommandsDialog(
     onDismiss: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
+    val deps = LocalAppDeps.current
     val commands = remember { mutableStateListOf<CustomCommand>() }
     var showAddDialog by remember { mutableStateOf(false) }
     var commandToEdit by remember { mutableStateOf<CustomCommand?>(null) }

@@ -25,13 +25,14 @@ object SessionManager {
         sessionId: Int, 
         server: Server, 
         profile: ConnectionProfile,
+        settings: AppSettings,
         hostKeyStore: HostKeyStore? = null
     ): SessionBundle {
         val existing = sessions[sessionId]
         if (existing != null) return existing
         
         val bundle = SessionBundle(sessionId, server.id)
-        bundle.terminal = TerminalSession(server, profile, hostKeyStore)
+        bundle.terminal = TerminalSession(server, profile, settings, hostKeyStore)
         bundle.sftp = SftpSession(server, profile, hostKeyStore)
         sessions[sessionId] = bundle
         

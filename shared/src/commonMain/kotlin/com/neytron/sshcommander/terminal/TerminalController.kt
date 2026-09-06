@@ -22,8 +22,10 @@ interface TerminalController {
     // Custom Dashboard
     val monitorWidgets: StateFlow<List<com.neytron.sshcommander.data.MonitorWidget>>
     val widgetResults: StateFlow<Map<String, String>>
+    val widgetHistory: StateFlow<Map<String, List<Float>>>
+    val widgetLoading: StateFlow<Map<String, Boolean>>
     
-    fun addWidget(title: String, command: String, type: com.neytron.sshcommander.data.WidgetType, isWide: Boolean, colorHex: String?)
+    fun addWidget(title: String, command: String, type: com.neytron.sshcommander.data.WidgetType, x: Int, y: Int, w: Int, h: Int, fontSize: Float, colorHex: String?, textAlign: String, textVerticalAlign: String)
     fun deleteWidget(id: String)
     fun updateWidget(updatedWidget: com.neytron.sshcommander.data.MonitorWidget)
 
@@ -48,5 +50,5 @@ interface TerminalController {
 
 /** Factory supplied by each platform entry point. */
 fun interface TerminalSessionFactory {
-    fun create(server: Server, profile: ConnectionProfile): TerminalController
+    fun create(server: Server, profile: ConnectionProfile, settings: com.neytron.sshcommander.data.AppSettings): TerminalController
 }

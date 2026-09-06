@@ -37,7 +37,7 @@ fun SftpExplorerScreen(
 ) {
     val deps = LocalAppDeps.current
     val scope = rememberCoroutineScope()
-    val viewModel: SftpViewModel = viewModel { SftpViewModel(deps.repository) }
+    val viewModel: SftpViewModel = viewModel { SftpViewModel(deps.repository, deps.settings) }
     
     val files by viewModel.files.collectAsState()
     val currentPath by viewModel.currentPath.collectAsState()

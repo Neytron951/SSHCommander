@@ -11,12 +11,13 @@ import com.neytron.sshcommander.data.WidgetType
 import com.neytron.sshcommander.data.SshConnectionManager
 import com.neytron.sshcommander.data.TerminalDimensions
 import com.neytron.sshcommander.data.TerminalScreen
+import com.neytron.sshcommander.data.AppSettings
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import java.io.InputStream
 import java.io.OutputStream
 
@@ -28,6 +29,7 @@ import java.io.OutputStream
 class TerminalSession(
     private val server: Server,
     private val profile: ConnectionProfile,
+    private val settings: AppSettings,
     private val hostKeyStore: HostKeyStore? = null,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 ) : TerminalController {
@@ -53,6 +55,14 @@ class TerminalSession(
     private val _widgetResults = MutableStateFlow<Map<String, String>>(emptyMap())
     override val widgetResults: StateFlow<Map<String, String>> = _widgetResults.asStateFlow()
 
+    private val _widgetHistory = MutableStateFlow<Map<String, List<Float>>>(emptyMap())
+    override val widgetHistory: StateFlow<Map<String, List<Float>>> = _widgetHistory.asStateFlow()
+
+    private val _widgetLoading = MutableStateFlow<Map<String, Boolean>>(emptyMap())
+    override val widgetLoading: StateFlow<Map<String, Boolean>> = _widgetLoading.asStateFlow()
+
+    private val lastRawValues = mutableMapOf<String, Float>()
+
     private val _monitorWidgets = MutableStateFlow<List<MonitorWidget>>(emptyList())
     override val monitorWidgets: StateFlow<List<MonitorWidget>> = _monitorWidgets.asStateFlow()
 
@@ -68,6 +78,33 @@ class TerminalSession(
     private var notConnectedNotified = false
 
     private val writeLock = Mutex()
+
+    init {
+        scope.launch {
+            // Load initial widgets from settings and stay in sync
+            settings.monitorWidgets.collect { json ->
+                if (json.isNotBlank()) {
+                    try {
+                        val list = Json.decodeFromString<List<MonitorWidget>>(json)
+                        if (list != _monitorWidgets.value) {
+                            _monitorWidgets.value = list
+                        }
+                    } catch (e: Exception) {}
+                }
+            }
+        }
+        
+        scope.launch {
+            // Observe local changes and persist to settings
+            _monitorWidgets.drop(1).collect { list ->
+                val json = Json.encodeToString(list)
+                val currentStored = settings.monitorWidgets.first()
+                if (json != currentStored) {
+                    settings.setMonitorWidgets(json)
+                }
+            }
+        }
+    }
 
     fun updateWidgets(widgets: List<MonitorWidget>) {
         _monitorWidgets.value = widgets
@@ -208,9 +245,9 @@ class TerminalSession(
         _terminalRevision.value++
     }
 
-    override fun addWidget(title: String, command: String, type: WidgetType, isWide: Boolean, colorHex: String?) {
+    override fun addWidget(title: String, command: String, type: WidgetType, x: Int, y: Int, w: Int, h: Int, fontSize: Float, colorHex: String?, textAlign: String, textVerticalAlign: String) {
         val current = _monitorWidgets.value.toMutableList()
-        current.add(MonitorWidget(java.util.UUID.randomUUID().toString(), title, command, type, isWide, colorHex))
+        current.add(MonitorWidget(java.util.UUID.randomUUID().toString(), title, command, type, x, y, w, h, fontSize, colorHex, textAlign, textVerticalAlign))
         _monitorWidgets.value = current
     }
 
@@ -245,14 +282,52 @@ class TerminalSession(
                     try {
                         val currentWidgets = _monitorWidgets.value
                         val results = mutableMapOf<String, String>()
+                        val history = _widgetHistory.value.toMutableMap()
+                        val loading = mutableMapOf<String, Boolean>()
                         
                         currentWidgets.forEach { widget ->
+                            loading[widget.id] = true
+                            _widgetLoading.value = loading.toMap()
+                            
                             val output = executeSingleCommand(widget.command)
+                            loading[widget.id] = false
+                            _widgetLoading.value = loading.toMap()
+
                             if (output != null) {
-                                results[widget.id] = output.trim()
+                                val trimmed = output.trim()
+                                results[widget.id] = trimmed
+                                
+                                // Update history if numeric
+                                val cleanValue = trimmed.replace(',', '.').filter { it.isDigit() || it == '.' }
+                                cleanValue.toFloatOrNull()?.let { newValue ->
+                                    var displayValue = newValue
+                                    
+                                    // Calculate rate for values that only increase (like network bytes)
+                                    val lastValue = lastRawValues[widget.id]
+                                    if (lastValue != null && widget.title.contains("Net", ignoreCase = true)) {
+                                        val delta = if (newValue >= lastValue) newValue - lastValue else 0f
+                                        displayValue = delta / 10f // rate per second (10s interval)
+                                        
+                                        // Store formatted rate for the text display
+                                        results[widget.id] = if (displayValue > 1024) 
+                                            "%.1f kB/s".format(displayValue / 1024f) 
+                                            else "${displayValue.toLong()} B/s"
+                                    } else if (widget.title.contains("Net", ignoreCase = true)) {
+                                        // First run for network: don't show raw bytes
+                                        results[widget.id] = "Calculating..."
+                                    }
+                                    
+                                    lastRawValues[widget.id] = newValue
+
+                                    val list = (history[widget.id] ?: emptyList()).toMutableList()
+                                    list.add(displayValue)
+                                    if (list.size > 20) list.removeAt(0)
+                                    history[widget.id] = list
+                                }
                             }
                         }
                         _widgetResults.value = results
+                        _widgetHistory.value = history
 
                         val basicOutput = executeSingleCommand("top -bn1 | grep 'Cpu(s)'; free -b; df -B1 / | tail -n 1; uptime -p; journalctl -n 10 --no-pager 2>/dev/null || tail -n 10 /var/log/syslog")
                         if (basicOutput != null) {
