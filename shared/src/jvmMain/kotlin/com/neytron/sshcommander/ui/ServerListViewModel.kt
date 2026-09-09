@@ -61,6 +61,7 @@ class ServerListViewModel(
         statusCheckJob = viewModelScope.launch(Dispatchers.IO) {
             val statuses = mutableMapOf<Int, Boolean>()
             serverList.forEach { server ->
+                // For ADB, we just check if port is open. For SSH, we do the same but avoid full JSch handshake here.
                 statuses[server.id] = NetworkUtils.isPortOpen(server.host, server.port, timeoutMs = 2000)
             }
             _serverStatuses.value = statuses

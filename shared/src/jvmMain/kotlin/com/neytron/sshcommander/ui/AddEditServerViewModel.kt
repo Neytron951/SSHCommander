@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neytron.sshcommander.data.AppSettings
+import com.neytron.sshcommander.data.Protocol
 import com.neytron.sshcommander.data.Server
 import com.neytron.sshcommander.data.ServerRepository
 import kotlinx.coroutines.launch
@@ -24,6 +25,7 @@ class AddEditServerViewModel(
     var sftpStartPath by mutableStateOf("")
     var folderId by mutableStateOf<Int?>(null)
     var sshKeyId by mutableStateOf<Int?>(null)
+    var protocol by mutableStateOf(Protocol.SSH)
 
     var nameError by mutableStateOf<String?>(null)
     var hostError by mutableStateOf<String?>(null)
@@ -45,7 +47,20 @@ class AddEditServerViewModel(
                 sftpStartPath = server.sftpStartPath ?: ""
                 folderId = server.folderId
                 sshKeyId = server.sshKeyId
+                protocol = server.protocol
             }
+        }
+    }
+
+    fun onProtocolChanged(newProtocol: Protocol) {
+        protocol = newProtocol
+        if (newProtocol == Protocol.ADB) {
+            if (port == "22") port = "5555"
+            if (username.isEmpty()) username = "android"
+            if (iconName == "Default") iconName = "Android"
+        } else {
+            if (port == "5555") port = "22"
+            if (iconName == "Android") iconName = "Default"
         }
     }
 
@@ -72,7 +87,8 @@ class AddEditServerViewModel(
                 showInWidget = showInWidget,
                 sftpStartPath = sftpStartPath.trim().ifBlank { null },
                 folderId = folderId,
-                sshKeyId = sshKeyId
+                sshKeyId = sshKeyId,
+                protocol = protocol
             )
             if (currentServerId == null) {
                 currentServerId = repository.insertServer(server, password)

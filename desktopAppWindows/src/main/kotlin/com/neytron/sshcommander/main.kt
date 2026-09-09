@@ -22,9 +22,11 @@ import com.neytron.sshcommander.data.DesktopSettings
 import com.neytron.sshcommander.data.DpapiSecureStorage
 import com.neytron.sshcommander.data.ExportImportManager
 import com.neytron.sshcommander.data.JsonServerRepository
+import com.neytron.sshcommander.data.Protocol
 import com.neytron.sshcommander.data.ServerRepository
 import com.neytron.sshcommander.sftp.SftpSession
 import com.neytron.sshcommander.terminal.TerminalSession
+import com.neytron.sshcommander.terminal.AdbSession
 import com.neytron.sshcommander.ui.AppDeps
 import com.neytron.sshcommander.ui.LocalAppDeps
 import com.neytron.sshcommander.ui.theme.SSHCommanderTheme
@@ -116,14 +118,18 @@ fun main() = application {
                         )
                         App(
                             terminalSessionFactory = { server, profile, s ->
-                                TerminalSession(server, profile, s, hostKeyStore = null)
+                                if (server.protocol == Protocol.ADB) {
+                                    AdbSession(server)
+                                } else {
+                                    TerminalSession(server, profile, s, hostKeyStore = null)
+                                }
                             },
                             sftpSessionFactory = { server, profile ->
                                 SftpSession(server, profile, hostKeyStore = null)
                             },
                             serverRepository = serverRepository,
                             settings = settings,
-                            appVersion = "1.9.2",
+                            appVersion = "1.9.4",
                             backupManager = ExportImportManager(serverRepository)
                         )
                     }

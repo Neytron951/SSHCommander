@@ -2,6 +2,7 @@ package com.neytron.sshcommander.data
 
 import com.neytron.sshcommander.terminal.TerminalController
 import com.neytron.sshcommander.terminal.TerminalSession
+import com.neytron.sshcommander.terminal.AdbSession
 import com.neytron.sshcommander.sftp.SftpController
 import com.neytron.sshcommander.sftp.SftpSession
 
@@ -32,12 +33,17 @@ object SessionManager {
         if (existing != null) return existing
         
         val bundle = SessionBundle(sessionId, server.id)
-        bundle.terminal = TerminalSession(server, profile, settings, hostKeyStore)
-        bundle.sftp = SftpSession(server, profile, hostKeyStore)
+        if (server.protocol == Protocol.ADB) {
+            bundle.terminal = AdbSession(server)
+            // SFTP for ADB will be implemented later, for now ADB doesn't use SFTP
+        } else {
+            bundle.terminal = TerminalSession(server, profile, settings, hostKeyStore)
+            bundle.sftp = SftpSession(server, profile, hostKeyStore)
+            bundle.sftp?.connect()
+        }
         sessions[sessionId] = bundle
         
         bundle.terminal?.connect()
-        bundle.sftp?.connect()
         
         return bundle
     }

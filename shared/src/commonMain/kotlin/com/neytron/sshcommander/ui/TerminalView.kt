@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DropdownMenu
@@ -295,6 +296,7 @@ fun TerminalView(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(scrollState)
+                    .horizontalScroll(rememberScrollState())
                     .padding(10.dp)
             ) {
                 val displayFontSize = kotlin.math.round(localFontSize)
@@ -305,7 +307,7 @@ fun TerminalView(
                     fontSize = displayFontSize.sp,
                     lineHeight = (displayFontSize * 1.15f).sp,
                     letterSpacing = 0.sp,
-                    softWrap = true,
+                    softWrap = false, 
                     color = textColor,
                     onTextLayout = { layoutResult = it },
                     modifier = Modifier
@@ -348,8 +350,10 @@ fun TerminalView(
                 )
             }
 
-            LaunchedEffect(terminalScreen) {
-                effectiveFocusRequester.requestFocus()
+            LaunchedEffect(terminalScreen, loading) {
+                if (!loading) {
+                    effectiveFocusRequester.requestFocus()
+                }
             }
 
             if (loading) {

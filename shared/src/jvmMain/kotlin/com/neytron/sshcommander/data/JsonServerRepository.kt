@@ -45,7 +45,7 @@ class JsonServerRepository(
         // jpackage runtime image. Provide InstanceCreators so deserialization
         // works in the packaged (MSI/EXE) build.
         .registerTypeAdapter(Server::class.java, InstanceCreator { _ ->
-            Server(name = "", host = "", username = "", isPinned = false, sshKeyId = null)
+            Server(name = "", host = "", username = "", isPinned = false, sshKeyId = null, protocol = Protocol.SSH)
         })
         .registerTypeAdapter(ServerLogin::class.java, InstanceCreator { _ ->
             ServerLogin(serverId = 0, label = "", username = "", sshKeyId = null)

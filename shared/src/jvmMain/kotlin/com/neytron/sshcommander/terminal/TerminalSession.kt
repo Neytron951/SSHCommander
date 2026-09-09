@@ -9,7 +9,7 @@ import com.neytron.sshcommander.data.ServerStats
 import com.neytron.sshcommander.data.MonitorWidget
 import com.neytron.sshcommander.data.WidgetType
 import com.neytron.sshcommander.data.SshConnectionManager
-import com.neytron.sshcommander.data.TerminalDimensions
+import com.neytron.sshcommander.data.Protocol
 import com.neytron.sshcommander.data.TerminalScreen
 import com.neytron.sshcommander.data.AppSettings
 import kotlinx.coroutines.*
@@ -111,6 +111,11 @@ class TerminalSession(
     }
 
     override fun connect() {
+        if (server.protocol == Protocol.ADB) {
+            terminalScreen.feed("\r\n\u001b[33mADB Protocol support is coming soon!\u001b[0m\r\n")
+            _terminalRevision.value++
+            return
+        }
         shellJob?.cancel()
         _error.value = null
         notConnectedNotified = false
@@ -134,7 +139,7 @@ class TerminalSession(
                     val channel = session.openChannel("shell") as ChannelShell
                     channel.setPty(true)
                     channel.setPtyType("xterm-256color")
-                    channel.setPtySize(TerminalDimensions.COLS, 30, 640, 400)
+                    channel.setPtySize(80, 24, 640, 480)
                     channel.setEnv("TERM", "xterm-256color")
 
                     val inputStream: InputStream = channel.inputStream

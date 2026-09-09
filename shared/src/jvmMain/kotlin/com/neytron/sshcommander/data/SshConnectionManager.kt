@@ -112,7 +112,9 @@ class SshConnectionManager(
             session.timeout = 20000
 
             try {
+                println("JSCH: Connecting to ${server.host} port ${server.port}")
                 session.connect()
+                println("JSCH: Connection established")
             } catch (e: JSchException) {
                 // If publickey failed, JSch will try password if available
                 throw Exception("SSH Connection failed: ${e.message}")

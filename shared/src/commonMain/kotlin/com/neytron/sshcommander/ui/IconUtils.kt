@@ -1,6 +1,7 @@
 package com.neytron.sshcommander.ui
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.Dns
@@ -23,6 +24,7 @@ object IconUtils {
         IconOption("NAS", Icons.Filled.Dns, AppStrings.iconNas),
         IconOption("VPN", Icons.Filled.VpnLock, AppStrings.iconVpn),
         IconOption("Dev", Icons.Filled.Terminal, AppStrings.iconDev),
+        IconOption("Android", Icons.Filled.Android, "Android"),
         IconOption("Media", Icons.Filled.PermMedia, AppStrings.iconMedia),
         IconOption("Default", Icons.Filled.Computer, AppStrings.iconDefault)
     )

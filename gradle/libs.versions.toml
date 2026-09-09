@@ -25,6 +25,9 @@ jsch = "0.2.21"
 ktor = "2.3.12"
 bouncycastle = "1.78.1"
 google-play-auth = "21.2.0"
+dadb = "2.0.0"
+zxing = "3.5.3"
+jmdns = "3.5.8"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -56,6 +59,9 @@ gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 jsch = { group = "com.github.mwiede", name = "jsch", version = "0.2.21" }
 bcprov = { group = "org.bouncycastle", name = "bcprov-jdk18on", version.ref = "bouncycastle" }
+dadb = { group = "dev.mobile", name = "dadb", version.ref = "dadb" }
+zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
+jmdns = { group = "org.jmdns", name = "jmdns", version.ref = "jmdns" }
 
 # Ktor
 ktor-client-core = { group = "io.ktor", name = "ktor-client-core", version.ref = "ktor" }

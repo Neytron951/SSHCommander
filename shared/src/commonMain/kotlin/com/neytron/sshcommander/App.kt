@@ -40,6 +40,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.PushPin
@@ -71,6 +72,14 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -133,6 +142,8 @@ import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Policy
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.VpnKey
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.OutlinedCard
@@ -144,6 +155,7 @@ import com.neytron.sshcommander.data.AppSettings
 import com.neytron.sshcommander.data.ConnectionProfile
 import com.neytron.sshcommander.data.CustomCommand
 import com.neytron.sshcommander.data.DataBackupManager
+import com.neytron.sshcommander.data.Protocol
 import com.neytron.sshcommander.data.Server
 import com.neytron.sshcommander.data.ServerFolder
 import com.neytron.sshcommander.data.ServerLogin
@@ -172,6 +184,7 @@ import com.neytron.sshcommander.ui.TerminalTheme
 import com.neytron.sshcommander.ui.TerminalThemes
 import com.neytron.sshcommander.ui.TerminalView
 import com.neytron.sshcommander.ui.MonitoringDashboard
+import com.neytron.sshcommander.ui.AdbPairingDialog
 import com.neytron.sshcommander.ui.getSystemFontFamily
 import com.neytron.sshcommander.ui.platformToast
 import com.neytron.sshcommander.ui.rememberSavePicker
@@ -242,6 +255,7 @@ fun SSHCommanderLayout(
     var showManageCommandsDialog by remember { mutableStateOf(false) }
     var showSaveWorkspaceDialog by remember { mutableStateOf(false) }
     var showScriptMarket by remember { mutableStateOf(false) }
+    var showAdbPairingFor by remember { mutableStateOf<Server?>(null) }
     var commandToEdit by remember { mutableStateOf<CustomCommand?>(null) }
     var showAddCommandDialog by remember { mutableStateOf(false) }
     val workspaces = remember { mutableStateListOf<Workspace>() }
@@ -283,10 +297,17 @@ fun SSHCommanderLayout(
         val profile = ConnectionProfile(username, password)
         tab.terminal?.close()
         tab.terminal = if (server.host.isEmpty()) null else terminalSessionFactory?.create(server, profile, effectiveSettings)
-        tab.sftp?.close()
-        tab.sftp = sftpSessionFactory?.create(server, profile)
+        
+        // Skip SFTP for ADB protocol as it's not supported via JSch
+        if (server.protocol != Protocol.ADB) {
+            tab.sftp?.close()
+            tab.sftp = sftpSessionFactory?.create(server, profile)
+            tab.sftp?.connect()
+        } else {
+            tab.sftp = null
+        }
+        
         tab.terminal?.connect()
-        tab.sftp?.connect()
     }
 
     // Open (or activate) a session for a server. Clicking a server in the list
@@ -613,6 +634,7 @@ fun SSHCommanderLayout(
                             onRenameFolder = { folder -> folderNameDialog = FolderNameDialogState.Rename(folder) },
                             onDeleteFolder = { folderToDelete = it },
                             onOpenMarket = { showScriptMarket = true },
+                            onPair = { showAdbPairingFor = it },
                             privacyMode = privacyMode,
                             modifier = Modifier
                                 .width(serverPaneWidth.dp)
@@ -943,11 +965,81 @@ fun SSHCommanderLayout(
         }
     }
 
+    showAdbPairingFor?.let { server ->
+        AdbPairingDialog(
+            initialHost = server.host,
+            onPair = { host, port, code ->
+                com.neytron.sshcommander.terminal.AdbPlatform.pair(host, port, code)
+            },
+            onDismiss = { showAdbPairingFor = null }
+        )
+    }
+
     // First-run guide: welcome → language → tab tour (or JSON import).
     OnboardingGate(
         settings = settings,
         tourSteps = desktopTourSteps(),
         onImportJson = onImport
+    )
+}
+
+@Composable
+private fun AdbPairingInstructionsDialog(
+    host: String,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { 
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Android, null, tint = Color(0xFF3DDC84))
+                Spacer(Modifier.width(12.dp))
+                Text("Android Wireless Debugging", fontWeight = FontWeight.Bold)
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text(
+                    "To connect to $host, you need to authorize this app on your device.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text("1. Connection Port (Current)", fontWeight = FontWeight.Bold)
+                        Text("This is the port on the main Wireless Debugging screen. Enter it in the Server Settings.", style = MaterialTheme.typography.bodySmall)
+                        Text("Example: 192.168.0.72:38475", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text("2. Pairing Port (For First Time)", fontWeight = FontWeight.Bold)
+                        Text("Found inside 'Pair device with pairing code'. Do NOT use this port in server settings.", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+
+                HorizontalDivider()
+
+                Text("How to fix 'Connection Failed':", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
+                Text(
+                    "We've added a 'Premium' feature: the app now tries to use your system ADB keys (~/.android/adbkey).\n\n" +
+                    "1. If your phone already 'trusts' this computer, just make sure the PORT in server settings matches the 'Connection Port' on your phone.\n" +
+                    "2. If it still fails, connect via USB once and run 'adb tcpip 5555' in terminal. Then use port 5555 in this app.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = onDismiss, shape = RoundedCornerShape(12.dp)) { Text("Got it!") }
+        }
     )
 }
 
@@ -1264,6 +1356,7 @@ private fun ServerListPane(
     onRenameFolder: (ServerFolder) -> Unit = {},
     onDeleteFolder: (ServerFolder) -> Unit = {},
     onOpenMarket: () -> Unit = {},
+    onPair: (Server) -> Unit = {},
     privacyMode: Boolean = false,
     modifier: Modifier = Modifier
 ) {
@@ -1319,6 +1412,7 @@ private fun ServerListPane(
                         onAddFolder = onAddFolder,
                         onRenameFolder = onRenameFolder,
                         onDeleteFolder = onDeleteFolder,
+                        onPair = onPair,
                         privacyMode = privacyMode,
                         isUltraNarrow = isUltraNarrow
                     )
@@ -1390,6 +1484,7 @@ private fun ServerListContent(
     onAddFolder: () -> Unit,
     onRenameFolder: (ServerFolder) -> Unit,
     onDeleteFolder: (ServerFolder) -> Unit,
+    onPair: (Server) -> Unit = {},
     privacyMode: Boolean,
     isUltraNarrow: Boolean = false
 ) {
@@ -1460,6 +1555,7 @@ private fun ServerListContent(
                             onEdit = { onEditServer(server) },
                             onDelete = { onDeleteServer(server) },
                             onManageLogins = { onManageLogins(server) },
+                            onPair = { onPair(server) },
                             privacyMode = privacyMode
                         )
                     }
@@ -1487,6 +1583,7 @@ private fun ServerListContent(
                                     onEdit = { onEditServer(server) },
                                     onDelete = { onDeleteServer(server) },
                                     onManageLogins = { onManageLogins(server) },
+                                    onPair = { onPair(server) },
                                     privacyMode = privacyMode
                                 )
                             }
@@ -1642,6 +1739,7 @@ private fun ServerRow(
     onEdit: () -> Unit = {},
     onDelete: () -> Unit = {},
     onManageLogins: () -> Unit = {},
+    onPair: () -> Unit = {},
     privacyMode: Boolean = false
 ) {
     val containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer
@@ -1698,6 +1796,11 @@ private fun ServerRow(
                 // Row actions (edit / delete / logins) — visible on selection.
                 // Hide buttons if extremely narrow to avoid overlapping
                 if (selected && width > 130.dp) {
+                    if (server.protocol == Protocol.ADB) {
+                        IconButton(onClick = onPair, modifier = Modifier.size(28.dp)) {
+                            Icon(Icons.Default.VpnKey, contentDescription = "Pair ADB", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                        }
+                    }
                     IconButton(onClick = onEdit, modifier = Modifier.size(28.dp)) {
                         Icon(Icons.Default.Edit, contentDescription = AppStrings.editServer, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                     }
@@ -2478,6 +2581,9 @@ private fun ServerDialog(
     var iconName by remember { mutableStateOf(server?.iconName ?: "Default") }
     var folderId by remember { mutableStateOf(server?.folderId) }
     var sshKeyId by remember { mutableStateOf(server?.sshKeyId) }
+    var protocol by remember { mutableStateOf(server?.protocol ?: Protocol.SSH) }
+    var showPairingDialog by remember { mutableStateOf(false) }
+    var pairingDialogPort by remember { mutableStateOf("") }
 
     fun submit() {
         val trimmedHost = host.trim()
@@ -2494,7 +2600,8 @@ private fun ServerDialog(
                 iconName = iconName,
                 sftpStartPath = sftpStartPath.trim().ifEmpty { null },
                 folderId = folderId,
-                sshKeyId = sshKeyId
+                sshKeyId = sshKeyId,
+                protocol = protocol
             ),
             password
         )
@@ -2510,6 +2617,136 @@ private fun ServerDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                Text(AppStrings.protocolLabel, style = MaterialTheme.typography.labelMedium)
+                SingleChoiceSegmentedButtonRow(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Protocol.entries.forEachIndexed { index, p ->
+                        SegmentedButton(
+                            shape = SegmentedButtonDefaults.itemShape(index = index, count = Protocol.entries.size),
+                            onClick = { 
+                                protocol = p
+                                if (p == Protocol.ADB) {
+                                    if (port == "22") port = "5555"
+                                    if (username.isEmpty()) username = "android"
+                                    if (iconName == "Default") iconName = "Android"
+                                } else {
+                                    if (port == "5555") port = "22"
+                                    if (iconName == "Android") iconName = "Default"
+                                }
+                            },
+                            selected = protocol == p,
+                            icon = {
+                                Icon(
+                                    if (p == Protocol.SSH) Icons.Default.VpnKey else Icons.Default.Android,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        ) {
+                            Text(p.name)
+                        }
+                    }
+                }
+
+                val isAdb = protocol == Protocol.ADB
+
+                if (isAdb) {
+                    var showDeviceList by remember { mutableStateOf(false) }
+                    var discoveredDevices by remember { mutableStateOf(emptyList<com.neytron.sshcommander.data.DiscoveredDevice>()) }
+                    var isScanning by remember { mutableStateOf(false) }
+                    val adbAvailable = remember { com.neytron.sshcommander.terminal.AdbPlatform.isAdbAvailable() }
+                    val downloadProgress by com.neytron.sshcommander.terminal.AdbPlatform.getDownloadProgress().collectAsState()
+
+                    LaunchedEffect(isScanning) {
+                        if (isScanning && adbAvailable) {
+                            com.neytron.sshcommander.terminal.AdbPlatform.scanDevices().collect {
+                                discoveredDevices = it
+                            }
+                        } else if (isScanning && !adbAvailable) {
+                            isScanning = false
+                        }
+                    }
+
+                    if (!adbAvailable && downloadProgress == null) {
+                        OutlinedButton(
+                            onClick = { com.neytron.sshcommander.terminal.AdbPlatform.startDownload() },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                        ) {
+                            Icon(Icons.Default.Download, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(AppStrings.adbDownloadBtn)
+                        }
+                    } else if (downloadProgress != null) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                            Text(AppStrings.adbDownloading, style = MaterialTheme.typography.labelSmall)
+                            LinearProgressIndicator(
+                                progress = { downloadProgress!! },
+                                modifier = Modifier.fillMaxWidth().height(4.dp).padding(vertical = 4.dp)
+                            )
+                        }
+                    } else {
+                        OutlinedButton(
+                            onClick = { 
+                                isScanning = !isScanning
+                                showDeviceList = true 
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            if (isScanning) {
+                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                Spacer(Modifier.width(8.dp))
+                                Text(AppStrings.adbScanning)
+                            } else {
+                                Icon(Icons.Default.Search, null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text(AppStrings.adbScan)
+                            }
+                        }
+                    }
+
+                    if (showDeviceList && isScanning && discoveredDevices.isEmpty()) {
+                        Text(
+                            AppStrings.adbScanning + " (mDNS)",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                    }
+
+                    if (showDeviceList && discoveredDevices.isNotEmpty()) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        ) {
+                            Column {
+                                discoveredDevices.forEach { device ->
+                                    ListItem(
+                                        headlineContent = { Text(device.name) },
+                                        supportingContent = { Text("${device.host}:${device.port}") },
+                                        leadingContent = { Icon(Icons.Default.Android, null) },
+                                        modifier = Modifier.clickable {
+                                            host = device.host
+                                            port = device.port.toString()
+                                            if (name.isEmpty() || name == host) name = device.name
+                                            showDeviceList = false
+                                            isScanning = false
+                                            // Auto-trigger pairing dialog if pairing port was found
+                                            device.pairingPort?.let { pPort ->
+                                                pairingDialogPort = pPort.toString()
+                                                showPairingDialog = true
+                                            }
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    } else if (showDeviceList && !isScanning && discoveredDevices.isEmpty() && adbAvailable) {
+                         Text(AppStrings.adbNoDevices, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(start = 8.dp))
+                    }
+                }
+
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
@@ -2524,74 +2761,107 @@ private fun ServerDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     OutlinedTextField(
                         value = port,
                         onValueChange = { port = it },
-                        label = { Text(AppStrings.port) },
+                        label = { Text(if (isAdb) AppStrings.adbConnectionPort else AppStrings.port) },
                         singleLine = true,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        supportingText = if (isAdb) {
+                            { Text(AppStrings.adbConnectionPortHint, style = MaterialTheme.typography.labelSmall) }
+                        } else null
+                    )
+                    if (isAdb) {
+                        OutlinedButton(
+                            onClick = { showPairingDialog = true },
+                            modifier = Modifier.height(56.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                        ) {
+                            Icon(Icons.Default.VpnKey, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(AppStrings.adbEnterCode)
+                        }
+                    }
+                    if (!isAdb) {
+                        OutlinedTextField(
+                            value = username,
+                            onValueChange = { username = it },
+                            label = { Text(AppStrings.username) },
+                            singleLine = true,
+                            modifier = Modifier.weight(2f)
+                        )
+                    }
+                }
+                
+                if (showPairingDialog) {
+                    AdbPairingDialog(
+                        initialHost = host,
+                        initialPort = pairingDialogPort,
+                        onPair = { h, p, c ->
+                            com.neytron.sshcommander.terminal.AdbPlatform.pair(h, p, c)
+                        },
+                        onDismiss = { showPairingDialog = false }
+                    )
+                }
+                
+                if (!isAdb) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(AppStrings.identities, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                        if (isEdit && onManageLogins != null) {
+                            TextButton(onClick = onManageLogins) {
+                                Icon(Icons.Default.Settings, null, modifier = Modifier.size(14.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text(AppStrings.edit)
+                            }
+                        }
+                    }
+
+                    if (isEdit && onManageLogins != null) {
+                        Card(
+                            onClick = onManageLogins,
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Policy, null, tint = MaterialTheme.colorScheme.primary)
+                                Spacer(Modifier.width(12.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text("Manage Identities & Keys", fontWeight = FontWeight.Bold)
+                                    Text("Add users, generate keys or auto-provision", style = MaterialTheme.typography.labelSmall)
+                                }
+                                Icon(Icons.Default.ChevronRight, null)
+                            }
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        label = { Text(AppStrings.password) },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth(),
+                        trailingIcon = {
+                            val cb = androidx.compose.ui.platform.LocalClipboardManager.current
+                            IconButton(onClick = { cb.getText()?.text?.let { password = it } }) {
+                                Icon(Icons.Default.ContentPaste, "Paste")
+                            }
+                        }
                     )
                     OutlinedTextField(
-                        value = username,
-                        onValueChange = { username = it },
-                        label = { Text(AppStrings.username) },
+                        value = sftpStartPath,
+                        onValueChange = { sftpStartPath = it },
+                        label = { Text(AppStrings.sftpStartPath) },
+                        placeholder = { Text("/") },
+                        supportingText = { Text(AppStrings.sftpStartPathHint2) },
                         singleLine = true,
-                        modifier = Modifier.weight(2f)
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(AppStrings.identities, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-                    if (isEdit && onManageLogins != null) {
-                        TextButton(onClick = onManageLogins) {
-                            Icon(Icons.Default.Settings, null, modifier = Modifier.size(14.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text(AppStrings.edit)
-                        }
-                    }
-                }
-
-                if (isEdit && onManageLogins != null) {
-                    Card(
-                        onClick = onManageLogins,
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Policy, null, tint = MaterialTheme.colorScheme.primary)
-                            Spacer(Modifier.width(12.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text("Manage Identities & Keys", fontWeight = FontWeight.Bold)
-                                Text("Add users, generate keys or auto-provision", style = MaterialTheme.typography.labelSmall)
-                            }
-                            Icon(Icons.Default.ChevronRight, null)
-                        }
-                    }
-                }
-
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = { Text(AppStrings.password) },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth(),
-                    trailingIcon = {
-                        val cb = androidx.compose.ui.platform.LocalClipboardManager.current
-                        IconButton(onClick = { cb.getText()?.text?.let { password = it } }) {
-                            Icon(Icons.Default.ContentPaste, "Paste")
-                        }
-                    }
-                )
-                OutlinedTextField(
-                    value = sftpStartPath,
-                    onValueChange = { sftpStartPath = it },
-                    label = { Text(AppStrings.sftpStartPath) },
-                    placeholder = { Text("/") },
-                    supportingText = { Text(AppStrings.sftpStartPathHint2) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
 
                 // Folder selector (server grouping).
                 FolderDropdown(
@@ -2601,7 +2871,7 @@ private fun ServerDialog(
                 )
 
                 // SSH Key selector (legacy, keeping for compatibility in this dialog)
-                if (sshKeys.isNotEmpty()) {
+                if (!isAdb && sshKeys.isNotEmpty()) {
                     Text(AppStrings.sshKeys, style = MaterialTheme.typography.titleSmall)
                     var expandedKeyMenu by remember { mutableStateOf(false) }
                     Box {

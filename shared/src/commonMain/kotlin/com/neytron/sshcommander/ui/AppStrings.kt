@@ -70,6 +70,7 @@ object AppStrings {
 
     // Server fields
     val serverName get() = s.serverName
+    val protocolLabel get() = s.protocolLabel
     val hostIp get() = s.hostIp
     val port get() = s.port
     val username get() = s.username
@@ -304,6 +305,30 @@ object AppStrings {
     val editMode get() = s.editMode
     val exitEditMode get() = s.exitEditMode
 
+    val adbConnectionPort get() = s.adbConnectionPort
+    val adbPairingPort get() = s.adbPairingPort
+    val adbPairingCode get() = s.adbPairingCode
+    val adbPairingInstructions get() = s.adbPairingInstructions
+    val adbConnectionPortHint get() = s.adbConnectionPortHint
+    val adbEnterCode get() = s.adbEnterCode
+    val adbPair get() = s.adbPair
+    val adbNotFound get() = s.adbNotFound
+    val adbDownloadDesc get() = s.adbDownloadDesc
+    val adbDownloadBtn get() = s.adbDownloadBtn
+    val adbDownloading get() = s.adbDownloading
+    val adbScan get() = s.adbScan
+    val adbScanning get() = s.adbScanning
+    val adbNoDevices get() = s.adbNoDevices
+    val adbSelectDevice get() = s.adbSelectDevice
+    val invalidPort get() = s.invalidPort
+    val adbCodeDigits get() = s.adbCodeDigits
+    val pairingFailed get() = s.pairingFailed
+    val adbPairMethod get() = s.adbPairMethod
+    val adbPairQR get() = s.adbPairQR
+    val adbQRInstructions get() = s.adbQRInstructions
+    val adbDeviceName get() = s.adbDeviceName
+    val adbServiceNameLabel get() = s.adbServiceNameLabel
+
     data class Strings(
         val appName: String, val servers: String, val addServer: String,
         val add: String,
@@ -316,7 +341,7 @@ object AppStrings {
         val consoleFontSize: String, val sizeSmall: String, val sizeMedium: String, val sizeLarge: String,
         val dataManagement: String, val exportData: String, val importData: String,
         val exportSuccess: String, val importSuccess: String,
-        val serverName: String, val hostIp: String, val port: String, val username: String,
+        val serverName: String, val protocolLabel: String, val hostIp: String, val port: String, val username: String,
         val password: String, val saveServer: String, val save: String, val cancel: String,
         val pin: String, val unpin: String, val pinnedServers: String,
         val delete: String, val edit: String, val chooseAction: String, val chooseIcon: String,
@@ -383,7 +408,30 @@ object AppStrings {
         val widgetCommand: String, val displayType: String, val wideCard: String,
         val indicatorColor: String,
         val editMode: String,
-        val exitEditMode: String
+        val exitEditMode: String,
+        val adbConnectionPort: String,
+        val adbPairingPort: String,
+        val adbPairingCode: String,
+        val adbPairingInstructions: String,
+        val adbConnectionPortHint: String,
+        val adbEnterCode: String,
+        val adbPair: String,
+        val adbNotFound: String,
+        val adbDownloadDesc: String,
+        val adbDownloadBtn: String,
+        val adbDownloading: String,
+        val adbScan: String,
+        val adbScanning: String,
+        val adbNoDevices: String,
+        val adbSelectDevice: String,
+        val invalidPort: String,
+        val adbCodeDigits: String,
+        val pairingFailed: String,
+        val adbPairMethod: String,
+        val adbPairQR: String,
+        val adbQRInstructions: String,
+        val adbDeviceName: String,
+        val adbServiceNameLabel: String
     )
 
     val en = Strings(
@@ -400,7 +448,7 @@ object AppStrings {
         dataManagement = "Data Management", exportData = "Export JSON",
         importData = "Import JSON", exportSuccess = "Data exported successfully",
         importSuccess = "Data imported. Please restart.",
-        serverName = "Name", hostIp = "Host / IP", port = "Port", username = "Username",
+        serverName = "Name", protocolLabel = "Protocol", hostIp = "Host / IP", port = "Port", username = "Username",
         password = "Password", saveServer = "Save Server", save = "Save", cancel = "Cancel",
         pin = "Pin to top", unpin = "Unpin", pinnedServers = "Pinned",
         delete = "Delete", edit = "Edit", chooseAction = "Choose Action",
@@ -499,7 +547,30 @@ object AppStrings {
         widgetCommand = "Command", displayType = "Display Type", wideCard = "Wide card",
         indicatorColor = "Indicator Color (Hex)",
         editMode = "Edit Dashboard",
-        exitEditMode = "Save Layout"
+        exitEditMode = "Save Layout",
+        adbConnectionPort = "Connection Port",
+        adbPairingPort = "Pairing Port",
+        adbPairingCode = "Pairing Code",
+        adbPairingInstructions = "1. Tap 'Pair device with pairing code' on your phone.\n2. Enter the PORT and CODE shown in the popup.\n\nNote: This is only needed once.",
+        adbConnectionPortHint = "From the main Wireless Debugging screen",
+        adbEnterCode = "Enter CODE",
+        adbPair = "Pair",
+        adbNotFound = "ADB not found",
+        adbDownloadDesc = "To use pairing, 'adb' must be installed. Download it automatically?",
+        adbDownloadBtn = "Download ADB",
+        adbDownloading = "Downloading ADB...",
+        adbScan = "Scan Network",
+        adbScanning = "Searching for devices...",
+        adbNoDevices = "No devices found",
+        adbSelectDevice = "Select Device",
+        invalidPort = "Invalid port",
+        adbCodeDigits = "Code must be 6 digits",
+        pairingFailed = "Pairing failed",
+        adbPairMethod = "Choose pairing method",
+        adbPairQR = "QR Code",
+        adbQRInstructions = "Scan this QR code in Developer Options -> Wireless Debugging -> Pair device with QR code",
+        adbDeviceName = "Device: %1\$s",
+        adbServiceNameLabel = "Service Name"
     )
 
     val ru = Strings(
@@ -517,7 +588,7 @@ object AppStrings {
         dataManagement = "Управление данными", exportData = "Экспорт JSON",
         importData = "Импорт JSON", exportSuccess = "Данные экспортированы",
         importSuccess = "Данные импортированы. Перезапустите.",
-        serverName = "Название", hostIp = "Хост / IP", port = "Порт", username = "Логин",
+        serverName = "Название", protocolLabel = "Протокол", hostIp = "Хост / IP", port = "Порт", username = "Логин",
         password = "Пароль", saveServer = "Сохранить сервер", save = "Сохранить",
         cancel = "Отмена", 
         pin = "Закрепить", unpin = "Открепить", pinnedServers = "Закрепленные",
@@ -620,6 +691,29 @@ object AppStrings {
         widgetCommand = "Команда", displayType = "Тип отображения", wideCard = "Широкая карточка",
         indicatorColor = "Цвет индикатора (Hex)",
         editMode = "Изменить виджеты",
-        exitEditMode = "Сохранить вид"
+        exitEditMode = "Сохранить вид",
+        adbConnectionPort = "Порт подключения",
+        adbPairingPort = "Порт СОПРЯЖЕНИЯ",
+        adbPairingCode = "Код сопряжения",
+        adbPairingInstructions = "1. Нажмите 'Подключить с помощью кода' на телефоне.\n2. Введите ПОРТ и КОД из появившегося окошка.\n\nЭто нужно сделать только один раз.",
+        adbConnectionPortHint = "Берется с главного экрана Wireless Debugging",
+        adbEnterCode = "Ввести КОД",
+        adbPair = "Сопряжение",
+        adbNotFound = "ADB не найден",
+        adbDownloadDesc = "Для сопряжения нужен инструмент 'adb'. Скачать его автоматически?",
+        adbDownloadBtn = "Скачать ADB",
+        adbDownloading = "Загрузка ADB...",
+        adbScan = "Сканировать сеть",
+        adbScanning = "Поиск устройств...",
+        adbNoDevices = "Устройства не найдены",
+        adbSelectDevice = "Выберите устройство",
+        invalidPort = "Некорректный порт",
+        adbCodeDigits = "Код должен состоять из 6 цифр",
+        pairingFailed = "Ошибка сопряжения",
+        adbPairMethod = "Выберите способ сопряжения",
+        adbPairQR = "QR-код",
+        adbQRInstructions = "Отсканируйте этот QR-код в разделе 'Отладка по Wi-Fi' -> 'Подключить с помощью QR-кода'",
+        adbDeviceName = "Устройство: %1\$s",
+        adbServiceNameLabel = "Имя службы"
     )
 }

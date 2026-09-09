@@ -28,6 +28,11 @@ kotlin {
 
     jvm("desktop")
 
+    compilerOptions {
+        // Disable K2 to avoid crashes with incompatible library metadata
+        // useK2.set(false) // This is for older versions. In 2.0.x it's different
+    }
+
     sourceSets {
         val commonMain by getting {
             // Создаем папку для сгенерированных файлов
@@ -76,6 +81,7 @@ kotlin {
                 api(libs.ktor.client.content.negotiation)
                 api(libs.ktor.serialization.kotlinx.json)
                 api(libs.ktor.client.logging)
+                implementation(libs.zxing.core)
             }
         }
         val androidMain by getting {
@@ -103,7 +109,10 @@ kotlin {
             dependencies {
                 api(libs.jsch)
                 api(libs.bcprov)
+                api(libs.dadb)
                 implementation(libs.gson)
+                implementation(libs.jmdns)
+                implementation("com.google.zxing:core:3.5.3")
             }
         }
         val desktopTest by getting {

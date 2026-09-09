@@ -23,16 +23,15 @@ object TerminalDimensions {
 internal class TerminalCell {
     var char: Char = ' '
     var fg: Int = -1   // -1 = default foreground
+    var bg: Int = -1   // -1 = default background
     var bold: Boolean = false
+    var underline: Boolean = false
 }
 
 internal class ScreenBuffer(var rows: Int, var cols: Int) {
     val cells = Array(rows) { Array(cols) { TerminalCell() } }
 
-    // Cursor rendering: reverse-video block. Space under the cursor becomes a
-    // solid block; a real character stays visible with inverted colors.
-    private val cursorTextColor = Color.Black
-
+    // Cursor rendering: reverse-video block.
     var cursorRow = 0
     var cursorCol = 0
 
@@ -40,7 +39,9 @@ internal class ScreenBuffer(var rows: Int, var cols: Int) {
     var bottomMargin = rows - 1
 
     var fg = -1
+    var bg = -1
     var bold = false
+    var underline = false
 
     private var savedRow = 0
     private var savedCol = 0
@@ -73,7 +74,9 @@ internal class ScreenBuffer(var rows: Int, var cols: Int) {
                 val cell = cells[cursorRow][cursorCol]
                 cell.char = ch
                 cell.fg = fg
+                cell.bg = bg
                 cell.bold = bold
+                cell.underline = underline
                 cursorCol++
                 if (cursorCol >= cols) {
                     cursorCol = 0
@@ -187,28 +190,50 @@ internal class ScreenBuffer(var rows: Int, var cols: Int) {
     fun restoreCursor() { cursorRow = savedRow; cursorCol = savedCol }
 
     fun applySgr(codes: List<Int>) {
-        if (codes.isEmpty()) { fg = -1; bold = false; return }
-        for (code in codes) {
+        if (codes.isEmpty()) { 
+            fg = -1
+            bg = -1
+            bold = false
+            underline = false
+            return 
+        }
+        var i = 0
+        while (i < codes.size) {
+            val code = codes[i]
             when (code) {
-                0 -> { fg = -1; bold = false }
+                0 -> { fg = -1; bg = -1; bold = false; underline = false }
                 1 -> bold = true
+                4 -> underline = true
                 22 -> bold = false
+                24 -> underline = false
                 in 30..37 -> fg = code
+                38 -> {
+                    if (i + 2 < codes.size && codes[i + 1] == 5) {
+                        fg = codes[i + 2] + 256 // Encode 256-color palette
+                        i += 2
+                    }
+                }
                 39 -> fg = -1
+                in 40..47 -> bg = code
+                48 -> {
+                    if (i + 2 < codes.size && codes[i + 1] == 5) {
+                        bg = codes[i + 2] + 256 // Encode 256-color palette
+                        i += 2
+                    }
+                }
+                49 -> bg = -1
                 in 90..97 -> fg = code
+                in 100..107 -> bg = code - 60 + 40 // bright bg
             }
+            i++
         }
     }
 
     fun render(defaultColor: Color): AnnotatedString {
-        // feed() runs on a background thread while render() is called from the
-        // UI thread, so clamp defensively against any out-of-range transient
-        // state (would otherwise surface as "Index 400 out of bounds...").
         val curRow = cursorRow.coerceIn(0, rows - 1)
         val curCol = cursorCol.coerceIn(0, cols - 1)
         var lastRow = rows - 1
         while (lastRow >= 0 && !cells[lastRow].any { it.char != ' ' }) lastRow--
-        // Never trim the cursor row away, even if it's blank.
         val renderLastRow = maxOf(lastRow, curRow)
 
         return buildAnnotatedString {
@@ -218,7 +243,9 @@ internal class ScreenBuffer(var rows: Int, var cols: Int) {
                 if (r == curRow) lastCol = maxOf(lastCol, curCol)
 
                 var currentFg = Int.MIN_VALUE
+                var currentBg = Int.MIN_VALUE
                 var currentBold = false
+                var currentUnderline = false
                 var hasStyle = false
 
                 for (c in 0..lastCol) {
@@ -226,28 +253,35 @@ internal class ScreenBuffer(var rows: Int, var cols: Int) {
                     val isCursorCell = r == curRow && c == cursorCol
                     if (isCursorCell) {
                         if (hasStyle) { pop(); hasStyle = false }
-                        // Reverse video: background = the cell's text color.
-                        val cursorBg = if (cell.fg == -1) defaultColor else colorFor(cell.fg, defaultColor)
+                        val cursorFg = if (cell.fg == -1) defaultColor else colorFor(cell.fg, defaultColor)
                         if (cell.char == ' ') {
-                            // Solid block cursor over a blank cell.
-                            pushStyle(SpanStyle(color = cursorBg))
-                            append('█')
+                            pushStyle(SpanStyle(color = cursorFg))
+                            append('▏') 
                         } else {
-                            // Real character: keep it visible with inverted colors.
-                            pushStyle(SpanStyle(color = cursorTextColor, background = cursorBg))
+                            pushStyle(SpanStyle(background = cursorFg.copy(alpha = 0.3f)))
                             append(cell.char)
                         }
                         pop()
                         currentFg = Int.MIN_VALUE
+                        currentBg = Int.MIN_VALUE
                         currentBold = false
+                        currentUnderline = false
                         continue
                     }
-                    if (!hasStyle || cell.fg != currentFg || cell.bold != currentBold) {
+                    if (!hasStyle || cell.fg != currentFg || cell.bg != currentBg || cell.bold != currentBold || cell.underline != currentUnderline) {
                         if (hasStyle) pop()
-                        val color = if (cell.fg == -1) defaultColor else colorFor(cell.fg, defaultColor)
-                        pushStyle(SpanStyle(color = color, fontWeight = if (cell.bold) FontWeight.Bold else FontWeight.Normal))
+                        val fgColor = if (cell.fg == -1) defaultColor else colorFor(cell.fg, defaultColor)
+                        val bgColor = if (cell.bg == -1) Color.Transparent else colorFor(cell.bg, defaultColor, isBackground = true)
+                        pushStyle(SpanStyle(
+                            color = fgColor, 
+                            background = bgColor,
+                            fontWeight = if (cell.bold) FontWeight.Bold else FontWeight.Normal,
+                            textDecoration = if (cell.underline) androidx.compose.ui.text.style.TextDecoration.Underline else null
+                        ))
                         currentFg = cell.fg
+                        currentBg = cell.bg
                         currentBold = cell.bold
+                        currentUnderline = cell.underline
                         hasStyle = true
                     }
                     append(cell.char)
@@ -258,24 +292,43 @@ internal class ScreenBuffer(var rows: Int, var cols: Int) {
         }
     }
 
-    private fun colorFor(code: Int, defaultColor: Color): Color = when (code) {
-        30 -> Color.Black
-        31 -> Color.Red
-        32 -> Color(0xFF00FF00)
-        33 -> Color.Yellow
-        34 -> Color.Blue
-        35 -> Color.Magenta
-        36 -> Color.Cyan
-        37 -> Color.White
-        90 -> Color.DarkGray
-        91 -> Color(0xFFFF5555)
-        92 -> Color(0xFF55FF55)
-        93 -> Color(0xFFFFFF55)
-        94 -> Color(0xFF5555FF)
-        95 -> Color(0xFFFF55FF)
-        96 -> Color(0xFF55FFFF)
-        97 -> Color.White
-        else -> defaultColor
+    private fun colorFor(code: Int, defaultColor: Color, isBackground: Boolean = false): Color {
+        if (code >= 256) {
+            val c = code - 256
+            return when {
+                c < 8 -> colorFor(c + (if (isBackground) 40 else 30), defaultColor)
+                c < 16 -> colorFor(c - 8 + (if (isBackground) 100 else 90), defaultColor)
+                c < 232 -> {
+                    val r = (c - 16) / 36
+                    val g = ((c - 16) % 36) / 6
+                    val b = (c - 16) % 6
+                    Color(r * 51, g * 51, b * 51)
+                }
+                else -> {
+                    val v = (c - 232) * 10 + 8
+                    Color(v, v, v)
+                }
+            }
+        }
+        return when (code) {
+            30, 40 -> Color.Black
+            31, 41 -> Color.Red
+            32, 42 -> Color(0xFF00FF00)
+            33, 43 -> Color.Yellow
+            34, 44 -> Color.Blue
+            35, 45 -> Color.Magenta
+            36, 46 -> Color.Cyan
+            37, 47 -> Color.White
+            90, 100 -> Color.DarkGray
+            91, 101 -> Color(0xFFFF5555)
+            92, 102 -> Color(0xFF55FF55)
+            93, 103 -> Color(0xFFFFFF55)
+            94, 104 -> Color(0xFF5555FF)
+            95, 105 -> Color(0xFFFF55FF)
+            96, 106 -> Color(0xFF55FFFF)
+            97, 107 -> Color.White
+            else -> defaultColor
+        }
     }
 }
 
@@ -285,6 +338,9 @@ class TerminalScreen(
 ) {
     private var ptyRows = initialRows
     private var ptyCols = initialCols
+    
+    val width get() = ptyCols
+    val height get() = ptyRows
     
     private val mainBuffer = ScreenBuffer(TerminalDimensions.ROWS, TerminalDimensions.COLS)
     private val altBuffer = ScreenBuffer(TerminalDimensions.ROWS, TerminalDimensions.COLS)

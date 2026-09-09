@@ -1,9 +1,18 @@
 package com.neytron.sshcommander.data
 
+import kotlinx.serialization.Serializable
+
+@Serializable
+enum class Protocol {
+    SSH,
+    ADB
+}
+
 /**
  * Pure data model for a server connection target (no Room annotations here —
  * platform-specific persistence keeps its own entities).
  */
+@Serializable
 data class Server(
     val id: Int = 0,
     val name: String,
@@ -22,5 +31,6 @@ data class Server(
     val lastSftpPath: String? = null,
     val folderId: Int? = null,
     val isPinned: Boolean = false,
-    val sshKeyId: Int? = null
+    val sshKeyId: Int? = null,
+    val protocol: Protocol = Protocol.SSH
 )
