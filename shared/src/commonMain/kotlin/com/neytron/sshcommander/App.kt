@@ -72,6 +72,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material3.LinearProgressIndicator
@@ -112,6 +113,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -2582,8 +2584,6 @@ private fun ServerDialog(
     var folderId by remember { mutableStateOf(server?.folderId) }
     var sshKeyId by remember { mutableStateOf(server?.sshKeyId) }
     var protocol by remember { mutableStateOf(server?.protocol ?: Protocol.SSH) }
-    var showPairingDialog by remember { mutableStateOf(false) }
-    var pairingDialogPort by remember { mutableStateOf("") }
 
     fun submit() {
         val trimmedHost = host.trim()
@@ -2609,7 +2609,7 @@ private fun ServerDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (isEdit) AppStrings.editServer else AppStrings.addServer, fontWeight = FontWeight.Bold) },
+        title = { Text((if (isEdit) AppStrings.editServer else AppStrings.addServer) + " (WIZARD)", fontWeight = FontWeight.Bold) },
         text = {
             Column(
                 modifier = Modifier
@@ -2652,98 +2652,165 @@ private fun ServerDialog(
                 val isAdb = protocol == Protocol.ADB
 
                 if (isAdb) {
-                    var showDeviceList by remember { mutableStateOf(false) }
+                    var showWizard by remember { mutableStateOf(false) }
+                    var wizardStep by remember { mutableStateOf(1) }
+                    var selectedDevice by remember { mutableStateOf<com.neytron.sshcommander.data.DiscoveredDevice?>(null) }
+
                     var discoveredDevices by remember { mutableStateOf(emptyList<com.neytron.sshcommander.data.DiscoveredDevice>()) }
                     var isScanning by remember { mutableStateOf(false) }
-                    val adbAvailable = remember { com.neytron.sshcommander.terminal.AdbPlatform.isAdbAvailable() }
                     val downloadProgress by com.neytron.sshcommander.terminal.AdbPlatform.getDownloadProgress().collectAsState()
+                    val adbAvailable by remember(downloadProgress) { derivedStateOf { com.neytron.sshcommander.terminal.AdbPlatform.isAdbAvailable() } }
+
+                    var showPairingDialogManual by remember { mutableStateOf(false) }
 
                     LaunchedEffect(isScanning) {
                         if (isScanning && adbAvailable) {
                             com.neytron.sshcommander.terminal.AdbPlatform.scanDevices().collect {
                                 discoveredDevices = it
                             }
-                        } else if (isScanning && !adbAvailable) {
-                            isScanning = false
                         }
                     }
 
-                    if (!adbAvailable && downloadProgress == null) {
+                    // --- PRIMARY PAIR AND CONNECT BUTTON ---
+                    Button(
+                        onClick = { showWizard = true; wizardStep = 1 },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(16.dp)
+                    ) {
+                        Icon(Icons.Default.Android, null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(AppStrings.adbPairAndConnect, fontWeight = FontWeight.Bold)
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+                    Text(AppStrings.adbManualConnection, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+
+                    // Manual Section: Step 1 Pair
+                    Column(
+                        modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), RoundedCornerShape(8.dp)).padding(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(AppStrings.adbFirstStepPair, style = MaterialTheme.typography.labelSmall)
                         OutlinedButton(
-                            onClick = { com.neytron.sshcommander.terminal.AdbPlatform.startDownload() },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                        ) {
-                            Icon(Icons.Default.Download, null)
-                            Spacer(Modifier.width(8.dp))
-                            Text(AppStrings.adbDownloadBtn)
-                        }
-                    } else if (downloadProgress != null) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                            Text(AppStrings.adbDownloading, style = MaterialTheme.typography.labelSmall)
-                            LinearProgressIndicator(
-                                progress = { downloadProgress!! },
-                                modifier = Modifier.fillMaxWidth().height(4.dp).padding(vertical = 4.dp)
-                            )
-                        }
-                    } else {
-                        OutlinedButton(
-                            onClick = { 
-                                isScanning = !isScanning
-                                showDeviceList = true 
-                            },
+                            onClick = { showPairingDialogManual = true },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            if (isScanning) {
-                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                                Spacer(Modifier.width(8.dp))
-                                Text(AppStrings.adbScanning)
-                            } else {
-                                Icon(Icons.Default.Search, null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(8.dp))
-                                Text(AppStrings.adbScan)
-                            }
+                            Icon(Icons.Default.VpnKey, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(AppStrings.adbEnterCode)
                         }
                     }
 
-                    if (showDeviceList && isScanning && discoveredDevices.isEmpty()) {
-                        Text(
-                            AppStrings.adbScanning + " (mDNS)",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(start = 8.dp)
+                    if (showPairingDialogManual) {
+                        com.neytron.sshcommander.ui.AdbPairingDialog(
+                            initialHost = host,
+                            onPair = { h, p, code -> com.neytron.sshcommander.terminal.AdbPlatform.pair(h, p, code) },
+                            onDismiss = { showPairingDialogManual = false }
                         )
                     }
 
-                    if (showDeviceList && discoveredDevices.isNotEmpty()) {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                        ) {
-                            Column {
-                                discoveredDevices.forEach { device ->
-                                    ListItem(
-                                        headlineContent = { Text(device.name) },
-                                        supportingContent = { Text("${device.host}:${device.port}") },
-                                        leadingContent = { Icon(Icons.Default.Android, null) },
-                                        modifier = Modifier.clickable {
-                                            host = device.host
-                                            port = device.port.toString()
-                                            if (name.isEmpty() || name == host) name = device.name
-                                            showDeviceList = false
-                                            isScanning = false
-                                            // Auto-trigger pairing dialog if pairing port was found
-                                            device.pairingPort?.let { pPort ->
-                                                pairingDialogPort = pPort.toString()
-                                                showPairingDialog = true
+                    // --- WIZARD DIALOGS ---
+                    if (showWizard) {
+                        AlertDialog(
+                            onDismissRequest = { showWizard = false; isScanning = false },
+                            title = { 
+                                Text(when(wizardStep) {
+                                    1 -> AppStrings.adbWizardGuideTitle
+                                    2 -> AppStrings.adbScan
+                                    else -> AppStrings.adbPair
+                                })
+                            },
+                            text = {
+                                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    when(wizardStep) {
+                                        1 -> {
+                                            Text(AppStrings.adbWizardGuideDesc)
+                                        }
+                                        2 -> {
+                                            LaunchedEffect(Unit) { isScanning = true }
+                                            if (discoveredDevices.isEmpty()) {
+                                                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                                                    CircularProgressIndicator()
+                                                    Spacer(Modifier.height(8.dp))
+                                                    Text(AppStrings.adbScanning)
+                                                }
+                                            } else {
+                                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                    discoveredDevices.forEach { device ->
+                                                        Card(
+                                                            onClick = { 
+                                                                selectedDevice = device
+                                                                if (device.pairingPort != null) {
+                                                                    wizardStep = 3
+                                                                } else {
+                                                                    host = device.host
+                                                                    port = device.port.toString()
+                                                                    if (name.isEmpty() || name == host) name = device.name
+                                                                    showWizard = false
+                                                                    isScanning = false
+                                                                }
+                                                            },
+                                                            modifier = Modifier.fillMaxWidth()
+                                                        ) {
+                                                            ListItem(
+                                                                headlineContent = { Text(device.name) },
+                                                                supportingContent = { Text("${device.host}:${device.port}") },
+                                                                leadingContent = { Icon(Icons.Default.Android, null) }
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                            Spacer(Modifier.height(16.dp))
+                                            HorizontalDivider(thickness = 0.5.dp)
+                                            Spacer(Modifier.height(8.dp))
+                                            OutlinedButton(
+                                                onClick = { /* Experimental */ },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                enabled = false
+                                            ) {
+                                                Icon(Icons.Default.QrCodeScanner, null)
+                                                Spacer(Modifier.width(8.dp))
+                                                Text(AppStrings.adbPairQR + " (Experimental)")
                                             }
                                         }
-                                    )
+                                        3 -> {
+                                            Text(AppStrings.adbPairingInstructions)
+                                        }
+                                    }
                                 }
+                            },
+                            confirmButton = {
+                                if (wizardStep == 1) {
+                                    Button(onClick = { wizardStep = 2 }) { Text(AppStrings.next) }
+                                }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { showWizard = false; isScanning = false }) { Text(AppStrings.cancel) }
                             }
-                        }
-                    } else if (showDeviceList && !isScanning && discoveredDevices.isEmpty() && adbAvailable) {
-                         Text(AppStrings.adbNoDevices, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(start = 8.dp))
+                        )
+                    }
+
+                    if (showWizard && wizardStep == 3 && selectedDevice != null) {
+                        com.neytron.sshcommander.ui.AdbPairingDialog(
+                            initialHost = selectedDevice!!.host,
+                            initialPort = selectedDevice!!.pairingPort?.toString() ?: "",
+                            onPair = { h, p, code -> 
+                                val res = com.neytron.sshcommander.terminal.AdbPlatform.pair(h, p, code)
+                                if (res.isSuccess) {
+                                    host = h
+                                    if (selectedDevice!!.port > 0) port = selectedDevice!!.port.toString()
+                                    if (name.isEmpty() || name == h) name = selectedDevice!!.name
+                                    showWizard = false
+                                    isScanning = false
+                                }
+                                res
+                            },
+                            onDismiss = { wizardStep = 2 }
+                        )
                     }
                 }
 
@@ -2775,17 +2842,6 @@ private fun ServerDialog(
                             { Text(AppStrings.adbConnectionPortHint, style = MaterialTheme.typography.labelSmall) }
                         } else null
                     )
-                    if (isAdb) {
-                        OutlinedButton(
-                            onClick = { showPairingDialog = true },
-                            modifier = Modifier.height(56.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
-                        ) {
-                            Icon(Icons.Default.VpnKey, null)
-                            Spacer(Modifier.width(8.dp))
-                            Text(AppStrings.adbEnterCode)
-                        }
-                    }
                     if (!isAdb) {
                         OutlinedTextField(
                             value = username,
@@ -2795,17 +2851,6 @@ private fun ServerDialog(
                             modifier = Modifier.weight(2f)
                         )
                     }
-                }
-                
-                if (showPairingDialog) {
-                    AdbPairingDialog(
-                        initialHost = host,
-                        initialPort = pairingDialogPort,
-                        onPair = { h, p, c ->
-                            com.neytron.sshcommander.terminal.AdbPlatform.pair(h, p, c)
-                        },
-                        onDismiss = { showPairingDialog = false }
-                    )
                 }
                 
                 if (!isAdb) {

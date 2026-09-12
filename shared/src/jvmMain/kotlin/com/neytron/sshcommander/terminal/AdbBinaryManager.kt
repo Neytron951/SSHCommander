@@ -20,8 +20,24 @@ object AdbBinaryManager {
     private val client = HttpClient()
 
     private val _downloadProgress = MutableStateFlow<Float?>(null)
+    private val _downloadError = MutableStateFlow<String?>(null)
 
-    private val dataDir = File(System.getProperty("user.home"), ".sshcommander/bin")
+    private val dataDir: File = run {
+        // Preferred: user.home if absolute
+        val home = System.getProperty("user.home")
+        if (!home.isNullOrBlank() && File(home).isAbsolute()) {
+            File(home).resolve(".sshcommander/bin")
+        } else {
+            // Android-specific: use ANDROID_DATA/files if available
+            val androidData = System.getenv("ANDROID_DATA")
+            if (!androidData.isNullOrBlank()) {
+                File(androidData).resolve("files/.sshcommander/bin")
+            } else {
+                // Fallback to current working directory under a hidden folder
+                File(System.getProperty("user.dir") ?: ".").resolve(".sshcommander/bin")
+            }
+        }
+    }
 
     fun findAdb(): File? {
         // 1. Check local download
@@ -57,10 +73,24 @@ object AdbBinaryManager {
         return null
     }
 
-    fun isAdbAvailable(): Boolean = findAdb() != null
+    fun isAdbAvailable(): Boolean {
+        val available = findAdb() != null
+        if (!available) println("[ADB] isAdbAvailable() returned FALSE")
+        return available
+    }
+
+    fun isAndroidRuntime(): Boolean {
+        val runtimeName = System.getProperty("java.runtime.name")?.lowercase(Locale.ENGLISH) ?: ""
+        val vmName = System.getProperty("java.vm.name")?.lowercase(Locale.ENGLISH) ?: ""
+        return runtimeName.contains("android") || vmName.contains("dalvik") || vmName.contains("art")
+    }
 
     fun startDownload() {
         if (_downloadProgress.value != null) return
+        if (isAndroidRuntime()) {
+            _downloadError.value = "ADB must be installed on a desktop/PC. Android cannot execute platform-tools from the app sandbox."
+            return
+        }
         
         scope.launch {
             try {
@@ -74,26 +104,54 @@ object AdbBinaryManager {
                     }
                 }
 
-                if (!dataDir.exists()) dataDir.mkdirs()
-                val zipFile = dataDir.resolve("platform-tools.zip")
-                
-                val channel = response.bodyAsChannel()
-                FileOutputStream(zipFile).use { out ->
-                    channel.toInputStream().copyTo(out)
+                try {
+                    // Choose a writable directory among candidates. On Android ANDROID_DATA may be '/data' which is not writable.
+                    val candidates = listOf(
+                        dataDir,
+                        File(System.getProperty("user.dir") ?: "."),
+                        File(System.getProperty("java.io.tmpdir") ?: "/tmp")
+                    )
+                    val effectiveDir = candidates.firstOrNull { dir ->
+                        try {
+                            if (!dir.exists()) dir.mkdirs()
+                            val test = File(dir, ".writable_test")
+                            test.outputStream().use { it.write(1) }
+                            test.delete()
+                            true
+                        } catch (t: Throwable) {
+                            false
+                        }
+                    } ?: dataDir
+
+                    if (!effectiveDir.exists()) effectiveDir.mkdirs()
+                    val zipFile = effectiveDir.resolve("platform-tools.zip")
+
+                    val channel = response.bodyAsChannel()
+                    // ensure parent exists
+                    zipFile.parentFile?.mkdirs()
+                    FileOutputStream(zipFile).use { out ->
+                        channel.toInputStream().copyTo(out)
+                    }
+
+                    _downloadProgress.value = 0.95f // Extraction starts
+                    unzip(zipFile, effectiveDir)
+                    zipFile.delete()
+
+                    // Set executable permission on Unix
+                    if (!isWindows()) {
+                        effectiveDir.resolve("platform-tools/adb").setExecutable(true)
+                    }
+
+                    _downloadProgress.value = 1f
+                    delay(1000)
+                    _downloadProgress.value = null // Reset for next time
+                    _downloadError.value = null
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    _downloadProgress.value = null
+                    _downloadError.value = e.message ?: "Download failed"
                 }
 
-                _downloadProgress.value = 0.95f // Extraction starts
-                unzip(zipFile, dataDir)
-                zipFile.delete()
-                
-                // Set executable permission on Unix
-                if (!isWindows()) {
-                    dataDir.resolve("platform-tools/adb").setExecutable(true)
-                }
-
-                _downloadProgress.value = 1f
-                delay(1000)
-                _downloadProgress.value = null // Reset for next time
             } catch (e: Exception) {
                 e.printStackTrace()
                 _downloadProgress.value = null
@@ -102,6 +160,7 @@ object AdbBinaryManager {
     }
 
     fun getDownloadProgress(): StateFlow<Float?> = _downloadProgress
+    fun getDownloadError(): StateFlow<String?> = _downloadError
 
     private fun getDownloadUrl(): String {
         val os = System.getProperty("os.name").lowercase(Locale.ENGLISH)

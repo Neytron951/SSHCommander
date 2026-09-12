@@ -112,6 +112,7 @@ kotlin {
                 api(libs.dadb)
                 implementation(libs.gson)
                 implementation(libs.jmdns)
+                implementation(libs.conscrypt)
                 implementation("com.google.zxing:core:3.5.3")
             }
         }

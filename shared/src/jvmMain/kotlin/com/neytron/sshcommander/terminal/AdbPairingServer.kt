@@ -31,6 +31,7 @@ object AdbPairingServer {
                 
                 val lanAddress = allAddresses.find { it.hostAddress.startsWith("192.168.") }
                     ?: allAddresses.find { it.hostAddress.startsWith("10.") && !it.hostAddress.startsWith("10.8.") }
+                    ?: allAddresses.find { it.hostAddress.startsWith("172.") }
                     ?: allAddresses.firstOrNull() ?: InetAddress.getLocalHost()
 
                 println("[ADB-Pair] Selected interface: ${lanAddress.hostAddress}")
@@ -46,9 +47,12 @@ object AdbPairingServer {
                     val dns = JmDNS.create(lanAddress)
                     jmdns = dns
                     val serviceType = "_adb-tls-pairing._tcp.local."
+                    // Use just the name, JmDNS appends type automatically
                     val serviceInfo = ServiceInfo.create(serviceType, name, port, 0, 0, true, mapOf("txtvers" to "1"))
                     dns.registerService(serviceInfo)
-                    println("[ADB-Pair] JmDNS service registered: $name")
+                    println("[ADB-Pair] JmDNS service registered: $name on port $port")
+                    println("[ADB-Pair] Full service name: ${serviceInfo.qualifiedName}")
+                    println("[ADB-Pair] QR Payload: WIFI:T:ADB;S:$name;P:$password;;")
                 } catch (e: Exception) {
                     println("[ADB-Pair] JmDNS registration failed: ${e.message}")
                 }
@@ -58,7 +62,11 @@ object AdbPairingServer {
                     try {
                         val process = ProcessBuilder("avahi-publish", "-s", name, "_adb-tls-pairing._tcp", port.toString(), "txtvers=1").start()
                         avahiProcess = process
-                        println("[ADB-Pair] Avahi-publish started (PID: ${try { process.pid() } catch(e: Exception) { "unknown" }})")
+                        val pidInfo = try {
+                            val m = process.javaClass.getMethod("pid")
+                            m.invoke(process).toString()
+                        } catch (e: Exception) { "unknown" }
+                        println("[ADB-Pair] Avahi-publish started (PID: $pidInfo)")
                         scope.launch {
                             val exit = process.waitFor()
                             if (isActive) println("[ADB-Pair] Avahi-publish terminated with exit code $exit")

@@ -328,392 +328,412 @@ object AppStrings {
     val adbQRInstructions get() = s.adbQRInstructions
     val adbDeviceName get() = s.adbDeviceName
     val adbServiceNameLabel get() = s.adbServiceNameLabel
+    val adbPairAndConnect get() = s.adbPairAndConnect
+    val adbManualConnection get() = s.adbManualConnection
+    val adbFirstStepPair get() = s.adbFirstStepPair
+    val adbWizardGuideTitle get() = s.adbWizardGuideTitle
+    val adbWizardGuideDesc get() = s.adbWizardGuideDesc
 
-    data class Strings(
-        val appName: String, val servers: String, val addServer: String,
-        val add: String,
-        val editServer: String,
-        val deleteServer: String, val settings: String, val back: String, val exit: String,
-        val theme: String, val themeLight: String, val themeDark: String, val themeSystem: String,
-        val languageLabel: String, val langEn: String, val langRu: String,
-        val consoleFont: String, val fontDefault: String, val fontMonospace: String,
-        val fontSansSerif: String, val fontSerif: String,
-        val consoleFontSize: String, val sizeSmall: String, val sizeMedium: String, val sizeLarge: String,
-        val dataManagement: String, val exportData: String, val importData: String,
-        val exportSuccess: String, val importSuccess: String,
-        val serverName: String, val protocolLabel: String, val hostIp: String, val port: String, val username: String,
-        val password: String, val saveServer: String, val save: String, val cancel: String,
-        val pin: String, val unpin: String, val pinnedServers: String,
-        val delete: String, val edit: String, val chooseAction: String, val chooseIcon: String,
-        val reboot: String, val checkConnection: String, val loading: String, val commands: String,
-        val manageCommands: String, val runCommand: String, val run: String,
-        val confirmExecution: String, val execute: String, val dangerous: String,
-        val newCommand: String, val requiresBio: String, val confirmRebootMsg: String,
-        val rebootConfirm: String,
-        val aboutApp: String, val aboutVersion: String,
-        val license: String, val disableAds: String, val disableAdsDesc: String,
-        val disableAdsConfirmTitle: String, val disableAdsConfirmMsg: String,
-        val disableAdsConfirmFinalTitle: String, val disableAdsConfirmFinalMsg: String,
-        val showInWidget: String,
-        val iconGaming: String, val iconWeb: String, val iconDatabase: String, val iconCloud: String,
-        val iconNas: String, val iconVpn: String, val iconDev: String, val iconMedia: String,
-        val iconDefault: String,
-        val sftpExplorer: String, val terminal: String, val emptyDirectory: String,
-        val deleteFileConfirm: String,
-        val exitSshSessionMsg: String, val confirmExit: String, val historyUp: String,
-        val historyDown: String, val tabKey: String, val ctrlCKey: String, val clearKey: String,
-        val escKey: String, val enterKey: String, val commandPlaceholder: String,
-        val executeConfirmMsg: String,
-        val cmdList: String, val cmdTop: String, val cmdDisk: String, val cmdRam: String,
-        val cmdUptime: String, val cmdProcesses: String, val cmdLogs: String,
-        val searchFiles: String, val closeSessionQ: String, val stay: String, val upload: String,
-        val sessionError: String, val reconnect: String, val dismiss: String,
-        val exitSftpMsg: String, val hideHidden: String, val showHidden: String,
-        val selectedCount: String, val newFolder: String, val folderNamePlaceholder: String,
-        val create: String, val rename: String,
-        val folders: String, val noFolder: String, val deleteFolderConfirm: String,
-        val errTimeout: String, val errAuthFailed: String, val errHostUnreachable: String,
-        val errHostKeyMismatch: String, val errUnknown: String, val errConnectionLost: String,
-        val sshErrorTemplate: String,
-        val terminalStyle: String, val backgroundColor: String, val textColor: String,
-        val cmdPlaceholderExample: String, val errorPrefix: String, val sftpErrorPrefix: String,
-        val privacyMode: String, val privacyModeDesc: String, val quickCommands: String,
-        val autoReconnect: String, val autoReconnectDesc: String, val reconnectingMsg: String,
-        val biometricLock: String, val biometricLockDesc: String, val appLocked: String,
-        val appLockedSubtitle: String, val unlock: String, val biometricNotAvailable: String,
-        val retry: String,
-        val yes: String, val no: String, val next: String, val skip: String, val finish: String,
-        val welcomeTitle: String, val welcomeQuestion: String,
-        val importJsonQuestion: String, val importJsonButton: String,
-        val tourStep: String,
-        val manageLogins: String, val addLogin: String, val loginLabel: String,
-        val sftpStartPath: String, val sftpStartPathHint: String, val sftpStartPathHint2: String,
-        val noLogins: String, val setDefaultLogin: String, val deleteLoginTitle: String,
-        val deleteLoginMsg: String, val selectLogin: String, val mainLoginLabel: String,
-        val addSession: String, val closeSession: String, val sessionTabs: String,
-        val copyText: String, val selectAll: String, val clearSelection: String,
-        val preview: String, val download: String, val copyPath: String, val open: String,
-        val fileInfo: String, val previewUnavailable: String, val fileType: String,
-        val fileSize: String, val modified: String, val permissions: String, val folder: String,
-        val manageKeys: String, val sshKeys: String, val addKey: String, val generateKey: String,
-            val keyName: String, val keyType: String, val keyBits: String, val passphrase: String,
-        val copyPublicKey: String, val publicKeyCopied: String, val deleteKeyConfirm: String,
-        val scriptMarket: String,
-        val identities: String, val authMethod: String, val usePassword: String,
-        val useSshKey: String, val autoProvisionDesc: String, val provisioningWarning: String,
-        val importKeyContent: String, val generateNewKey: String, val selectExistingKey: String,
-        val provisionSuccess: String,
-        val dashboard: String, val addWidget: String, val editWidget: String,
-        val systemLogs: String, val presets: String, val widgetTitle: String,
-        val widgetCommand: String, val displayType: String, val wideCard: String,
-        val indicatorColor: String,
-        val editMode: String,
-        val exitEditMode: String,
-        val adbConnectionPort: String,
-        val adbPairingPort: String,
-        val adbPairingCode: String,
-        val adbPairingInstructions: String,
-        val adbConnectionPortHint: String,
-        val adbEnterCode: String,
-        val adbPair: String,
-        val adbNotFound: String,
-        val adbDownloadDesc: String,
-        val adbDownloadBtn: String,
-        val adbDownloading: String,
-        val adbScan: String,
-        val adbScanning: String,
-        val adbNoDevices: String,
-        val adbSelectDevice: String,
-        val invalidPort: String,
-        val adbCodeDigits: String,
-        val pairingFailed: String,
-        val adbPairMethod: String,
-        val adbPairQR: String,
-        val adbQRInstructions: String,
-        val adbDeviceName: String,
-        val adbServiceNameLabel: String
-    )
+    class Strings {
+        var appName: String = ""; var servers: String = ""; var addServer: String = ""
+        var add: String = ""
+        var editServer: String = ""
+        var deleteServer: String = ""; var settings: String = ""; var back: String = ""; var exit: String = ""
+        var theme: String = ""; var themeLight: String = ""; var themeDark: String = ""; var themeSystem: String = ""
+        var languageLabel: String = ""; var langEn: String = ""; var langRu: String = ""
+        var consoleFont: String = ""; var fontDefault: String = ""; var fontMonospace: String = ""
+        var fontSansSerif: String = ""; var fontSerif: String = ""
+        var consoleFontSize: String = ""; var sizeSmall: String = ""; var sizeMedium: String = ""; var sizeLarge: String = ""
+        var dataManagement: String = ""; var exportData: String = ""; var importData: String = ""
+        var exportSuccess: String = ""; var importSuccess: String = ""
+        var serverName: String = ""; var protocolLabel: String = ""; var hostIp: String = ""; var port: String = ""; var username: String = ""
+        var password: String = ""; var saveServer: String = ""; var save: String = ""; var cancel: String = ""
+        var pin: String = ""; var unpin: String = ""; var pinnedServers: String = ""
+        var delete: String = ""; var edit: String = ""; var chooseAction: String = ""; var chooseIcon: String = ""
+        var reboot: String = ""; var checkConnection: String = ""; var loading: String = ""; var commands: String = ""
+        var manageCommands: String = ""; var runCommand: String = ""; var run: String = ""
+        var confirmExecution: String = ""; var execute: String = ""; var dangerous: String = ""
+        var newCommand: String = ""; var requiresBio: String = ""; var confirmRebootMsg: String = ""
+        var rebootConfirm: String = ""
+        var aboutApp: String = ""; var aboutVersion: String = ""
+        var license: String = ""; var disableAds: String = ""; var disableAdsDesc: String = ""
+        var disableAdsConfirmTitle: String = ""; var disableAdsConfirmMsg: String = ""
+        var disableAdsConfirmFinalTitle: String = ""; var disableAdsConfirmFinalMsg: String = ""
+        var showInWidget: String = ""
+        var iconGaming: String = ""; var iconWeb: String = ""; var iconDatabase: String = ""; var iconCloud: String = ""
+        var iconNas: String = ""; var iconVpn: String = ""; var iconDev: String = ""; var iconMedia: String = ""
+        var iconDefault: String = ""
+        var sftpExplorer: String = ""; var terminal: String = ""; var emptyDirectory: String = ""
+        var deleteFileConfirm: String = ""
+        var exitSshSessionMsg: String = ""; var confirmExit: String = ""; var historyUp: String = ""
+        var historyDown: String = ""; var tabKey: String = ""; var ctrlCKey: String = ""; var clearKey: String = ""
+        var escKey: String = ""; var enterKey: String = ""; var commandPlaceholder: String = ""
+        var executeConfirmMsg: String = ""
+        var cmdList: String = ""; var cmdTop: String = ""; var cmdDisk: String = ""; var cmdRam: String = ""
+        var cmdUptime: String = ""; var cmdProcesses: String = ""; var cmdLogs: String = ""
+        var searchFiles: String = ""; var closeSessionQ: String = ""; var stay: String = ""; var upload: String = ""
+        var sessionError: String = ""; var reconnect: String = ""; var dismiss: String = ""
+        var exitSftpMsg: String = ""; var hideHidden: String = ""; var showHidden: String = ""
+        var selectedCount: String = ""; var newFolder: String = ""; var folderNamePlaceholder: String = ""
+        var create: String = ""; var rename: String = ""
+        var folders: String = ""; var noFolder: String = ""; var deleteFolderConfirm: String = ""
+        var errTimeout: String = ""; var errAuthFailed: String = ""; var errHostUnreachable: String = ""
+        var errHostKeyMismatch: String = ""; var errUnknown: String = ""; var errConnectionLost: String = ""
+        var sshErrorTemplate: String = ""
+        var terminalStyle: String = ""; var backgroundColor: String = ""; var textColor: String = ""
+        var cmdPlaceholderExample: String = ""; var errorPrefix: String = ""; var sftpErrorPrefix: String = ""
+        var privacyMode: String = ""; var privacyModeDesc: String = ""; var quickCommands: String = ""
+        var autoReconnect: String = ""; var autoReconnectDesc: String = ""; var reconnectingMsg: String = ""
+        var biometricLock: String = ""; var biometricLockDesc: String = ""; var appLocked: String = ""
+        var appLockedSubtitle: String = ""; var unlock: String = ""; var biometricNotAvailable: String = ""
+        var retry: String = ""
+        var yes: String = ""; var no: String = ""; var next: String = ""; var skip: String = ""; var finish: String = ""
+        var welcomeTitle: String = ""; var welcomeQuestion: String = ""
+        var importJsonQuestion: String = ""; var importJsonButton: String = ""
+        var tourStep: String = ""
+        var manageLogins: String = ""; var addLogin: String = ""; var loginLabel: String = ""
+        var sftpStartPath: String = ""; var sftpStartPathHint: String = ""; var sftpStartPathHint2: String = ""
+        var noLogins: String = ""; var setDefaultLogin: String = ""; var deleteLoginTitle: String = ""
+        var deleteLoginMsg: String = ""; var selectLogin: String = ""; var mainLoginLabel: String = ""
+        var addSession: String = ""; var closeSession: String = ""; var sessionTabs: String = ""
+        var copyText: String = ""; var selectAll: String = ""; var clearSelection: String = ""
+        var preview: String = ""; var download: String = ""; var copyPath: String = ""; var open: String = ""
+        var fileInfo: String = ""; var previewUnavailable: String = ""; var fileType: String = ""
+        var fileSize: String = ""; var modified: String = ""; var permissions: String = ""; var folder: String = ""
+        var manageKeys: String = ""; var sshKeys: String = ""; var addKey: String = ""; var generateKey: String = ""
+        var keyName: String = ""; var keyType: String = ""; var keyBits: String = ""; var passphrase: String = ""
+        var copyPublicKey: String = ""; var publicKeyCopied: String = ""; var deleteKeyConfirm: String = ""
+        var scriptMarket: String = ""
+        var identities: String = ""; var authMethod: String = ""; var usePassword: String = ""
+        var useSshKey: String = ""; var autoProvisionDesc: String = ""; var provisioningWarning: String = ""
+        var importKeyContent: String = ""; var generateNewKey: String = ""; var selectExistingKey: String = ""
+        var provisionSuccess: String = ""
+        var dashboard: String = ""; var addWidget: String = ""; var editWidget: String = ""
+        var systemLogs: String = ""; var presets: String = ""; var widgetTitle: String = ""
+        var widgetCommand: String = ""; var displayType: String = ""; var wideCard: String = ""
+        var indicatorColor: String = ""
+        var editMode: String = ""
+        var exitEditMode: String = ""
+        var adbConnectionPort: String = ""
+        var adbPairingPort: String = ""
+        var adbPairingCode: String = ""
+        var adbPairingInstructions: String = ""
+        var adbConnectionPortHint: String = ""
+        var adbEnterCode: String = ""
+        var adbPair: String = ""
+        var adbNotFound: String = ""
+        var adbDownloadDesc: String = ""
+        var adbDownloadBtn: String = ""
+        var adbDownloading: String = ""
+        var adbScan: String = ""
+        var adbScanning: String = ""
+        var adbNoDevices: String = ""
+        var adbSelectDevice: String = ""
+        var invalidPort: String = ""
+        var adbCodeDigits: String = ""
+        var pairingFailed: String = ""
+        var adbPairMethod: String = ""
+        var adbPairQR: String = ""
+        var adbQRInstructions: String = ""
+        var adbDeviceName: String = ""
+        var adbServiceNameLabel: String = ""
+        var adbPairAndConnect: String = ""
+        var adbManualConnection: String = ""
+        var adbFirstStepPair: String = ""
+        var adbWizardGuideTitle: String = ""
+        var adbWizardGuideDesc: String = ""
+    }
 
-    val en = Strings(
-        appName = "SSH Commander", servers = "Servers", addServer = "Add Server",
-        add = "Add",
-        editServer = "Edit Server", deleteServer = "Delete Server", settings = "Settings",
-        back = "Back", exit = "Exit",
-        theme = "Theme", themeLight = "Light", themeDark = "Dark", themeSystem = "System",
-        languageLabel = "Language", langEn = "English", langRu = "Русский",
-        consoleFont = "Console Font Family", fontDefault = "Default",
-        fontMonospace = "Monospace", fontSansSerif = "Sans Serif", fontSerif = "Serif",
-        consoleFontSize = "Console Font Size", sizeSmall = "Small (12sp)",
-        sizeMedium = "Medium (14sp)", sizeLarge = "Large (18sp)",
-        dataManagement = "Data Management", exportData = "Export JSON",
-        importData = "Import JSON", exportSuccess = "Data exported successfully",
-        importSuccess = "Data imported. Please restart.",
-        serverName = "Name", protocolLabel = "Protocol", hostIp = "Host / IP", port = "Port", username = "Username",
-        password = "Password", saveServer = "Save Server", save = "Save", cancel = "Cancel",
-        pin = "Pin to top", unpin = "Unpin", pinnedServers = "Pinned",
-        delete = "Delete", edit = "Edit", chooseAction = "Choose Action",
-        chooseIcon = "Choose Icon",
-        reboot = "Reboot", checkConnection = "Check Connection", loading = "Loading...",
-        commands = "Commands", manageCommands = "Manage Commands",
-        runCommand = "Run Command", run = "Run", confirmExecution = "Confirm Execution",
-        execute = "Execute", dangerous = "Dangerous", newCommand = "New Custom Command",
-        requiresBio = "Requires biometric confirmation",
-        confirmRebootMsg = "Are you sure? Biometric verification may be required.",
-        rebootConfirm = "Reboot Confirmation",
-        aboutApp = "About", aboutVersion = "Version: %1\$s",
-        license = "License", disableAds = "Disable Ads",
-        disableAdsDesc = "Turning off ads will slightly reduce app support.",
-        disableAdsConfirmTitle = "Disable Ads?",
-        disableAdsConfirmMsg = "Ads help keep the app free. Are you sure you want to disable them?",
-        disableAdsConfirmFinalTitle = "Last chance",
-        disableAdsConfirmFinalMsg = "Are you really sure you want to disable ads? Double-check before you proceed.",
-        showInWidget = "Show in Widget",
-        iconGaming = "Gaming", iconWeb = "Web", iconDatabase = "Database", iconCloud = "Cloud",
-        iconNas = "NAS", iconVpn = "VPN", iconDev = "Development", iconMedia = "Media",
-        iconDefault = "Default",
-        sftpExplorer = "SFTP Explorer", terminal = "Terminal",
-        emptyDirectory = "Empty Directory", deleteFileConfirm = "Delete this file?",
-        exitSshSessionMsg = "This will close the active SSH session. Continue?",
-        confirmExit = "Confirm Exit", historyUp = "History Up", historyDown = "History Down",
-        tabKey = "TAB", ctrlCKey = "CTRL+C", clearKey = "CLEAR", escKey = "ESC",
-        enterKey = "ENTER", commandPlaceholder = "Command...",
-        executeConfirmMsg = "Execute: %1\$s?",
-        cmdList = "List", cmdTop = "Top", cmdDisk = "Disk", cmdRam = "RAM",
-        cmdUptime = "Uptime", cmdProcesses = "Processes", cmdLogs = "Logs",
-        searchFiles = "Search files...", closeSessionQ = "Close Session?", stay = "Stay",
-        upload = "Upload", sessionError = "Session Error", reconnect = "Reconnect",
-        dismiss = "Dismiss", exitSftpMsg = "Exiting will close the active SFTP connection.",
-        hideHidden = "Hide hidden files", showHidden = "Show hidden files",
-        selectedCount = "%1\$d selected", newFolder = "New Folder",
-        folderNamePlaceholder = "Folder name", create = "Create", rename = "Rename",
-        folders = "Folders", noFolder = "No folder",
-        deleteFolderConfirm = "Delete folder \"%1\$s\"? Its servers will stay.",
-        errTimeout = "Connection timed out. Check your network or server status.",
-        errAuthFailed = "Authentication failed. Check your username, password, or SSH keys.",
-        errHostUnreachable = "Host unreachable. Ensure the IP/Host and Port are correct.",
-        errHostKeyMismatch = "SECURITY WARNING: Host identification has changed! Possible Man-in-the-Middle attack.",
-        errUnknown = "An unexpected error occurred.",
-        errConnectionLost = "Connection lost. Please try again.",
-        sshErrorTemplate = "\n[Error: %1\$s]\n",
-        terminalStyle = "Terminal Style", backgroundColor = "Background Color",
-        textColor = "Text Color", cmdPlaceholderExample = "ls -la\ncd /var/www\n...",
-        errorPrefix = "Error: %1\$s", sftpErrorPrefix = "SFTP Error: %1\$s",
-        privacyMode = "Privacy Mode",
-        privacyModeDesc = "Hide part of IP addresses when displaying them",
-        quickCommands = "Quick Commands",
-        autoReconnect = "Auto-reconnect",
-        autoReconnectDesc = "Reconnect automatically when the connection drops",
-        reconnectingMsg = "Connection lost. Reconnecting in %1\$d s…",
-        biometricLock = "Biometric lock",
-        biometricLockDesc = "Require fingerprint to unlock the app",
-        appLocked = "App locked",
-        appLockedSubtitle = "Unlock with your fingerprint to continue",
-        unlock = "Unlock", biometricNotAvailable = "Biometrics are not available on this device",
-        retry = "Try again",
-        yes = "Yes", no = "No", next = "Next", skip = "Skip", finish = "Finish",
-        welcomeTitle = "Welcome to SSH Commander!",
-        welcomeQuestion = "Would you like to learn how to use SSH Commander?",
-        importJsonQuestion = "Do you have a data backup (JSON file)? Import it now?",
-        importJsonButton = "Import",
-        tourStep = "Step %1\$d of %2\$d",
-        manageLogins = "Logins", addLogin = "Add Login",
-        loginLabel = "Label (e.g. root, deploy)", sftpStartPath = "SFTP Start Folder",
-        sftpStartPathHint = "SFTP start: %1\$s",
-        sftpStartPathHint2 = "Where SFTP opens first. Empty = home folder (or last visited).",
-        noLogins = "No additional logins yet. Tap + to add one.",
-        setDefaultLogin = "Set as default login", deleteLoginTitle = "Delete login?",
-        deleteLoginMsg = "Delete login \"%1\$s\"?", selectLogin = "Select login",
-        mainLoginLabel = "Main login (%1\$s)",
-        addSession = "New Session", closeSession = "Close Session", sessionTabs = "Sessions",
-        copyText = "Copy", selectAll = "Select All", clearSelection = "Clear selection",
-        preview = "Preview", download = "Download", copyPath = "Copy path", open = "Open",
-        fileInfo = "File info", previewUnavailable = "Preview is not available for this file type",
-        fileType = "Type", fileSize = "Size", modified = "Modified", permissions = "Permissions",
-        folder = "Folder",
-        manageKeys = "SSH Keys", sshKeys = "SSH Keys", addKey = "Add Key", generateKey = "Generate Key",
-        keyName = "Key Name", keyType = "Key Type", keyBits = "Bits", passphrase = "Passphrase (optional)",
-        copyPublicKey = "Copy Public Key", publicKeyCopied = "Public key copied to clipboard",
-        deleteKeyConfirm = "Delete this SSH key?",
-        scriptMarket = "Script Market",
-        identities = "Identities & Access", authMethod = "Authentication Method",
-        usePassword = "Use Password", useSshKey = "Use SSH Key",
-        autoProvisionDesc = "Auto-provision on server",
-        provisioningWarning = "Requires an active sudo session on this server",
-        importKeyContent = "Import Key Content", generateNewKey = "Generate New Key",
-        selectExistingKey = "Select Existing Key",
-        provisionSuccess = "Identity provisioned successfully!",
-        dashboard = "Dashboard", addWidget = "Add Widget", editWidget = "Edit Widget",
-        systemLogs = "System Logs", presets = "Presets", widgetTitle = "Title",
-        widgetCommand = "Command", displayType = "Display Type", wideCard = "Wide card",
-        indicatorColor = "Indicator Color (Hex)",
-        editMode = "Edit Dashboard",
-        exitEditMode = "Save Layout",
-        adbConnectionPort = "Connection Port",
-        adbPairingPort = "Pairing Port",
-        adbPairingCode = "Pairing Code",
-        adbPairingInstructions = "1. Tap 'Pair device with pairing code' on your phone.\n2. Enter the PORT and CODE shown in the popup.\n\nNote: This is only needed once.",
-        adbConnectionPortHint = "From the main Wireless Debugging screen",
-        adbEnterCode = "Enter CODE",
-        adbPair = "Pair",
-        adbNotFound = "ADB not found",
-        adbDownloadDesc = "To use pairing, 'adb' must be installed. Download it automatically?",
-        adbDownloadBtn = "Download ADB",
-        adbDownloading = "Downloading ADB...",
-        adbScan = "Scan Network",
-        adbScanning = "Searching for devices...",
-        adbNoDevices = "No devices found",
-        adbSelectDevice = "Select Device",
-        invalidPort = "Invalid port",
-        adbCodeDigits = "Code must be 6 digits",
-        pairingFailed = "Pairing failed",
-        adbPairMethod = "Choose pairing method",
-        adbPairQR = "QR Code",
-        adbQRInstructions = "Scan this QR code in Developer Options -> Wireless Debugging -> Pair device with QR code",
-        adbDeviceName = "Device: %1\$s",
+    val en = Strings().apply {
+        appName = "SSH Commander"; servers = "Servers"; addServer = "Add Server"
+        add = "Add"
+        editServer = "Edit Server"; deleteServer = "Delete Server"; settings = "Settings"
+        back = "Back"; exit = "Exit"
+        theme = "Theme"; themeLight = "Light"; themeDark = "Dark"; themeSystem = "System"
+        languageLabel = "Language"; langEn = "English"; langRu = "Русский"
+        consoleFont = "Console Font Family"; fontDefault = "Default"
+        fontMonospace = "Monospace"; fontSansSerif = "Sans Serif"; fontSerif = "Serif"
+        consoleFontSize = "Console Font Size"; sizeSmall = "Small (12sp)"
+        sizeMedium = "Medium (14sp)"; sizeLarge = "Large (18sp)"
+        dataManagement = "Data Management"; exportData = "Export JSON"
+        importData = "Import JSON"; exportSuccess = "Data exported successfully"
+        importSuccess = "Data imported. Please restart."
+        serverName = "Name"; protocolLabel = "Protocol"; hostIp = "Host / IP"; port = "Port"; username = "Username"
+        password = "Password"; saveServer = "Save Server"; save = "Save"; cancel = "Cancel"
+        pin = "Pin to top"; unpin = "Unpin"; pinnedServers = "Pinned"
+        delete = "Delete"; edit = "Edit"; chooseAction = "Choose Action"
+        chooseIcon = "Choose Icon"
+        reboot = "Reboot"; checkConnection = "Check Connection"; loading = "Loading..."
+        commands = "Commands"; manageCommands = "Manage Commands"
+        runCommand = "Run Command"; run = "Run"; confirmExecution = "Confirm Execution"
+        execute = "Execute"; dangerous = "Dangerous"; newCommand = "New Custom Command"
+        requiresBio = "Requires biometric confirmation"
+        confirmRebootMsg = "Are you sure? Biometric verification may be required."
+        rebootConfirm = "Reboot Confirmation"
+        aboutApp = "About"; aboutVersion = "Version: %1\$s"
+        license = "License"; disableAds = "Disable Ads"
+        disableAdsDesc = "Turning off ads will slightly reduce app support."
+        disableAdsConfirmTitle = "Disable Ads?"
+        disableAdsConfirmMsg = "Ads help keep the app free. Are you sure you want to disable them?"
+        disableAdsConfirmFinalTitle = "Last chance"
+        disableAdsConfirmFinalMsg = "Are you really sure you want to disable ads? Double-check before you proceed."
+        showInWidget = "Show in Widget"
+        iconGaming = "Gaming"; iconWeb = "Web"; iconDatabase = "Database"; iconCloud = "Cloud"
+        iconNas = "NAS"; iconVpn = "VPN"; iconDev = "Development"; iconMedia = "Media"
+        iconDefault = "Default"
+        sftpExplorer = "SFTP Explorer"; terminal = "Terminal"
+        emptyDirectory = "Empty Directory"; deleteFileConfirm = "Delete this file?"
+        exitSshSessionMsg = "This will close the active SSH session. Continue?"
+        confirmExit = "Confirm Exit"; historyUp = "History Up"; historyDown = "History Down"
+        tabKey = "TAB"; ctrlCKey = "CTRL+C"; clearKey = "CLEAR"; escKey = "ESC"
+        enterKey = "ENTER"; commandPlaceholder = "Command..."
+        executeConfirmMsg = "Execute: %1\$s?"
+        cmdList = "List"; cmdTop = "Top"; cmdDisk = "Disk"; cmdRam = "RAM"
+        cmdUptime = "Uptime"; cmdProcesses = "Processes"; cmdLogs = "Logs"
+        searchFiles = "Search files..."; closeSessionQ = "Close Session?"; stay = "Stay"
+        upload = "Upload"; sessionError = "Session Error"; reconnect = "Reconnect"
+        dismiss = "Dismiss"; exitSftpMsg = "Exiting will close the active SFTP connection."
+        hideHidden = "Hide hidden files"; showHidden = "Show hidden files"
+        selectedCount = "%1\$d selected"; newFolder = "New Folder"
+        folderNamePlaceholder = "Folder name"; create = "Create"; rename = "Rename"
+        folders = "Folders"; noFolder = "No folder"
+        deleteFolderConfirm = "Delete folder \"%1\$s\"? Its servers will stay."
+        errTimeout = "Connection timed out. Check your network or server status."
+        errAuthFailed = "Authentication failed. Check your username, password, or SSH keys."
+        errHostUnreachable = "Host unreachable. Ensure the IP/Host and Port are correct."
+        errHostKeyMismatch = "SECURITY WARNING: Host identification has changed! Possible Man-in-the-Middle attack."
+        errUnknown = "An unexpected error occurred."
+        errConnectionLost = "Connection lost. Please try again."
+        sshErrorTemplate = "\n[Error: %1\$s]\n"
+        terminalStyle = "Terminal Style"; backgroundColor = "Background Color"
+        textColor = "Text Color"; cmdPlaceholderExample = "ls -la\ncd /var/www\n..."
+        errorPrefix = "Error: %1\$s"; sftpErrorPrefix = "SFTP Error: %1\$s"
+        privacyMode = "Privacy Mode"
+        privacyModeDesc = "Hide part of IP addresses when displaying them"
+        quickCommands = "Quick Commands"
+        autoReconnect = "Auto-reconnect"
+        autoReconnectDesc = "Reconnect automatically when the connection drops"
+        reconnectingMsg = "Connection lost. Reconnecting in %1\$d s…"
+        biometricLock = "Biometric lock"
+        biometricLockDesc = "Require fingerprint to unlock the app"
+        appLocked = "App locked"
+        appLockedSubtitle = "Unlock with your fingerprint to continue"
+        unlock = "Unlock"; biometricNotAvailable = "Biometrics are not available on this device"
+        retry = "Try again"
+        yes = "Yes"; no = "No"; next = "Next"; skip = "Skip"; finish = "Finish"
+        welcomeTitle = "Welcome to SSH Commander!"
+        welcomeQuestion = "Would you like to learn how to use SSH Commander?"
+        importJsonQuestion = "Do you have a data backup (JSON file)? Import it now?"
+        importJsonButton = "Import"
+        tourStep = "Step %1\$d of %2\$d"
+        manageLogins = "Logins"; addLogin = "Add Login"
+        loginLabel = "Label (e.g. root, deploy)"; sftpStartPath = "SFTP Start Folder"
+        sftpStartPathHint = "SFTP start: %1\$s"
+        sftpStartPathHint2 = "Where SFTP opens first. Empty = home folder (or last visited)."
+        noLogins = "No additional logins yet. Tap + to add one."
+        setDefaultLogin = "Set as default login"; deleteLoginTitle = "Delete login?"
+        deleteLoginMsg = "Delete login \"%1\$s\""; selectLogin = "Select login"
+        mainLoginLabel = "Main login (%1\$s)"
+        addSession = "New Session"; closeSession = "Close Session"; sessionTabs = "Sessions"
+        copyText = "Copy"; selectAll = "Select All"; clearSelection = "Clear selection"
+        preview = "Preview"; download = "Download"; copyPath = "Copy path"; open = "Open"
+        fileInfo = "File info"; previewUnavailable = "Preview is not available for this file type"
+        fileType = "Type"; fileSize = "Size"; modified = "Modified"; permissions = "Permissions"
+        folder = "Folder"
+        manageKeys = "SSH Keys"; sshKeys = "SSH Keys"; addKey = "Add Key"; generateKey = "Generate Key"
+        keyName = "Key Name"; keyType = "Key Type"; keyBits = "Bits"; passphrase = "Passphrase (optional)"
+        copyPublicKey = "Copy Public Key"; publicKeyCopied = "Public key copied to clipboard"
+        deleteKeyConfirm = "Delete this SSH key?"
+        scriptMarket = "Script Market"
+        identities = "Identities & Access"; authMethod = "Authentication Method"
+        usePassword = "Use Password"; useSshKey = "Use SSH Key"
+        autoProvisionDesc = "Auto-provision on server"
+        provisioningWarning = "Requires an active sudo session on this server"
+        importKeyContent = "Import Key Content"; generateNewKey = "Generate New Key"
+        selectExistingKey = "Select Existing Key"
+        provisionSuccess = "Identity provisioned successfully!"
+        dashboard = "Dashboard"; addWidget = "Add Widget"; editWidget = "Edit Widget"
+        systemLogs = "System Logs"; presets = "Presets"; widgetTitle = "Title"
+        widgetCommand = "Command"; displayType = "Display Type"; wideCard = "Wide card"
+        indicatorColor = "Indicator Color (Hex)"
+        editMode = "Edit Dashboard"
+        exitEditMode = "Save Layout"
+        adbConnectionPort = "Connection Port"
+        adbPairingPort = "Pairing Port"
+        adbPairingCode = "Pairing Code"
+        adbPairingInstructions = "1. Tap 'Pair device with pairing code' on your phone.\n2. Enter the PORT and CODE shown in the popup.\n\nNote: This is only needed once."
+        adbConnectionPortHint = "From the main Wireless Debugging screen"
+        adbEnterCode = "Enter CODE"
+        adbPair = "Pair"
+        adbNotFound = "ADB not found"
+        adbDownloadDesc = "To use pairing, 'adb' must be installed. Download it automatically?"
+        adbDownloadBtn = "Download ADB"
+        adbDownloading = "Downloading ADB..."
+        adbScan = "Scan Network"
+        adbScanning = "Searching for devices..."
+        adbNoDevices = "No devices found"
+        adbSelectDevice = "Select Device"
+        invalidPort = "Invalid port"
+        adbCodeDigits = "Code must be 6 digits"
+        pairingFailed = "Pairing failed"
+        adbPairMethod = "Choose pairing method"
+        adbPairQR = "QR Code"
+        adbQRInstructions = "Scan this QR code in Developer Options -> Wireless Debugging -> Pair device with QR code"
+        adbDeviceName = "Device: %1\$s"
         adbServiceNameLabel = "Service Name"
-    )
+        adbPairAndConnect = "PAIR AND CONNECT"
+        adbManualConnection = "Manual connection"
+        adbFirstStepPair = "First step, pair with your device"
+        adbWizardGuideTitle = "ADB Setup Guide"
+        adbWizardGuideDesc = "1. Enable Developer Options on your phone.\n2. Turn on Wireless Debugging.\n3. Keep the 'Pair device with pairing code' screen open."
+    }
 
-    val ru = Strings(
-        appName = "SSH Commander", servers = "Серверы", addServer = "Добавить сервер",
-        add = "Добавить",
-        editServer = "Изменить сервер", deleteServer = "Удалить сервер", settings = "Настройки",
-        back = "Назад", exit = "Выход",
-        theme = "Тема", themeLight = "Светлая", themeDark = "Тёмная",
-        themeSystem = "Системная",
-        languageLabel = "Язык", langEn = "English", langRu = "Русский",
-        consoleFont = "Шрифт консоли", fontDefault = "По умолчанию",
-        fontMonospace = "Monospace", fontSansSerif = "Sans Serif", fontSerif = "Serif",
-        consoleFontSize = "Размер шрифта", sizeSmall = "Маленький (12sp)",
-        sizeMedium = "Средний (14sp)", sizeLarge = "Большой (18sp)",
-        dataManagement = "Управление данными", exportData = "Экспорт JSON",
-        importData = "Импорт JSON", exportSuccess = "Данные экспортированы",
-        importSuccess = "Данные импортированы. Перезапустите.",
-        serverName = "Название", protocolLabel = "Протокол", hostIp = "Хост / IP", port = "Порт", username = "Логин",
-        password = "Пароль", saveServer = "Сохранить сервер", save = "Сохранить",
-        cancel = "Отмена", 
-        pin = "Закрепить", unpin = "Открепить", pinnedServers = "Закрепленные",
-        delete = "Удалить", edit = "Изменить",
-        chooseAction = "Выберите действие", chooseIcon = "Выбрать иконку",
-        reboot = "Перезагрузить", checkConnection = "Проверить соединение",
-        loading = "Загрузка...", commands = "Команды",
-        manageCommands = "Управление командами", runCommand = "Выполнить команду",
-        run = "Запуск", confirmExecution = "Подтверждение выполнения",
-        execute = "Выполнить", dangerous = "Опасно", newCommand = "Новая команда",
-        requiresBio = "Требуется биометрия",
-        confirmRebootMsg = "Вы уверены? Может потребоваться биометрия.",
-        rebootConfirm = "Подтверждение",
-        aboutApp = "О приложении", aboutVersion = "Версия: %1\$s",
-        license = "Лицензия", disableAds = "Отключить рекламу",
-        disableAdsDesc = "Отключение рекламы снижает поддержку разработки приложения.",
-        disableAdsConfirmTitle = "Отключить рекламу?",
-        disableAdsConfirmMsg = "Реклама помогает приложению оставаться бесплатным. Вы уверены, что хотите её отключить?",
-        disableAdsConfirmFinalTitle = "Последнее предупреждение",
-        disableAdsConfirmFinalMsg = "Вы точно-точно уверены? Подумайте еще раз, прежде чем подтвердить.",
-        showInWidget = "Показывать в виджете",
-        iconGaming = "Игровой", iconWeb = "Веб-сервер", iconDatabase = "База данных",
-        iconCloud = "Облако", iconNas = "NAS", iconVpn = "VPN",
-        iconDev = "Разработка", iconMedia = "Медиа-сервер", iconDefault = "По умолчанию",
-        sftpExplorer = "Проводник SFTP", terminal = "Терминал",
-        emptyDirectory = "Папка пуста", deleteFileConfirm = "Удалить этот файл?",
-        exitSshSessionMsg = "Это закроет активную SSH-сессию. Продолжить?",
-        confirmExit = "Подтвердите выход", historyUp = "История вверх",
-        historyDown = "История вниз", tabKey = "TAB", ctrlCKey = "CTRL+C",
-        clearKey = "ОЧИСТИТЬ", escKey = "ESC", enterKey = "ENTER",
-        commandPlaceholder = "Команда...", executeConfirmMsg = "Выполнить: %1\$s?",
-        cmdList = "Список", cmdTop = "Топ", cmdDisk = "Диск", cmdRam = "Память",
-        cmdUptime = "Аптайм", cmdProcesses = "Процессы", cmdLogs = "Логи",
-        searchFiles = "Поиск файлов...", closeSessionQ = "Закрыть сессию?", stay = "Остаться",
-        upload = "Загрузить", sessionError = "Ошибка сессии", reconnect = "Переподключиться",
-        dismiss = "Закрыть", exitSftpMsg = "Выход закроет активное SFTP-соединение.",
-        hideHidden = "Скрыть скрытые файлы", showHidden = "Показать скрытые файлы",
-        selectedCount = "Выбрано: %1\$d", newFolder = "Новая папка",
-        folderNamePlaceholder = "Имя папки", create = "Создать", rename = "Переименовать",
-        folders = "Папки", noFolder = "Без папки",
-        deleteFolderConfirm = "Удалить папку \"%1\$s\"? Её серверы останутся.",
-        errTimeout = "Время ожидания истекло. Проверьте сеть или статус сервера.",
-        errAuthFailed = "Ошибка аутентификации. Проверьте имя пользователя, пароль или ключи.",
-        errHostUnreachable = "Узел недоступен. Проверьте IP/хост и порт.",
-        errHostKeyMismatch = "ВНИМАНИЕ: Идентификация узла изменилась! Возможна атака Man-in-the-Middle.",
-        errUnknown = "Произошла непредвиденная ошибка.",
-        errConnectionLost = "Соединение потеряно. Попробуйте еще раз.",
-        sshErrorTemplate = "\n[Ошибка: %1\$s]\n",
-        terminalStyle = "Стиль терминала", backgroundColor = "Цвет фона",
-        textColor = "Цвет текста", cmdPlaceholderExample = "ls -la\ncd /var/www\n...",
-        errorPrefix = "Ошибка: %1\$s", sftpErrorPrefix = "Ошибка SFTP: %1\$s",
-        privacyMode = "Режим анонимности",
-        privacyModeDesc = "Скрывать часть IP-адресов при отображении",
-        quickCommands = "Быстрые команды",
-        autoReconnect = "Автопереподключение",
-        autoReconnectDesc = "Переподключаться автоматически при обрыве соединения",
-        reconnectingMsg = "Соединение потеряно. Переподключение через %1\$d с…",
-        biometricLock = "Биометрическая блокировка",
-        biometricLockDesc = "Требовать отпечаток пальца для входа в приложение",
-        appLocked = "Приложение заблокировано",
-        appLockedSubtitle = "Разблокируйте отпечатком пальца, чтобы продолжить",
-        unlock = "Разблокировать",
-        biometricNotAvailable = "Биометрия недоступна на этом устройстве",
-        retry = "Попробовать снова",
-        yes = "Да", no = "Нет", next = "Далее", skip = "Пропустить", finish = "Готово",
-        welcomeTitle = "Добро пожаловать в SSH Commander!",
-        welcomeQuestion = "Хотите узнать, как пользоваться SSH Commander?",
-        importJsonQuestion = "У вас есть резервная копия данных (файл JSON)? Импортировать её сейчас?",
-        importJsonButton = "Импортировать",
-        tourStep = "Шаг %1\$d из %2\$d",
-        manageLogins = "Logins", addLogin = "Добавить логин",
-        loginLabel = "Метка (напр. root, deploy)", sftpStartPath = "Стартовая папка SFTP",
-        sftpStartPathHint = "Старт SFTP: %1\$s",
-        sftpStartPathHint2 = "Папка, которая открывается в SFTP первой. Пусто = домашняя папка (или последняя посещённая).",
-        noLogins = "Дополнительных логинов нет. Нажмите +, чтобы добавить.",
-        setDefaultLogin = "Сделать логином по умолчанию", deleteLoginTitle = "Удалить логин?",
-        deleteLoginMsg = "Удалить логин \"%1\$s\"?", selectLogin = "Выбрать логин",
-        mainLoginLabel = "Основной логин (%1\$s)",
-        addSession = "Новая сессия", closeSession = "Закрыть сессию", sessionTabs = "Сессии",
-        copyText = "Копировать", selectAll = "Выбрать всё", clearSelection = "Снять выделение",
-        preview = "Предпросмотр", download = "Скачать", copyPath = "Копировать путь",
-        open = "Открыть", fileInfo = "Информация о файле",
-        previewUnavailable = "Предпросмотр недоступен для этого типа файлов",
-        fileType = "Тип", fileSize = "Размер", modified = "Изменён",
-        permissions = "Права доступа", folder = "Папка",
-        manageKeys = "SSH Ключи", sshKeys = "SSH Ключи", addKey = "Добавить ключ", generateKey = "Создать ключ",
-        keyName = "Название ключа", keyType = "Тип ключа", keyBits = "Бит", passphrase = "Пароль (необязательно)",
-        copyPublicKey = "Скопировать Pub Key", publicKeyCopied = "Публичный ключ скопирован",
-        deleteKeyConfirm = "Удалить этот SSH ключ?",
-        scriptMarket = "Маркет скриптов",
-        identities = "Личности и Доступ", authMethod = "Способ входа",
-        usePassword = "Использовать пароль", useSshKey = "Использовать SSH ключ",
-        autoProvisionDesc = "Развернуть на сервере автоматически",
-        provisioningWarning = "Требуется активная sudo-сессия",
-        importKeyContent = "Вставить содержимое ключа", generateNewKey = "Создать новый ключ",
-        selectExistingKey = "Выбрать из списка",
-        provisionSuccess = "Личность успешно развернута на сервере!",
-        dashboard = "Дашборд", addWidget = "Добавить виджет", editWidget = "Изменить виджет",
-        systemLogs = "Системные логи", presets = "Пресеты", widgetTitle = "Название",
-        widgetCommand = "Команда", displayType = "Тип отображения", wideCard = "Широкая карточка",
-        indicatorColor = "Цвет индикатора (Hex)",
-        editMode = "Изменить виджеты",
-        exitEditMode = "Сохранить вид",
-        adbConnectionPort = "Порт подключения",
-        adbPairingPort = "Порт СОПРЯЖЕНИЯ",
-        adbPairingCode = "Код сопряжения",
-        adbPairingInstructions = "1. Нажмите 'Подключить с помощью кода' на телефоне.\n2. Введите ПОРТ и КОД из появившегося окошка.\n\nЭто нужно сделать только один раз.",
-        adbConnectionPortHint = "Берется с главного экрана Wireless Debugging",
-        adbEnterCode = "Ввести КОД",
-        adbPair = "Сопряжение",
-        adbNotFound = "ADB не найден",
-        adbDownloadDesc = "Для сопряжения нужен инструмент 'adb'. Скачать его автоматически?",
-        adbDownloadBtn = "Скачать ADB",
-        adbDownloading = "Загрузка ADB...",
-        adbScan = "Сканировать сеть",
-        adbScanning = "Поиск устройств...",
-        adbNoDevices = "Устройства не найдены",
-        adbSelectDevice = "Выберите устройство",
-        invalidPort = "Некорректный порт",
-        adbCodeDigits = "Код должен состоять из 6 цифр",
-        pairingFailed = "Ошибка сопряжения",
-        adbPairMethod = "Выберите способ сопряжения",
-        adbPairQR = "QR-код",
-        adbQRInstructions = "Отсканируйте этот QR-код в разделе 'Отладка по Wi-Fi' -> 'Подключить с помощью QR-кода'",
-        adbDeviceName = "Устройство: %1\$s",
+    val ru = Strings().apply {
+        appName = "SSH Commander"; servers = "Серверы"; addServer = "Добавить сервер"
+        add = "Добавить"
+        editServer = "Изменить сервер"; deleteServer = "Удалить сервер"; settings = "Настройки"
+        back = "Назад"; exit = "Выход"
+        theme = "Тема"; themeLight = "Светлая"; themeDark = "Тёмная"
+        themeSystem = "Системная"
+        languageLabel = "Язык"; langEn = "English"; langRu = "Русский"
+        consoleFont = "Шрифт консоли"; fontDefault = "По умолчанию"
+        fontMonospace = "Monospace"; fontSansSerif = "Sans Serif"; fontSerif = "Serif"
+        consoleFontSize = "Размер шрифта"; sizeSmall = "Маленький (12sp)"
+        sizeMedium = "Средний (14sp)"; sizeLarge = "Большой (18sp)"
+        dataManagement = "Управление данными"; exportData = "Экспорт JSON"
+        importData = "Импорт JSON"; exportSuccess = "Данные экспортированы"
+        importSuccess = "Данные импортированы. Перезапустите."
+        serverName = "Название"; protocolLabel = "Протокол"; hostIp = "Хост / IP"; port = "Порт"; username = "Логин"
+        password = "Пароль"; saveServer = "Сохранить сервер"; save = "Сохранить"
+        cancel = "Отмена"
+        pin = "Закрепить"; unpin = "Открепить"; pinnedServers = "Закрепленные"
+        delete = "Удалить"; edit = "Изменить"
+        chooseAction = "Выберите действие"; chooseIcon = "Выбрать иконку"
+        reboot = "Перезагрузить"; checkConnection = "Проверить соединение"
+        loading = "Загрузка..."; commands = "Команды"
+        manageCommands = "Управление командами"; runCommand = "Выполнить команду"
+        run = "Запуск"; confirmExecution = "Подтверждение выполнения"
+        execute = "Выполнить"; dangerous = "Опасно"; newCommand = "Новая команда"
+        requiresBio = "Требуется биометрия"
+        confirmRebootMsg = "Вы уверены? Может потребоваться биометрия."
+        rebootConfirm = "Подтверждение"
+        aboutApp = "О приложении"; aboutVersion = "Версия: %1\$s"
+        license = "Лицензия"; disableAds = "Отключить рекламу"
+        disableAdsDesc = "Отключение рекламы снижает поддержку разработки приложения."
+        disableAdsConfirmTitle = "Отключить рекламу?"
+        disableAdsConfirmMsg = "Реклама помогает приложению оставаться бесплатным. Вы уверены, что хотите её отключить?"
+        disableAdsConfirmFinalTitle = "Последнее предупреждение"
+        disableAdsConfirmFinalMsg = "Вы точно-точно уверены? Подумайте еще раз, прежде чем подтвердить."
+        showInWidget = "Показывать в виджете"
+        iconGaming = "Игровой"; iconWeb = "Веб-сервер"; iconDatabase = "База данных"
+        iconCloud = "Облако"; iconNas = "NAS"; iconVpn = "VPN"
+        iconDev = "Разработка"; iconMedia = "Медиа-сервер"; iconDefault = "По умолчанию"
+        sftpExplorer = "Проводник SFTP"; terminal = "Терминал"
+        emptyDirectory = "Папка пуста"; deleteFileConfirm = "Удалить этот файл?"
+        exitSshSessionMsg = "Это закроет активную SSH-сессию. Продолжить?"
+        confirmExit = "Подтвердите выход"; historyUp = "История вверх"
+        historyDown = "История вниз"; tabKey = "TAB"; ctrlCKey = "CTRL+C"
+        clearKey = "ОЧИСТИТЬ"; escKey = "ESC"; enterKey = "ENTER"
+        commandPlaceholder = "Команда..."; executeConfirmMsg = "Выполнить: %1\$s?"
+        cmdList = "Список"; cmdTop = "Топ"; cmdDisk = "Диск"; cmdRam = "Память"
+        cmdUptime = "Аптайм"; cmdProcesses = "Процессы"; cmdLogs = "Логи"
+        searchFiles = "Поиск файлов..."; closeSessionQ = "Закрыть сессию?"; stay = "Остаться"
+        upload = "Загрузить"; sessionError = "Ошибка сессии"; reconnect = "Переподключиться"
+        dismiss = "Закрыть"; exitSftpMsg = "Выход закроет активное SFTP-соединение."
+        hideHidden = "Скрыть скрытые файлы"; showHidden = "Показать скрытые файлы"
+        selectedCount = "Выбрано: %1\$d"; newFolder = "Новая папка"
+        folderNamePlaceholder = "Имя папки"; create = "Создать"; rename = "Переименовать"
+        folders = "Папки"; noFolder = "Без папки"
+        deleteFolderConfirm = "Удалить папку \"%1\$s\"? Её серверы останутся."
+        errTimeout = "Время ожидания истекло. Проверьте сеть или статус сервера."
+        errAuthFailed = "Ошибка аутентификации. Проверьте имя пользователя, пароль или ключи."
+        errHostUnreachable = "Узел недоступен. Проверьте IP/хост и порт."
+        errHostKeyMismatch = "ВНИМАНИЕ: Идентификация узла изменилась! Возможна атака Man-in-the-Middle."
+        errUnknown = "Произошла непредвиденная ошибка."
+        errConnectionLost = "Соединение потеряно. Попробуйте еще раз."
+        sshErrorTemplate = "\n[Ошибка: %1\$s]\n"
+        terminalStyle = "Стиль терминала"; backgroundColor = "Цвет фона"
+        textColor = "Цвет текста"; cmdPlaceholderExample = "ls -la\ncd /var/www\n..."
+        errorPrefix = "Ошибка: %1\$s"; sftpErrorPrefix = "Ошибка SFTP: %1\$s"
+        privacyMode = "Режим анонимности"
+        privacyModeDesc = "Скрывать часть IP-адресов при отображении"
+        quickCommands = "Быстрые команды"
+        autoReconnect = "Автопереподключение"
+        autoReconnectDesc = "Переподключаться автоматически при обрыве соединения"
+        reconnectingMsg = "Соединение потеряно. Переподключение через %1\$d с…"
+        biometricLock = "Биометрическая блокировка"
+        biometricLockDesc = "Требовать отпечаток пальца для входа в приложение"
+        appLocked = "Приложение заблокировано"
+        appLockedSubtitle = "Разблокируйте отпечатком пальца, чтобы продолжить"
+        unlock = "Разблокировать"
+        biometricNotAvailable = "Биометрия недоступна на этом устройстве"
+        retry = "Попробовать снова"
+        yes = "Да"; no = "Нет"; next = "Далее"; skip = "Пропустить"; finish = "Готово"
+        welcomeTitle = "Добро пожаловать в SSH Commander!"
+        welcomeQuestion = "Хотите узнать, как пользоваться SSH Commander?"
+        importJsonQuestion = "У вас есть резервная копия данных (файл JSON)? Импортировать её сейчас?"
+        importJsonButton = "Импортировать"
+        tourStep = "Шаг %1\$d из %2\$d"
+        manageLogins = "Logins"; addLogin = "Добавить логин"
+        loginLabel = "Метка (напр. root, deploy)"; sftpStartPath = "Стартовая папка SFTP"
+        sftpStartPathHint = "Старт SFTP: %1\$s"
+        sftpStartPathHint2 = "Папка, которая открывается в SFTP первой. Пусто = домашняя папка (или последняя посещённая)."
+        noLogins = "Дополнительных логинов нет. Нажмите +, чтобы добавить."
+        setDefaultLogin = "Сделать логином по умолчанию"; deleteLoginTitle = "Удалить логин?"
+        deleteLoginMsg = "Удалить логин \"%1\$s\""; selectLogin = "Выбрать логин"
+        mainLoginLabel = "Основной логин (%1\$s)"
+        addSession = "Новая сессия"; closeSession = "Закрыть сессию"; sessionTabs = "Сессии"
+        copyText = "Копировать"; selectAll = "Выбрать всё"; clearSelection = "Снять выделение"
+        preview = "Предпросмотр"; download = "Скачать"; copyPath = "Копировать путь"
+        open = "Открыть"; fileInfo = "Информация о файле"
+        previewUnavailable = "Предпросмотр недоступен для этого типа файлов"
+        fileType = "Тип"; fileSize = "Размер"; modified = "Изменён"
+        permissions = "Права доступа"; folder = "Папка"
+        manageKeys = "SSH Ключи"; sshKeys = "SSH Ключи"; addKey = "Добавить ключ"; generateKey = "Создать ключ"
+        keyName = "Название ключа"; keyType = "Тип ключа"; keyBits = "Бит"; passphrase = "Пароль (необязательно)"
+        copyPublicKey = "Скопировать Pub Key"; publicKeyCopied = "Публичный ключ скопирован"
+        deleteKeyConfirm = "Удалить этот SSH ключ?"
+        scriptMarket = "Маркет скриптов"
+        identities = "Личности и Доступ"; authMethod = "Способ входа"
+        usePassword = "Использовать пароль"; useSshKey = "Использовать SSH ключ"
+        autoProvisionDesc = "Развернуть на сервере автоматически"
+        provisioningWarning = "Требуется активная sudo-сессия"
+        importKeyContent = "Вставить содержимое ключа"; generateNewKey = "Создать новый ключ"
+        selectExistingKey = "Выбрать из списка"
+        provisionSuccess = "Личность успешно развернута на сервере!"
+        dashboard = "Дашборд"; addWidget = "Добавить виджет"; editWidget = "Изменить виджет"
+        systemLogs = "Системные логи"; presets = "Пресеты"; widgetTitle = "Название"
+        widgetCommand = "Команда"; displayType = "Тип отображения"; wideCard = "Широкая карточка"
+        indicatorColor = "Цвет индикатора (Hex)"
+        editMode = "Изменить виджеты"
+        exitEditMode = "Сохранить вид"
+        adbConnectionPort = "Порт подключения"
+        adbPairingPort = "Порт СОПРЯЖЕНИЯ"
+        adbPairingCode = "Код сопряжения"
+        adbPairingInstructions = "1. Нажмите 'Подключить с помощью кода' на телефоне.\n2. Введите ПОРТ и КОД из появившегося окошка.\n\nЭто нужно сделать только один раз."
+        adbConnectionPortHint = "Берется с главного экрана Wireless Debugging"
+        adbEnterCode = "Ввести КОД"
+        adbPair = "Сопряжение"
+        adbNotFound = "ADB не найден"
+        adbDownloadDesc = "Для сопряжения нужен инструмент 'adb'. Скачать его автоматически?"
+        adbDownloadBtn = "Скачать ADB"
+        adbDownloading = "Загрузка ADB..."
+        adbScan = "Сканировать сеть"
+        adbScanning = "Поиск устройств..."
+        adbNoDevices = "Устройства не найдены"
+        adbSelectDevice = "Выберите устройство"
+        invalidPort = "Некорректный порт"
+        adbCodeDigits = "Код должен состоять из 6 цифр"
+        pairingFailed = "Ошибка сопряжения"
+        adbPairMethod = "Выберите способ сопряжения"
+        adbPairQR = "QR-код"
+        adbQRInstructions = "Отсканируйте этот QR-код в разделе 'Отладка по Wi-Fi' -> 'Подключить с помощью QR-кода'"
+        adbDeviceName = "Устройство: %1\$s"
         adbServiceNameLabel = "Имя службы"
-    )
+        adbPairAndConnect = "СОПРЯЖЕНИЕ И ПОДКЛЮЧЕНИЕ"
+        adbManualConnection = "Ручное подключение"
+        adbFirstStepPair = "Первый шаг: сопряжение с устройством"
+        adbWizardGuideTitle = "Настройка ADB"
+        adbWizardGuideDesc = "1. Включите режим разработчика на телефоне.\n2. Включите 'Отладку по Wi-Fi'.\n3. Откройте экран 'Подключить с помощью кода сопряжения'."
+    }
 }

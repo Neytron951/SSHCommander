@@ -43,9 +43,10 @@ fun AdbPairingDialog(
     val qrPayload = remember(qrServiceName, qrPassword) { AdbQRGenerator.formatAdbPayload(qrServiceName, qrPassword) }
 
     LaunchedEffect(pairingMode) {
+        println("[UI-Pair] Mode changed to: $pairingMode")
         if (pairingMode == "QR") {
             AdbPlatform.startPairingServer(qrServiceName, qrPassword) {
-                // Device paired successfully via QR
+                println("[UI-Pair] PAIRING SUCCESS via QR")
                 onDismiss()
             }
         } else {
@@ -54,7 +55,9 @@ fun AdbPairingDialog(
     }
 
     DisposableEffect(Unit) {
+        println("[UI-Pair] AdbPairingDialog entered composition")
         onDispose {
+            println("[UI-Pair] AdbPairingDialog left composition")
             AdbPlatform.stopPairingServer()
         }
     }
