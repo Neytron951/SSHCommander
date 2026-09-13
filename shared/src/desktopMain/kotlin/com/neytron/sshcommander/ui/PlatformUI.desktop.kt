@@ -82,3 +82,14 @@ actual fun Modifier.platformDragAndDrop(onFilesDropped: (List<String>) -> Unit):
         }
     }
 )
+
+actual fun getAvailableSystemFonts(): List<String> {
+    return try {
+        java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment()
+            .availableFontFamilyNames
+            .toList()
+            .sorted()
+    } catch (e: Exception) {
+        listOf("Monospace", "Serif", "SansSerif")
+    }
+}

@@ -37,6 +37,9 @@ expect fun platformOpenUrl(url: String)
 @Composable
 expect fun getSystemFontFamily(name: String): androidx.compose.ui.text.font.FontFamily
 
+/** Returns a list of available system font family names. */
+expect fun getAvailableSystemFonts(): List<String>
+
 /** Platform-specific Drag-and-Drop support for files. */
 @Composable
 expect fun Modifier.platformDragAndDrop(onFilesDropped: (List<String>) -> Unit): Modifier

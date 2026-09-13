@@ -661,7 +661,14 @@ fun FontSelector(
             onDismissRequest = { expanded = false },
             modifier = Modifier.exposedDropdownSize()
         ) {
-            TerminalThemes.modernFonts.forEach { font ->
+            val systemFonts = remember { getAvailableSystemFonts() }
+            val allFonts = remember(systemFonts) {
+                val availableModern = TerminalThemes.modernFonts.filter { modern ->
+                    systemFonts.any { it.equals(modern, ignoreCase = true) }
+                }
+                (availableModern + systemFonts).distinct()
+            }
+            allFonts.forEach { font ->
                 DropdownMenuItem(
                     text = { 
                         Text(

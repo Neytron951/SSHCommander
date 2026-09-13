@@ -178,6 +178,7 @@ import com.neytron.sshcommander.ui.PlatformInputStream
 import com.neytron.sshcommander.ui.PrivacyUtils
 import com.neytron.sshcommander.ui.resizeHoverCursor
 import com.neytron.sshcommander.ui.SftpView
+import com.neytron.sshcommander.ui.getAvailableSystemFonts
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.material.icons.filled.Warning
 import com.neytron.sshcommander.ui.platformOpenUrl
@@ -1924,7 +1925,7 @@ private fun InteractionPane(
                         }
                     }
                 } else {
-                    TerminalPreview(server)
+                    TerminalPreview(server, privacyMode)
                 }
                 PaneType.Split -> {
                     // Terminal on the left, SFTP on the right, resizable divider
@@ -1952,7 +1953,7 @@ private fun InteractionPane(
                                 modifier = Modifier.weight(terminalWeight.floatValue)
                             )
                         } else {
-                            TerminalPreview(server, Modifier.weight(terminalWeight.floatValue))
+                            TerminalPreview(server, privacyMode, Modifier.weight(terminalWeight.floatValue))
                         }
                         ResizableDivider(
                             onDrag = { delta ->
@@ -2297,7 +2298,7 @@ private fun PaneTab(label: String, selected: Boolean, onClick: () -> Unit) {
  * (e.g. no server selected yet).
  */
 @Composable
-private fun TerminalPreview(server: Server, modifier: Modifier = Modifier) {
+private fun TerminalPreview(server: Server, privacyMode: Boolean, modifier: Modifier = Modifier) {
     val consoleBg = Color(0xFF0D1117)
     val consoleFg = Color(0xFFC9D1D9)
     val green = Color(0xFF3FB950)
@@ -2310,21 +2311,31 @@ private fun TerminalPreview(server: Server, modifier: Modifier = Modifier) {
     ) {
         Column {
             if (server.host.isNotEmpty()) {
+                val host = if (privacyMode) PrivacyUtils.maskHost(server.host) else server.host
                 Text(
-                    text = "ssh ${server.username}@${server.host}",
+                    text = "ssh ${server.username}@$host",
                     color = green,
                     fontFamily = FontFamily.Monospace,
                     fontSize = 13.sp
                 )
-                Text(
-                    text = "SSH Commander desktop — терминал в разработке",
-                    color = consoleFg,
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 13.sp
-                )
+                Spacer(Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(14.dp),
+                        strokeWidth = 2.dp,
+                        color = consoleFg.copy(alpha = 0.5f)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = AppStrings.loading,
+                        color = consoleFg.copy(alpha = 0.5f),
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 13.sp
+                    )
+                }
             } else {
                 Text(
-                    text = "Добавьте сервер слева, чтобы подключиться.",
+                    text = if (AppStrings.language == "ru") "Добавьте сервер слева, чтобы подключиться." else "Add a server on the left to connect.",
                     color = consoleFg,
                     fontFamily = FontFamily.Monospace,
                     fontSize = 13.sp
@@ -3854,9 +3865,21 @@ private fun DesktopFontSelector(
             onDismissRequest = { expanded = false },
             modifier = Modifier.exposedDropdownSize()
         ) {
-            TerminalThemes.modernFonts.forEach { font ->
+            val systemFonts = remember { getAvailableSystemFonts() }
+            val allFonts = remember(systemFonts) {
+                val availableModern = TerminalThemes.modernFonts.filter { modern ->
+                    systemFonts.any { it.equals(modern, ignoreCase = true) }
+                }
+                (availableModern + systemFonts).distinct()
+            }
+            allFonts.forEach { font ->
                 DropdownMenuItem(
-                    text = { Text(font, fontFamily = getSystemFontFamily(font)) },
+                    text = { 
+                        Text(
+                            text = font, 
+                            fontFamily = getSystemFontFamily(font)
+                        ) 
+                    },
                     onClick = {
                         onFontSelected(font)
                         expanded = false

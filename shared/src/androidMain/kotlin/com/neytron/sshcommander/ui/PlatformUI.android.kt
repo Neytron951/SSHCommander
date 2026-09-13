@@ -57,3 +57,11 @@ actual fun getSystemFontFamily(name: String): androidx.compose.ui.text.font.Font
 
 @Composable
 actual fun Modifier.platformDragAndDrop(onFilesDropped: (List<String>) -> Unit): Modifier = this
+
+actual fun getAvailableSystemFonts(): List<String> {
+    val fonts = mutableSetOf("Monospace", "Serif", "Sans-Serif", "Default")
+    
+    // We could try to list more, but Android font system is very fragmented.
+    // Basic families are usually enough for a terminal/editor context.
+    return fonts.toList().sorted()
+}
