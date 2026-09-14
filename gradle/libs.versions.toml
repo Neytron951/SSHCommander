@@ -1,5 +1,5 @@
 [versions]
-agp = "8.7.2"
+agp = "9.4.0"
 compose-multiplatform = "1.7.3"
 kotlinx-coroutines = "1.9.0"
 coreKtx = "1.15.0"
@@ -8,13 +8,13 @@ junitVersion = "1.2.1"
 espressoCore = "3.6.1"
 lifecycle = "2.8.7"
 activityCompose = "1.9.3"
-kotlin = "2.0.21"
+kotlin = "2.2.10"
 composeBom = "2024.10.00"
 room = "2.6.1"
 navigationCompose = "2.8.5"
 securityCrypto = "1.1.0"
 biometric = "1.2.0-alpha05"
-ksp = "2.0.21-1.0.27"
+ksp = "2.3.6"
 datastore = "1.1.1"
 gson = "2.10.1"
 work = "2.10.0"
@@ -29,6 +29,7 @@ dadb = "2.0.0"
 zxing = "3.5.3"
 jmdns = "3.5.8"
 conscrypt = "2.5.2"
+libadb-android = "3.2.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -91,6 +92,7 @@ kotlinx-coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-
 jna = { group = "net.java.dev.jna", name = "jna", version = "5.15.0" }
 jna-platform = { group = "net.java.dev.jna", name = "jna-platform", version = "5.15.0" }
 yandex-mobileads = { group = "com.yandex.android", name = "mobileads", version.ref = "yandexAds" }
+libadb = { group = "com.flyfishxu", name = "kadb", version = "2.1.4" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -9,7 +9,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
-// Генерируем объект Secrets с ключами из local.properties
+
 val properties = Properties()
 val propertiesFile = project.rootProject.file("local.properties")
 if (propertiesFile.exists()) {
@@ -23,10 +23,15 @@ kotlin {
         @OptIn(org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi::class)
         compilerOptions {
             jvmTarget.set(JvmTarget.JVM_11)
+            freeCompilerArgs.add("-Xskip-metadata-version-check")
         }
     }
 
-    jvm("desktop")
+    jvm("desktop") {
+        compilerOptions {
+            freeCompilerArgs.add("-Xskip-metadata-version-check")
+        }
+    }
 
     compilerOptions {
         // Disable K2 to avoid crashes with incompatible library metadata
@@ -58,7 +63,7 @@ kotlin {
                 }
             }
             
-            // Убеждаемся, что генерация происходит ДО компиляции для всех таргетов
+
             tasks.matching { 
                 it.name.contains("compile", ignoreCase = true) || 
                 it.name.contains("sourcesJar", ignoreCase = true) ||
@@ -82,6 +87,7 @@ kotlin {
                 api(libs.ktor.serialization.kotlinx.json)
                 api(libs.ktor.client.logging)
                 implementation(libs.zxing.core)
+                implementation(libs.libadb)
             }
         }
         val androidMain by getting {
@@ -91,6 +97,7 @@ kotlin {
                 implementation(libs.yandex.mobileads)
                 implementation(libs.ktor.client.android)
                 implementation(libs.play.services.auth)
+                implementation(libs.libadb)
             }
         }
         val desktopMain by getting {
@@ -128,7 +135,7 @@ kotlin {
 
 android {
     namespace = "com.neytron.sshcommander.shared"
-    compileSdk = 35
+    compileSdk = 37
     defaultConfig {
         minSdk = 24
     }

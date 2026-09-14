@@ -132,8 +132,7 @@ fun AddEditServerScreen(
                 
                 var discoveredDevices by remember { mutableStateOf(emptyList<com.neytron.sshcommander.data.DiscoveredDevice>()) }
                 var isScanning by remember { mutableStateOf(false) }
-                val downloadProgress by com.neytron.sshcommander.terminal.AdbPlatform.getDownloadProgress().collectAsState()
-                val adbAvailable by remember(downloadProgress) { derivedStateOf { com.neytron.sshcommander.terminal.AdbPlatform.isAdbAvailable() } }
+                val adbAvailable = true // Pure Kotlin ADB (Kadb) is always available
 
                 var showPairingDialogManual by remember { mutableStateOf(false) }
 
@@ -145,59 +144,8 @@ fun AddEditServerScreen(
                     }
                 }
 
-                // Show prominent ADB missing banner with download action
-                val downloadProgressLocal by com.neytron.sshcommander.terminal.AdbBinaryManager.getDownloadProgress().collectAsState()
-                val downloadError by com.neytron.sshcommander.terminal.AdbBinaryManager.getDownloadError().collectAsState()
-                val androidRuntime = com.neytron.sshcommander.terminal.AdbBinaryManager.isAndroidRuntime()
+                // ADB missing banner removed as Kadb is built-in
 
-                if (!adbAvailable) {
-                   Card(
-                       modifier = Modifier.fillMaxWidth(),
-                       colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
-                   ) {
-                       Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                           Text(
-                               if (androidRuntime) "ADB is not installed on this device." else "ADB not found on this device.",
-                               color = MaterialTheme.colorScheme.onErrorContainer,
-                               style = MaterialTheme.typography.bodyMedium
-                           )
-                           if (downloadError != null) {
-                               Text("$downloadError", color = MaterialTheme.colorScheme.onErrorContainer)
-                           }
-
-                           if (androidRuntime) {
-                               Text(
-                                   "Install Android SDK platform-tools on your PC, then connect the device there. The app cannot install native platform-tools inside Android sandbox.",
-                                   color = MaterialTheme.colorScheme.onErrorContainer
-                               )
-                           } else if (downloadProgressLocal != null) {
-                               LinearProgressIndicator(progress = downloadProgressLocal!!, modifier = Modifier.fillMaxWidth())
-                               Text("Downloading ADB...")
-                           }
-
-                           Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                               if (androidRuntime) {
-                                   Button(onClick = { platformOpenUrl("https://developer.android.com/studio/releases/platform-tools") }) {
-                                       Text("Open setup guide")
-                                   }
-                               } else {
-                                   Button(
-                                       onClick = { com.neytron.sshcommander.terminal.AdbBinaryManager.startDownload() },
-                                       enabled = downloadProgressLocal == null
-                                   ) {
-                                       Text("Download ADB")
-                                   }
-
-                                   OutlinedButton(onClick = { platformOpenUrl("https://developer.android.com/studio/releases/platform-tools") }) {
-                                       Text("How to use ADB")
-                                   }
-                               }
-                           }
-                       }
-                   }
-
-                   Spacer(Modifier.height(8.dp))
-                }
 
                 // --- PRIMARY PAIR AND CONNECT BUTTON ---
                 Button(

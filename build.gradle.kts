@@ -19,7 +19,7 @@ subprojects {
             force("com.github.mwiede:jsch:0.2.21")
             eachDependency {
                 if (requested.group == "org.jetbrains.kotlin") {
-                    useVersion("2.0.21")
+                    // Let Gradle use the version from libs.versions.toml
                 }
             }
         }

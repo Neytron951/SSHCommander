@@ -1,7 +1,7 @@
 package com.neytron.sshcommander.terminal
 
-import dadb.Dadb
-import dadb.AdbShellPacket
+import com.flyfishxu.kadb.Kadb
+import com.flyfishxu.kadb.shell.AdbShellPacket
 import com.neytron.sshcommander.data.MonitorWidget
 import com.neytron.sshcommander.data.Server
 import com.neytron.sshcommander.data.ServerStats
@@ -41,9 +41,9 @@ class AdbSession(
     override val widgetHistory = MutableStateFlow<Map<String, List<Float>>>(emptyMap()).asStateFlow()
     override val widgetLoading = MutableStateFlow<Map<String, Boolean>>(emptyMap()).asStateFlow()
 
-    private var device: Dadb? = null
+    private var kadb: Kadb? = null
     private var shellJob: Job? = null
-    private var activeShellStream: dadb.AdbShellStream? = null
+    private var activeShellStream: com.flyfishxu.kadb.shell.AdbPtyShellSession? = null
     private val inputChannel = Channel<String>(Channel.UNLIMITED)
 
     override fun connect() {
@@ -53,125 +53,85 @@ class AdbSession(
         
         shellJob = scope.launch(Dispatchers.IO) {
             try {
-                terminalScreen.feed("Connecting to ADB ${server.host}:${server.port} via local server...\r\n")
+                terminalScreen.feed("Connecting to ADB ${server.host}:${server.port} (Direct via Kadb)...\r\n")
                 _terminalRevision.value++
 
-                val adb = AdbBinaryManager.findAdb() ?: throw Exception("ADB binary not found")
+                // 1. Create Kadb session
+                val device = Kadb.create(server.host, server.port)
+                kadb = device
                 
-                // 1. Force connect via system ADB
-                terminalScreen.feed("Ensuring connection...\r\n")
-                val connectProcess = ProcessBuilder(adb.absolutePath, "connect", "${server.host}:${server.port}")
-                    .redirectErrorStream(true)
-                    .start()
-                val connectOutput = connectProcess.inputStream.bufferedReader().readText()
-                connectProcess.waitFor()
+                println("[ADB] Opening interactive shell with PTY via Kadb...")
+                // Kadb's openPtyShellSession uses shell,v2,pty by default
+                val ptySession = device.openPtyShellSession(term = "xterm-256color")
+                activeShellStream = ptySession
                 
-                if (connectOutput.contains("failed") || connectOutput.contains("cannot")) {
-                    terminalScreen.feed("\u001b[33mWarning: System ADB says: ${connectOutput.trim()}\u001b[0m\r\n")
+                println("[ADB] Interactive shell opened")
+                _isConnected.value = true
+                _isLoading.value = false
+                
+                // Sync initial window size
+                val cols = terminalScreen.width
+                val rows = terminalScreen.height
+                if (cols > 0 && rows > 0) {
+                    println("[ADB] Syncing initial terminal size: $cols x $rows")
+                    ptySession.resize(rows, cols)
                 }
 
-                // 2. Create Dadb session via local ADB server
-                val serial = "${server.host}:${server.port}"
-                println("[ADB] Creating Dadb session for $serial")
-                val adbDevice = dadb.adbserver.AdbServer.createDadb(
-                    adbServerHost = "localhost",
-                    deviceQuery = "host:transport:$serial",
-                    connectTimeout = 10000
-                )
-                device = adbDevice
-                
-                println("[ADB] Opening interactive shell with PTY...")
-                // Use TERM=xterm-256color to improve terminal behavior and support colors
-                adbDevice.open("shell,v2,pty:export TERM=xterm-256color; exec sh").use { stream ->
-                    val shellStream = dadb.AdbShellStream(stream)
-                    activeShellStream = shellStream
-                    
-                    println("[ADB] Interactive shell opened")
-                    _isConnected.value = true
-                    _isLoading.value = false
-                    
-                    // Immediately sync window size
-                    val cols = terminalScreen.width
-                    val rows = terminalScreen.height
-                    if (cols > 0 && rows > 0) {
-                        println("[ADB] Syncing initial terminal size: ${cols}x${rows}")
-                        val payload = java.nio.ByteBuffer.allocate(8).order(java.nio.ByteOrder.LITTLE_ENDIAN).apply {
-                            putShort(rows.toShort())
-                            putShort(cols.toShort())
-                            putShort(0)
-                            putShort(0)
-                        }.array()
-                        shellStream.write(4, payload)
-                    }
-
-                    // Trigger prompt with a simple CR
-                    shellStream.write("\r")
-                    println("[ADB] Initial newline sent")
-
-                    // Reading loop
-                    val readJob = launch {
-                        try {
-                            println("[ADB] Starting read loop")
-                            while (isActive) {
-                                val packet = shellStream.read()
-                                when (packet) {
-                                    is AdbShellPacket.StdOut -> {
-                                        val text = String(packet.payload, Charsets.UTF_8)
-                                        println("[ADB] StdOut: '$text'")
-                                        terminalScreen.feed(text)
-                                        _terminalRevision.value++
-                                    }
-                                    is AdbShellPacket.StdError -> {
-                                        val text = String(packet.payload, Charsets.UTF_8)
-                                        println("[ADB] StdError: '$text'")
-                                        terminalScreen.feed("\u001b[31m$text\u001b[0m")
-                                        _terminalRevision.value++
-                                    }
-                                    is AdbShellPacket.Exit -> {
-                                        println("[ADB] Shell Exit: ${packet.payload[0]}")
-                                        terminalScreen.feed("\r\nSession closed with exit code: ${packet.payload[0]}\r\n")
-                                        _terminalRevision.value++
-                                        break
-                                    }
+                // Reading loop
+                val readJob = launch {
+                    try {
+                        println("[ADB] Starting read loop")
+                        while (isActive) {
+                            val packet = ptySession.read()
+                            when (packet) {
+                                is AdbShellPacket.StdOut -> {
+                                    val text = String(packet.payload)
+                                    terminalScreen.feed(text)
+                                    _terminalRevision.value++
+                                }
+                                is AdbShellPacket.StdError -> {
+                                    val text = String(packet.payload)
+                                    terminalScreen.feed("\u001b[31m$text\u001b[0m")
+                                    _terminalRevision.value++
+                                }
+                                is AdbShellPacket.Exit -> {
+                                    val exitCode = packet.payload[0].toInt()
+                                    terminalScreen.feed("\r\nSession closed with exit code: $exitCode\r\n")
+                                    _terminalRevision.value++
+                                    break
                                 }
                             }
-                        } catch (e: Exception) {
-                            if (isActive) {
-                                println("[ADB] Read error: ${e.message}")
-                                _error.value = "Read error: ${e.message}"
-                            }
+                        }
+                    } catch (e: Exception) {
+                        if (isActive) {
+                            println("[ADB] Read error: ${e.message}")
+                            _error.value = "Read error: ${e.message}"
                         }
                     }
-
-                    // Writing loop
-                    val writeJob = launch {
-                        try {
-                            for (input in inputChannel) {
-                                println("[ADB] Writing: '$input'")
-                                shellStream.write(input)
-                            }
-                        } catch (e: Exception) {
-                            println("[ADB] Write error: ${e.message}")
-                            _error.value = "Write error: ${e.message}"
-                        }
-                    }
-
-                    joinAll(readJob, writeJob)
                 }
+
+                // Writing loop
+                val writeJob = launch {
+                    try {
+                        for (input in inputChannel) {
+                            ptySession.write(input)
+                        }
+                    } catch (e: Exception) {
+                        println("[ADB] Write error: ${e.message}")
+                        _error.value = "Write error: ${e.message}"
+                    }
+                }
+
+                joinAll(readJob, writeJob)
             } catch (e: Exception) {
                 _isLoading.value = false
                 _isConnected.value = false
                 val originalMsg = e.message ?: "ADB Connection failed"
                 println("[ADB] Connection error: $originalMsg")
                 
-                // Provide a more helpful message for common failures
                 val msg = when {
-                    originalMsg.contains("1000000") -> {
-                        "Connection timed out. Make sure you are using the 'Connection Port' (e.g. 192.168.0.72:38475) and NOT the 'Pairing Port'."
-                    }
-                    originalMsg.contains("Device rejected authentication") || originalMsg.contains("unauthorized") -> {
-                        "Authentication failed. Please pair your device first using the 'Pair' button."
-                    }
+                    originalMsg.contains("Connection refused") -> "Connection refused. Make sure Wireless Debugging is ON and you use the correct port."
+                    originalMsg.contains("Authentication required") || originalMsg.contains("unauthorized") -> "Authentication failed. Please pair your device first."
                     else -> originalMsg
                 }
                 
@@ -179,14 +139,13 @@ class AdbSession(
                 terminalScreen.feed("\r\n\u001b[31mERROR: $msg\u001b[0m\r\n")
                 _terminalRevision.value++
             } finally {
-                device?.close()
+                kadb?.close()
                 _isConnected.value = false
             }
         }
     }
 
     override fun sendInput(input: String) {
-        println("[ADB] sendInput: '$input'")
         scope.launch {
             inputChannel.send(input)
         }
@@ -202,25 +161,16 @@ class AdbSession(
     override fun updateWidget(updatedWidget: MonitorWidget) {}
     override fun updateSize(cols: Int, rows: Int) {
         terminalScreen.resize(rows, cols)
-        // Send window size change to ADB shell v2
         scope.launch(Dispatchers.IO) {
             try {
-                val payload = java.nio.ByteBuffer.allocate(8).order(java.nio.ByteOrder.LITTLE_ENDIAN).apply {
-                    putShort(rows.toShort())
-                    putShort(cols.toShort())
-                    putShort(0) // xpixels
-                    putShort(0) // ypixels
-                }.array()
-                activeShellStream?.write(4, payload) // 4 = ID_WINDOW_SIZE
-            } catch (e: Exception) {
-                // Ignore if stream is closed
-            }
+                activeShellStream?.resize(rows, cols)
+            } catch (e: Exception) {}
         }
     }
     override fun clearTerminal() { terminalScreen.clear(); _terminalRevision.value++ }
     override fun disconnect() { 
         shellJob?.cancel()
-        device?.close()
+        kadb?.close()
         _isConnected.value = false 
     }
     override fun close() { disconnect(); scope.cancel() }

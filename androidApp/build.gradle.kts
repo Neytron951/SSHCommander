@@ -6,12 +6,12 @@ plugins {
 
 android {
     namespace = "com.neytron.sshcommander"
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.neytron.sshcommander"
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 37
         versionCode = 12
         versionName = "1.9.2"
     }
