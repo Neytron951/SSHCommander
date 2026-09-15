@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SSH Commander — Secure SSH/SFTP Client</title>
+    <title>SSH Commander — Secure SSH / SFTP / ADB Client</title>
     <style>
         /* RESET & BASE */
         * {
@@ -413,157 +413,177 @@
 </head>
 <body>
 
-    <div class="container">
+<div class="container">
 
-        <!-- ===== TERMINAL HEADER (БЕЗ МАКОВСКИХ ТОЧЕК) ===== -->
-        <div class="terminal-header">
-            <div class="terminal-prompt">
-                <span class="user">user</span>
-                <span class="at">@</span>
-                <span class="host">ssh-commander</span>
-                <span class="colon">:</span>
-                <span class="path">~</span>
-                <span class="cursor"></span>
-            </div>
-            <div class="terminal-status">
-                <span class="status-dot"></span>
-                <span>SSH ready</span>
-            </div>
+    <!-- ===== TERMINAL HEADER (БЕЗ МАКОВСКИХ ТОЧЕК) ===== -->
+    <div class="terminal-header">
+        <div class="terminal-prompt">
+            <span class="user">user</span>
+            <span class="at">@</span>
+            <span class="host">ssh-commander</span>
+            <span class="colon">:</span>
+            <span class="path">~</span>
+            <span class="cursor"></span>
         </div>
-
-        <!-- ===== HEADER ===== -->
-        <div class="header">
-            <img src="ic_launcher.png" alt="SSH Commander icon" />
-            <div>
-                <h1>SSH Commander</h1>
-                <div class="badge">v1.5.0</div>
-            </div>
+        <div class="terminal-status">
+            <span class="status-dot"></span>
+            <span>SSH / ADB ready</span>
         </div>
-
-        <div class="subtitle">
-            A secure SSH / SFTP client for <strong>Android</strong>, <strong>Windows</strong> and <strong>Linux</strong>.<br />
-            Terminal, tabs, real‑time monitoring, built‑in editor, biometric lock.
-        </div>
-
-        <!-- ===== SCREENSHOT ===== -->
-        <div class="screenshot-wrapper">
-            <img src="screenshot.png" alt="SSH Commander screenshot" />
-        </div>
-
-        <!-- ===== FEATURES ===== -->
-        <div class="features" id="features">
-            <div class="feature-card">
-                <h3>Terminal</h3>
-                <ul>
-                    <li>Full VT100 / ANSI emulation</li>
-                    <li>Colors, block cursor, auto‑scroll</li>
-                    <li>Control key panel (ESC, arrows, TAB, Ctrl+…)</li>
-                    <li>Zoom text with Ctrl + mouse wheel</li>
-                </ul>
-            </div>
-
-            <div class="feature-card">
-                <h3>SFTP + Editor</h3>
-                <ul>
-                    <li>Browse server file system</li>
-                    <li>Built‑in text editor for configs &amp; scripts</li>
-                    <li>Upload, download, delete, rename</li>
-                    <li>Preview files without downloading</li>
-                </ul>
-            </div>
-
-            <div class="feature-card">
-                <h3>Monitoring</h3>
-                <ul>
-                    <li>CPU, RAM, Disk usage widgets</li>
-                    <li>Real‑time logs (tail -f)</li>
-                    <li>Quick commands with categories</li>
-                    <li>Variables for templated commands</li>
-                </ul>
-            </div>
-
-            <div class="feature-card">
-                <h3>Workspaces &amp; Tabs</h3>
-                <ul>
-                    <li>Save and restore session layouts</li>
-                    <li>Pin important tabs</li>
-                    <li>Color‑coded tabs for environments</li>
-                    <li>Full session persistence</li>
-                </ul>
-            </div>
-        </div>
-
-        <!-- ===== DOWNLOADS ===== -->
-        <div class="downloads" id="downloads">
-            <h2>Download</h2>
-            <p class="desc">Get the latest version for your platform</p>
-            <div class="download-links">
-                <a href="https://github.com/Neytron951/SSHCommander/releases/latest" class="primary">Android APK</a>
-                <a href="https://github.com/Neytron951/SSHCommander/releases/latest">Windows MSI / EXE</a>
-                <a href="https://github.com/Neytron951/SSHCommander/releases/latest">Linux DEB / RPM</a>
-                <a href="https://github.com/Neytron951/SSHCommander">View source on GitHub</a>
-            </div>
-        </div>
-
-        <!-- ===== FOOTER ===== -->
-        <div class="footer">
-            <p>
-                SSH Commander &middot; Built for system administrators and DevOps engineers
-            </p>
-            <div class="version">Version 1.5.0 &mdash; released August 2026</div>
-            <p style="margin-top:12px;">
-                <a href="https://github.com/Neytron951/SSHCommander">GitHub</a> &middot;
-                <a href="https://github.com/Neytron951/SSHCommander/issues">Report an issue</a>
-            </p>
-        </div>
-
     </div>
 
-    <!-- ===== INTERSECTION OBSERVER ===== -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
+    <!-- ===== HEADER ===== -->
+    <div class="header">
+        <img src="ic_launcher.png" alt="SSH Commander icon" />
+        <div>
+            <h1>SSH Commander</h1>
+            <div class="badge">v2.0.0</div>
+        </div>
+    </div>
 
-            const options = {
-                threshold: 0.2,
-                rootMargin: '0px 0px -40px 0px'
-            };
+    <div class="subtitle">
+        A secure SSH / SFTP / ADB client for <strong>Android</strong>, <strong>Windows</strong> and <strong>Linux</strong>.<br />
+        Terminal, tabs, real‑time monitoring, built‑in editor, biometric lock.
+    </div>
 
-            const observer = new IntersectionObserver(function(entries) {
-                entries.forEach(function(entry) {
-                    if (entry.isIntersecting) {
-                        entry.target.classList.add('visible');
-                    }
-                });
-            }, options);
+    <!-- ===== SCREENSHOT ===== -->
+    <div class="screenshot-wrapper">
+        <img src="screenshot.png" alt="SSH Commander screenshot" />
+    </div>
 
-            const cards = document.querySelectorAll('.feature-card');
-            cards.forEach(function(card) {
-                observer.observe(card);
-            });
+    <!-- ===== FEATURES ===== -->
+    <div class="features" id="features">
+        <div class="feature-card">
+            <h3>Native ADB</h3>
+            <ul>
+                <li>Manage Android devices from the app</li>
+                <li>No external tools or platform-tools required</li>
+                <li>Wi‑Fi device discovery</li>
+                <li>Unified workflow with SSH/SFTP</li>
+            </ul>
+        </div>
 
-            const downloads = document.getElementById('downloads');
-            if (downloads) {
-                observer.observe(downloads);
-            }
+        <div class="feature-card">
+            <h3>Scripts Market</h3>
+            <ul>
+                <li>Community‑driven script repository</li>
+                <li>Auto‑sync from GitHub backend</li>
+                <li>Smart templates with {{VARIABLE}} support</li>
+                <li>Filter by category: VPN, Voice, Monitoring and more</li>
+            </ul>
+        </div>
 
-            cards.forEach(function(card) {
-                const rect = card.getBoundingClientRect();
-                const winHeight = window.innerHeight;
-                if (rect.top < winHeight * 0.8) {
-                    card.classList.add('visible');
+        <div class="feature-card">
+            <h3>Terminal</h3>
+            <ul>
+                <li>Full VT100 / ANSI emulation</li>
+                <li>Colors, block cursor, auto‑scroll</li>
+                <li>Control key panel (ESC, arrows, TAB, Ctrl+…)</li>
+                <li>Zoom text with Ctrl + mouse wheel</li>
+            </ul>
+        </div>
+
+        <div class="feature-card">
+            <h3>SFTP + Editor</h3>
+            <ul>
+                <li>Browse server file system</li>
+                <li>Built‑in text editor for configs &amp; scripts</li>
+                <li>Upload, download, delete, rename</li>
+                <li>Preview files without downloading</li>
+            </ul>
+        </div>
+
+        <div class="feature-card">
+            <h3>Monitoring</h3>
+            <ul>
+                <li>CPU, RAM, Disk usage widgets</li>
+                <li>Real‑time logs (tail -f)</li>
+                <li>Quick commands with categories</li>
+                <li>Variables for templated commands</li>
+            </ul>
+        </div>
+
+        <div class="feature-card">
+            <h3>Persistent Sessions</h3>
+            <ul>
+                <li>Global SessionManager keeps connections alive</li>
+                <li>Survives UI recreation on Android</li>
+                <li>Smart auto‑reconnect with backoff</li>
+                <li>Workspaces and color‑coded tabs</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- ===== DOWNLOADS ===== -->
+    <div class="downloads" id="downloads">
+        <h2>Download</h2>
+        <p class="desc">Get the latest version for your platform</p>
+        <div class="download-links">
+            <a href="https://github.com/Neytron951/SSHCommander/releases/latest" class="primary">Android APK</a>
+            <a href="https://github.com/Neytron951/SSHCommander/releases/latest">Windows MSI / EXE</a>
+            <a href="https://github.com/Neytron951/SSHCommander/releases/latest">Linux DEB / RPM</a>
+            <a href="https://github.com/Neytron951/SSHCommander">View source on GitHub</a>
+        </div>
+    </div>
+
+    <!-- ===== FOOTER ===== -->
+    <div class="footer">
+        <p>
+            SSH Commander &middot; Built for system administrators and DevOps engineers
+        </p>
+        <div class="version">Version 2.0.0 &mdash; released September 2026</div>
+        <p style="margin-top:12px;">
+            <a href="https://github.com/Neytron951/SSHCommander">GitHub</a> &middot;
+            <a href="https://github.com/Neytron951/SSHCommander/issues">Report an issue</a>
+        </p>
+    </div>
+
+</div>
+
+<!-- ===== INTERSECTION OBSERVER ===== -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+
+        const options = {
+            threshold: 0.2,
+            rootMargin: '0px 0px -40px 0px'
+        };
+
+        const observer = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
                 }
             });
+        }, options);
 
-            if (downloads) {
-                const rect = downloads.getBoundingClientRect();
-                const winHeight = window.innerHeight;
-                if (rect.top < winHeight * 0.8) {
-                    downloads.classList.add('visible');
-                }
-            }
-
+        const cards = document.querySelectorAll('.feature-card');
+        cards.forEach(function(card) {
+            observer.observe(card);
         });
-    </script>
+
+        const downloads = document.getElementById('downloads');
+        if (downloads) {
+            observer.observe(downloads);
+        }
+
+        cards.forEach(function(card) {
+            const rect = card.getBoundingClientRect();
+            const winHeight = window.innerHeight;
+            if (rect.top < winHeight * 0.8) {
+                card.classList.add('visible');
+            }
+        });
+
+        if (downloads) {
+            const rect = downloads.getBoundingClientRect();
+            const winHeight = window.innerHeight;
+            if (rect.top < winHeight * 0.8) {
+                downloads.classList.add('visible');
+            }
+        }
+
+    });
+</script>
 
 </body>
 </html>
