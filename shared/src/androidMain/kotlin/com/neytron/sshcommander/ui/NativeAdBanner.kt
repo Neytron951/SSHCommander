@@ -18,7 +18,6 @@ import com.neytron.sshcommander.AdsSdk
 import com.neytron.sshcommander.shared.R
 import com.yandex.mobile.ads.common.AdRequest
 import com.yandex.mobile.ads.common.AdRequestError
-import com.yandex.mobile.ads.nativeads.MediaView
 import com.yandex.mobile.ads.nativeads.NativeAd
 import com.yandex.mobile.ads.nativeads.NativeAdLoadListener
 import com.yandex.mobile.ads.nativeads.NativeAdLoader
@@ -34,14 +33,17 @@ fun NativeAdBanner(
     blockId: String,
     modifier: Modifier = Modifier
 ) {
+    Log.d(TAG, "NativeAdBanner composed for ID: $blockId")
     val context = LocalContext.current
     var nativeAd by remember(blockId) { mutableStateOf<NativeAd?>(null) }
 
     val adLoader = remember(blockId) { NativeAdLoader(context) }
 
     LaunchedEffect(blockId) {
+        Log.d(TAG, "LaunchedEffect started. Waiting for AdsSdk initialization...")
         // Ждем инициализации SDK
         AdsSdk.isInitialized.first { it }
+        Log.d(TAG, "AdsSdk is initialized! Proceeding to load ad...")
         
         // Даем SDK 500мс "продышаться" после инициализации
         delay(500)
@@ -55,12 +57,15 @@ fun NativeAdBanner(
             adRequest,
             object : NativeAdLoadListener {
                 override fun onAdLoaded(ad: NativeAd) {
-                    Log.d(TAG, "Ad loaded successfully!")
+                    Log.d(TAG, "Ad loaded successfully for blockId: $cleanBlockId")
                     nativeAd = ad
                 }
 
                 override fun onAdFailedToLoad(error: AdRequestError) {
                     Log.e(TAG, "Ad failed to load: code=${error.code}, desc=${error.description}, unitId=${error.adUnitId}")
+                    if (error.code == 3) { // No fill
+                        Log.w(TAG, "No ads available (NO_FILL). Check blockId and network.")
+                    }
                     nativeAd = null
                 }
             }

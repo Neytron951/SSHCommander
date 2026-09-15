@@ -1,5 +1,6 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.util.Properties
+import com.android.build.api.dsl.LibraryExtension
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -19,19 +20,14 @@ val googleClientId = properties.getProperty("GOOGLE_CLIENT_ID") ?: ""
 val googleClientSecret = properties.getProperty("GOOGLE_CLIENT_SECRET") ?: ""
 
 kotlin {
-    androidTarget {
-        @OptIn(org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi::class)
-        compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_11)
-            freeCompilerArgs.add("-Xskip-metadata-version-check")
-        }
-    }
-
     jvm("desktop") {
         compilerOptions {
             freeCompilerArgs.add("-Xskip-metadata-version-check")
         }
     }
+
+    // Register Android target for Kotlin Multiplatform (legacy androidTarget API)
+    androidTarget()
 
     compilerOptions {
         // Disable K2 to avoid crashes with incompatible library metadata
@@ -39,22 +35,23 @@ kotlin {
     }
 
     sourceSets {
-        val commonMain by getting {
+        val commonMain = getByName("commonMain")
+        commonMain.apply {
             // Создаем папку для сгенерированных файлов
             val generatedDir = layout.buildDirectory.dir("generated/secrets/commonMain/kotlin").get().asFile
             kotlin.srcDir(generatedDir)
-            
+
             val generateSecretsTask = tasks.register("generateSecrets") {
                 val outputFile = File(generatedDir, "com/neytron/sshcommander/Secrets.kt")
                 inputs.property("googleClientId", googleClientId)
                 inputs.property("googleClientSecret", googleClientSecret)
                 outputs.file(outputFile)
-                
+
                 doLast {
                     outputFile.parentFile.mkdirs()
                     outputFile.writeText("""
                         package com.neytron.sshcommander
-                        
+
                         object Secrets {
                             const val GOOGLE_CLIENT_ID = "$googleClientId"
                             const val GOOGLE_CLIENT_SECRET = "$googleClientSecret"
@@ -62,10 +59,9 @@ kotlin {
                     """.trimIndent())
                 }
             }
-            
 
-            tasks.matching { 
-                it.name.contains("compile", ignoreCase = true) || 
+            tasks.matching {
+                it.name.contains("compile", ignoreCase = true) ||
                 it.name.contains("sourcesJar", ignoreCase = true) ||
                 it.name.contains("metadata", ignoreCase = true)
             }.configureEach {
@@ -81,7 +77,7 @@ kotlin {
                 implementation(libs.compose.lifecycle.viewmodel)
                 implementation(libs.kotlinx.coroutines.core)
                 api(libs.kotlinx.serialization.json)
-                
+
                 api(libs.ktor.client.core)
                 api(libs.ktor.client.content.negotiation)
                 api(libs.ktor.serialization.kotlinx.json)
@@ -90,28 +86,30 @@ kotlin {
                 implementation(libs.libadb)
             }
         }
-        val androidMain by getting {
-            dependencies {
-                implementation(compose.preview)
-                implementation(libs.androidx.activity.compose)
-                implementation(libs.yandex.mobileads)
-                implementation(libs.ktor.client.android)
-                implementation(libs.play.services.auth)
-                implementation(libs.libadb)
-            }
+
+        val androidMain = getByName("androidMain")
+        androidMain.dependencies {
+            implementation(compose.preview)
+            implementation(libs.androidx.activity.compose)
+            implementation(libs.yandex.mobileads)
+            implementation(libs.ktor.client.android)
+            implementation(libs.play.services.auth)
+            implementation(libs.libadb)
         }
-        val desktopMain by getting {
-            dependencies {
-                implementation(compose.desktop.currentOs)
-                implementation(libs.kotlinx.coroutines.swing)
-                implementation(libs.jna)
-                implementation(libs.jna.platform)
-                implementation(libs.ktor.client.java)
-                implementation(libs.ktor.server.core)
-                implementation(libs.ktor.server.netty)
-            }
+
+        val desktopMain = getByName("desktopMain")
+        desktopMain.dependencies {
+            implementation(compose.desktop.currentOs)
+            implementation(libs.kotlinx.coroutines.swing)
+            implementation(libs.jna)
+            implementation(libs.jna.platform)
+            implementation(libs.ktor.client.java)
+            implementation(libs.ktor.server.core)
+            implementation(libs.ktor.server.netty)
         }
-        val jvmMain by creating {
+
+        val jvmMain = if (findByName("jvmMain") != null) getByName("jvmMain") else create("jvmMain")
+        jvmMain.apply {
             dependsOn(commonMain)
             dependencies {
                 api(libs.jsch)
@@ -123,17 +121,26 @@ kotlin {
                 implementation("com.google.zxing:core:3.5.3")
             }
         }
-        val desktopTest by getting {
-            dependencies {
-                implementation(kotlin("test"))
-            }
+
+        val desktopTest = getByName("desktopTest")
+        desktopTest.dependencies {
+            implementation(kotlin("test"))
         }
+
         androidMain.dependsOn(jvmMain)
         desktopMain.dependsOn(jvmMain)
     }
 }
 
-android {
+// Configure Kotlin JVM compilation options for all Kotlin JVM compilations
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile>().configureEach {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+        freeCompilerArgs.add("-Xskip-metadata-version-check")
+    }
+}
+
+extensions.configure<com.android.build.api.dsl.LibraryExtension> {
     namespace = "com.neytron.sshcommander.shared"
     compileSdk = 37
     defaultConfig {

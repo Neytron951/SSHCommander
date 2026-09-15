@@ -329,6 +329,7 @@ object AppStrings {
     val adbDeviceName get() = s.adbDeviceName
     val adbServiceNameLabel get() = s.adbServiceNameLabel
     val adbPairAndConnect get() = s.adbPairAndConnect
+    val updatePair get() = s.updatePair
     val adbManualConnection get() = s.adbManualConnection
     val adbFirstStepPair get() = s.adbFirstStepPair
     val adbWizardGuideTitle get() = s.adbWizardGuideTitle
@@ -438,6 +439,7 @@ object AppStrings {
         var adbDeviceName: String = ""
         var adbServiceNameLabel: String = ""
         var adbPairAndConnect: String = ""
+        var updatePair: String = ""
         var adbManualConnection: String = ""
         var adbFirstStepPair: String = ""
         var adbWizardGuideTitle: String = ""
@@ -582,6 +584,7 @@ object AppStrings {
         adbDeviceName = "Device: %1\$s"
         adbServiceNameLabel = "Service Name"
         adbPairAndConnect = "PAIR AND CONNECT"
+        updatePair = "UPDATE PAIR"
         adbManualConnection = "Manual connection"
         adbFirstStepPair = "First step, pair with your device"
         adbWizardGuideTitle = "ADB Setup Guide"
@@ -731,6 +734,7 @@ object AppStrings {
         adbDeviceName = "Устройство: %1\$s"
         adbServiceNameLabel = "Имя службы"
         adbPairAndConnect = "СОПРЯЖЕНИЕ И ПОДКЛЮЧЕНИЕ"
+        updatePair = "ОБНОВИТЬ СОПРЯЖЕНИЕ"
         adbManualConnection = "Ручное подключение"
         adbFirstStepPair = "Первый шаг: сопряжение с устройством"
         adbWizardGuideTitle = "Настройка ADB"

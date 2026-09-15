@@ -129,7 +129,7 @@ fun main() = application {
                             },
                             serverRepository = serverRepository,
                             settings = settings,
-                            appVersion = "1.9.4",
+                            appVersion = "2.0.0",
                             backupManager = ExportImportManager(serverRepository)
                         )
                     }

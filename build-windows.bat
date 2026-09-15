@@ -26,8 +26,8 @@ REM ------------------------------------------------------------
 REM  2. Package version (without validation)
 REM ------------------------------------------------------------
 set "PACKAGE_VERSION="
-set /p "PACKAGE_VERSION=Version [Enter = 1.9.2]: "
-if "!PACKAGE_VERSION!"=="" set "PACKAGE_VERSION=1.9.2"
+set /p "PACKAGE_VERSION=Version [Enter = 2.0.0]: "
+if "!PACKAGE_VERSION!"=="" set "PACKAGE_VERSION=2.0.0"
 
 echo.
 echo Building: %PACKAGE_NAME% v%PACKAGE_VERSION%

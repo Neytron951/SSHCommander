@@ -157,7 +157,7 @@ fun ServerControlScreen(
     // UI Optimization for Terminal
     val density = LocalDensity.current
     val isKeyboardVisible = WindowInsets.ime.getBottom(density) > 0
-    val hideTopUI = (isLandscape || isKeyboardVisible) && selectedTab == 0
+    val hideTopUI = isKeyboardVisible && selectedTab == 0
 
     // Handle back press to show confirmation
     PlatformBackHandler(enabled = true) {

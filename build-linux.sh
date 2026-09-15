@@ -4,7 +4,7 @@
 set -e
 
 APP_NAME=${1:-"SSHCommander"}
-APP_VERSION=${2:-"1.9.2"}
+APP_VERSION=${2:-"2.0.0"}
 
 echo "============================================================"
 echo "  SSHCommander - Building Linux packages (DEB + RPM)"

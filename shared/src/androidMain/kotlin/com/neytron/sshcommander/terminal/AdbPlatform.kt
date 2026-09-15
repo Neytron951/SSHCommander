@@ -34,7 +34,7 @@ actual object AdbPlatform {
 
     actual fun startDownload() {}
 
-    actual fun getDownloadProgress(): StateFlow<Float?> = MutableStateFlow(1f)
+    actual fun getDownloadProgress(): StateFlow<Float?> = MutableStateFlow<Float?>(null)
 
     actual fun scanDevices(): Flow<List<DiscoveredDevice>> = flow {
         println("[ADB-Android] --- DISCOVERY STARTED (Kadb) ---")

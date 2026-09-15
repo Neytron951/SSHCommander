@@ -1,6 +1,7 @@
 package com.neytron.sshcommander
 
 import android.app.Application
+import android.util.Log
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
@@ -24,10 +25,12 @@ class SshCommanderApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        Log.d("SshApp", "Application onCreate started")
         AndroidAppContext.appContext = applicationContext
         setupWidgetUpdateWorker()
 
-        // Инициализация Yandex Mobile Ads SDK согласно инструкции
+        // Инициализация Yandex Mobile Ads SDK
+        Log.d("SshApp", "Calling AdsSdk.initialize...")
         AdsSdk.initialize(this)
     }
 

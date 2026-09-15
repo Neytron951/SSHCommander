@@ -5,7 +5,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -36,23 +35,7 @@ fun AdbPairingDialog(
     val downloadProgress by AdbPlatform.getDownloadProgress().collectAsState()
     val adbAvailable by remember(downloadProgress) { derivedStateOf { AdbPlatform.isAdbAvailable() } }
 
-    var pairingMode by remember { mutableStateOf(if (initialPort.isNotEmpty()) "CODE" else "CHOOSE") }
-
-    val qrServiceName = remember { AdbQRGenerator.generateRandomService() }
-    val qrPassword = remember { AdbQRGenerator.generateRandomPassword() }
-    val qrPayload = remember(qrServiceName, qrPassword) { AdbQRGenerator.formatAdbPayload(qrServiceName, qrPassword) }
-
-    LaunchedEffect(pairingMode) {
-        println("[UI-Pair] Mode changed to: $pairingMode")
-        if (pairingMode == "QR") {
-            AdbPlatform.startPairingServer(qrServiceName, qrPassword) {
-                println("[UI-Pair] PAIRING SUCCESS via QR")
-                onDismiss()
-            }
-        } else {
-            AdbPlatform.stopPairingServer()
-        }
-    }
+    var pairingMode by remember { mutableStateOf("CODE") }
 
     DisposableEffect(Unit) {
         println("[UI-Pair] AdbPairingDialog entered composition")
@@ -95,87 +78,45 @@ fun AdbPairingDialog(
                         LinearProgressIndicator(progress = { downloadProgress!! }, modifier = Modifier.fillMaxWidth())
                     }
                 } else {
-                    if (pairingMode == "CHOOSE") {
-                        Text(AppStrings.adbPairMethod, style = MaterialTheme.typography.titleMedium)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Card(
-                                onClick = { pairingMode = "CODE" },
-                                modifier = Modifier.weight(1f),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-                            ) {
-                                Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Icon(Icons.Default.VpnKey, null, modifier = Modifier.size(32.dp))
-                                    Text(AppStrings.adbPairingCode, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                            Card(
-                                onClick = { pairingMode = "QR" },
-                                modifier = Modifier.weight(1f),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-                            ) {
-                                Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Icon(Icons.Default.QrCodeScanner, null, modifier = Modifier.size(32.dp))
-                                    Text(AppStrings.adbPairQR, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
-                    } else if (pairingMode == "QR") {
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Text(AppStrings.adbQRInstructions, style = MaterialTheme.typography.bodySmall)
+                    // Only CODE pairing supported (no QR)
+                    Text(AppStrings.adbPairingInstructions, style = MaterialTheme.typography.bodySmall)
 
-                            Box(
-                                modifier = Modifier.padding(16.dp)
-                            ) {
-                                QRCodeImage(content = qrPayload, size = 200.dp)
-                            }
-
-                            Text("${AppStrings.adbServiceNameLabel}: $qrServiceName", style = MaterialTheme.typography.labelSmall, modifier = Modifier.alpha(0.7f))
-                            Text("${AppStrings.adbPairingCode}: $qrPassword", style = MaterialTheme.typography.labelSmall, modifier = Modifier.alpha(0.7f))
-                        }
-                    } else {
-                        Text(AppStrings.adbPairingInstructions, style = MaterialTheme.typography.bodySmall)
-
-                        if (initialPort.isEmpty()) {
-                            OutlinedTextField(
-                                value = host,
-                                onValueChange = { host = it },
-                                label = { Text(AppStrings.hostIp) },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            OutlinedTextField(
-                                value = port,
-                                onValueChange = { port = it },
-                                label = { Text(AppStrings.adbPairingPort) },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        } else {
-                            // Semi-auto mode: hide port as requested, only show device name
-                            Text(AppStrings.adbDeviceName.replace("%1\$s", host), fontWeight = FontWeight.Bold)
-                        }
-
-                        OutlinedTextField(
-                            value = pairingCode,
-                            onValueChange = { pairingCode = it },
-                            label = { Text(AppStrings.adbPairingCode) },
-                            placeholder = { Text("000000") },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.fillMaxWidth(),
-                            textStyle = androidx.compose.ui.text.TextStyle(
-                                fontSize = androidx.compose.ui.unit.TextUnit.Unspecified,
-                                fontWeight = FontWeight.Bold,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                letterSpacing = androidx.compose.ui.unit.TextUnit.Unspecified
-                            )
-                        )
+                    // Always show host and pairing port fields so user can enter port for PAIR.
+                    OutlinedTextField(
+                        value = host,
+                        onValueChange = { host = it },
+                        label = { Text(AppStrings.hostIp) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = port,
+                        onValueChange = { port = it },
+                        label = { Text(AppStrings.adbPairingPort) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    // If initialHost provided, show it prominently for context
+                    if (initialHost.isNotBlank()) {
+                        Text(AppStrings.adbDeviceName.replace("%1\$s", initialHost), fontWeight = FontWeight.Bold, modifier = Modifier.alpha(0.9f))
                     }
+
+                    OutlinedTextField(
+                        value = pairingCode,
+                        onValueChange = { pairingCode = it },
+                        label = { Text(AppStrings.adbPairingCode) },
+                        placeholder = { Text("000000") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                        textStyle = androidx.compose.ui.text.TextStyle(
+                            fontSize = androidx.compose.ui.unit.TextUnit.Unspecified,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            letterSpacing = androidx.compose.ui.unit.TextUnit.Unspecified
+                        )
+                    )
                 }
 
                 if (error != null) {
@@ -209,13 +150,7 @@ fun AdbPairingDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = { 
-                if ((pairingMode == "CODE" || pairingMode == "QR") && initialPort.isEmpty()) {
-                    pairingMode = "CHOOSE"
-                } else {
-                    onDismiss()
-                }
-            }) {
+            TextButton(onClick = { onDismiss() }) {
                 Text(AppStrings.cancel)
             }
         }

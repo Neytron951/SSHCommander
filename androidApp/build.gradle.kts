@@ -12,8 +12,8 @@ android {
         applicationId = "com.neytron.sshcommander"
         minSdk = 24
         targetSdk = 37
-        versionCode = 12
-        versionName = "1.9.2"
+        versionCode = 13
+        versionName = "2.0.0"
     }
 
     buildFeatures {
@@ -22,9 +22,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
-    }
-    kotlinOptions {
-        jvmTarget = "11"
     }
 
     packaging {
@@ -59,4 +56,11 @@ dependencies {
     
     // Google Auth
     implementation(libs.play.services.auth)
+}
+
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile>().configureEach {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+        freeCompilerArgs.add("-Xskip-metadata-version-check")
+    }
 }

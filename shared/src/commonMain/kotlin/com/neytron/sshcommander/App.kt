@@ -2600,7 +2600,12 @@ private fun ServerDialog(
         val trimmedHost = host.trim()
         val trimmedName = name.trim().ifEmpty { trimmedHost }
         val trimmedUser = username.trim()
+        // Validation: host and username required. For ADB, Connection Port is also required and must be numeric.
         if (trimmedHost.isEmpty() || trimmedUser.isEmpty()) return
+        if (protocol == Protocol.ADB) {
+            if (port.trim().isEmpty()) return
+            if (port.toIntOrNull() == null) return
+        }
         onSave(
             Server(
                 id = server?.id ?: 0,
@@ -2620,7 +2625,7 @@ private fun ServerDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text((if (isEdit) AppStrings.editServer else AppStrings.addServer) + " (WIZARD)", fontWeight = FontWeight.Bold) },
+        title = { Text((if (isEdit) AppStrings.editServer else AppStrings.addServer), fontWeight = FontWeight.Bold) },
         text = {
             Column(
                 modifier = Modifier
@@ -2638,11 +2643,9 @@ private fun ServerDialog(
                             onClick = { 
                                 protocol = p
                                 if (p == Protocol.ADB) {
-                                    if (port == "22") port = "5555"
                                     if (username.isEmpty()) username = "android"
                                     if (iconName == "Default") iconName = "Android"
                                 } else {
-                                    if (port == "5555") port = "22"
                                     if (iconName == "Android") iconName = "Default"
                                 }
                             },
@@ -2695,24 +2698,8 @@ private fun ServerDialog(
                     }
 
                     Spacer(Modifier.height(8.dp))
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
-                    Text(AppStrings.adbManualConnection, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    // Manual connection labels and the ENTER CODE button removed as requested
 
-                    // Manual Section: Step 1 Pair
-                    Column(
-                        modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), RoundedCornerShape(8.dp)).padding(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Text(AppStrings.adbFirstStepPair, style = MaterialTheme.typography.labelSmall)
-                        OutlinedButton(
-                            onClick = { showPairingDialogManual = true },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Default.VpnKey, null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text(AppStrings.adbEnterCode)
-                        }
-                    }
 
                     if (showPairingDialogManual) {
                         com.neytron.sshcommander.ui.AdbPairingDialog(
@@ -2751,18 +2738,12 @@ private fun ServerDialog(
                                                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                                     discoveredDevices.forEach { device ->
                                                         Card(
-                                                            onClick = { 
+                                                            onClick = {
                                                                 selectedDevice = device
-                                                                if (device.pairingPort != null) {
-                                                                    wizardStep = 3
-                                                                } else {
-                                                                    host = device.host
-                                                                    port = device.port.toString()
-                                                                    if (name.isEmpty() || name == host) name = device.name
-                                                                    showWizard = false
-                                                                    isScanning = false
-                                                                }
+                                                                // Always go to pairing step so user must PAIR by code
+                                                                wizardStep = 3
                                                             },
+                                                            
                                                             modifier = Modifier.fillMaxWidth()
                                                         ) {
                                                             ListItem(
@@ -2778,15 +2759,6 @@ private fun ServerDialog(
                                             Spacer(Modifier.height(16.dp))
                                             HorizontalDivider(thickness = 0.5.dp)
                                             Spacer(Modifier.height(8.dp))
-                                            OutlinedButton(
-                                                onClick = { /* Experimental */ },
-                                                modifier = Modifier.fillMaxWidth(),
-                                                enabled = false
-                                            ) {
-                                                Icon(Icons.Default.QrCodeScanner, null)
-                                                Spacer(Modifier.width(8.dp))
-                                                Text(AppStrings.adbPairQR + " (Experimental)")
-                                            }
                                         }
                                         3 -> {
                                             Text(AppStrings.adbPairingInstructions)
@@ -2812,9 +2784,10 @@ private fun ServerDialog(
                             onPair = { h, p, code -> 
                                 val res = com.neytron.sshcommander.terminal.AdbPlatform.pair(h, p, code)
                                 if (res.isSuccess) {
+                                    // Pre-fill Name/IP like Android, but leave Connection Port empty so user must enter it
                                     host = h
-                                    if (selectedDevice!!.port > 0) port = selectedDevice!!.port.toString()
-                                    if (name.isEmpty() || name == h) name = selectedDevice!!.name
+                                    name = if (name.isEmpty() || name == h) selectedDevice!!.name else name
+                                    port = ""
                                     showWizard = false
                                     isScanning = false
                                 }
@@ -2825,43 +2798,51 @@ private fun ServerDialog(
                     }
                 }
 
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text(AppStrings.serverName) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = host,
-                    onValueChange = { host = it },
-                    label = { Text(AppStrings.hostIp) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                // When adding a NEW ADB server we want the minimal onboarding UI
+                // (PAIR AND CONNECT -> Folders -> Choose icon). Hide the name/host/port
+                // inputs until after a successful PAIR.
+                if (!(isAdb && server == null && host.isBlank())) {
                     OutlinedTextField(
-                        value = port,
-                        onValueChange = { port = it },
-                        label = { Text(if (isAdb) AppStrings.adbConnectionPort else AppStrings.port) },
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text(AppStrings.serverName) },
                         singleLine = true,
-                        modifier = Modifier.weight(1f),
-                        supportingText = if (isAdb) {
-                            { Text(AppStrings.adbConnectionPortHint, style = MaterialTheme.typography.labelSmall) }
-                        } else null
+                        modifier = Modifier.fillMaxWidth()
                     )
-                    if (!isAdb) {
+                    OutlinedTextField(
+                        value = host,
+                        onValueChange = { host = it },
+                        label = { Text(AppStrings.hostIp) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         OutlinedTextField(
-                            value = username,
-                            onValueChange = { username = it },
-                            label = { Text(AppStrings.username) },
+                            value = port,
+                            onValueChange = { port = it },
+                            label = { Text(if (isAdb) AppStrings.adbConnectionPort else AppStrings.port) },
                             singleLine = true,
-                            modifier = Modifier.weight(2f)
+                            modifier = Modifier.weight(1f),
+                            supportingText = if (isAdb) {
+                                { Text(AppStrings.adbConnectionPortHint, style = MaterialTheme.typography.labelSmall) }
+                            } else null
                         )
+                        if (!isAdb) {
+                            OutlinedTextField(
+                                value = username,
+                                onValueChange = { username = it },
+                                label = { Text(AppStrings.username) },
+                                singleLine = true,
+                                modifier = Modifier.weight(2f)
+                            )
+                        }
                     }
+                } else {
+                    // Minimal placeholder: keep username editable if non-ADB, otherwise hide
+                    // For ADB add flow we still expose folder/icon below.
                 }
                 
                 if (!isAdb) {
@@ -3962,7 +3943,7 @@ private fun AboutDialog(
                 Spacer(Modifier.height(8.dp))
                 Text(AppStrings.appName, fontWeight = FontWeight.Bold)
                 Text(
-                    String.format(AppStrings.aboutVersion, appVersion.ifBlank { "1.6" }),
+                    String.format(AppStrings.aboutVersion, appVersion.ifBlank { "2.0.0" }),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

@@ -8,7 +8,7 @@ junitVersion = "1.2.1"
 espressoCore = "3.6.1"
 lifecycle = "2.8.7"
 activityCompose = "1.9.3"
-kotlin = "2.2.10"
+kotlin = "2.4.0"
 composeBom = "2024.10.00"
 room = "2.6.1"
 navigationCompose = "2.8.5"
@@ -104,3 +104,4 @@ kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "ko
 compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "compose-multiplatform" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+android-kotlin-multiplatform-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }

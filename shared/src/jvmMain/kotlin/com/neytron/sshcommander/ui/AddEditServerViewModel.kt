@@ -29,6 +29,7 @@ class AddEditServerViewModel(
 
     var nameError by mutableStateOf<String?>(null)
     var hostError by mutableStateOf<String?>(null)
+    var portError by mutableStateOf<String?>(null)
     var usernameError by mutableStateOf<String?>(null)
 
     private var currentServerId: Int? = null
@@ -55,11 +56,10 @@ class AddEditServerViewModel(
     fun onProtocolChanged(newProtocol: Protocol) {
         protocol = newProtocol
         if (newProtocol == Protocol.ADB) {
-            if (port == "22") port = "5555"
+            // Do not force port 5555; keep user's or default port (22) unchanged.
             if (username.isEmpty()) username = "android"
             if (iconName == "Default") iconName = "Android"
         } else {
-            if (port == "5555") port = "22"
             if (iconName == "Android") iconName = "Default"
         }
     }
@@ -68,6 +68,16 @@ class AddEditServerViewModel(
         var isValid = true
         if (name.isBlank()) { nameError = "Name cannot be empty"; isValid = false } else { nameError = null }
         if (host.isBlank()) { hostError = "Host/IP cannot be empty"; isValid = false } else { hostError = null }
+
+        if (protocol == Protocol.ADB) {
+            // Connection port is mandatory for ADB and must be a number
+            if (port.isBlank()) { portError = "Connection port is required"; isValid = false }
+            else if (port.toIntOrNull() == null) { portError = "Port must be numeric"; isValid = false }
+            else { portError = null }
+        } else {
+            portError = null
+        }
+
         if (username.isBlank()) { usernameError = "Username cannot be empty"; isValid = false } else { usernameError = null }
         return isValid
     }

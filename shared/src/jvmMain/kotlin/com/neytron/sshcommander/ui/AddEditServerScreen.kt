@@ -111,19 +111,21 @@ fun AddEditServerScreen(
 
             val isAdb = viewModel.protocol == Protocol.ADB
 
-            OutlinedTextField(
-                value = viewModel.name,
-                onValueChange = { viewModel.name = it },
-                label = { Text(AppStrings.serverName) },
-                modifier = Modifier.fillMaxWidth()
-            )
+            if (!isAdb) {
+                OutlinedTextField(
+                    value = viewModel.name,
+                    onValueChange = { viewModel.name = it },
+                    label = { Text(AppStrings.serverName) },
+                    modifier = Modifier.fillMaxWidth()
+                )
 
-            OutlinedTextField(
-                value = viewModel.host,
-                onValueChange = { viewModel.host = it },
-                label = { Text(AppStrings.hostIp) },
-                modifier = Modifier.fillMaxWidth()
-            )
+                OutlinedTextField(
+                    value = viewModel.host,
+                    onValueChange = { viewModel.host = it },
+                    label = { Text(AppStrings.hostIp) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
 
             if (isAdb) {
                 var showWizard by remember { mutableStateOf(false) }
@@ -147,44 +149,125 @@ fun AddEditServerScreen(
                 // ADB missing banner removed as Kadb is built-in
 
 
-                // --- PRIMARY PAIR AND CONNECT BUTTON ---
-                Button(
-                   onClick = { showWizard = true; wizardStep = 1 },
-                   modifier = Modifier.fillMaxWidth(),
-                   shape = RoundedCornerShape(12.dp),
-                   contentPadding = PaddingValues(16.dp)
-                ) {
-                   Icon(Icons.Default.Android, null)
-                   Spacer(Modifier.width(8.dp))
-                   Text(AppStrings.adbPairAndConnect, fontWeight = FontWeight.Bold)
-                }
-
-                Spacer(Modifier.height(8.dp))
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
-                Text(AppStrings.adbManualConnection, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-
-                // Manual Section: Step 1 Pair
-                Column(
-                    modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), RoundedCornerShape(8.dp)).padding(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(AppStrings.adbFirstStepPair, style = MaterialTheme.typography.labelSmall)
-                    OutlinedButton(
-                        onClick = { showPairingDialogManual = true },
-                        modifier = Modifier.fillMaxWidth()
+                // --- PRIMARY ADB UI (new flow) ---
+                if (serverId == null && viewModel.host.isBlank()) {
+                    // New server: emphasize Pair & Connect, then Folders, then Icon
+                    Button(
+                       onClick = { showWizard = true; wizardStep = 1 },
+                       modifier = Modifier.fillMaxWidth(),
+                       shape = RoundedCornerShape(12.dp),
+                       contentPadding = PaddingValues(16.dp)
                     ) {
-                        Icon(Icons.Default.VpnKey, null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(AppStrings.adbEnterCode)
+                       Icon(Icons.Default.Android, null)
+                       Spacer(Modifier.width(8.dp))
+                       Text(AppStrings.adbPairAndConnect, fontWeight = FontWeight.Bold)
                     }
-                }
 
-                if (showPairingDialogManual) {
-                    AdbPairingDialog(
-                        initialHost = viewModel.host,
-                        onPair = { host, port, code -> com.neytron.sshcommander.terminal.AdbPlatform.pair(host, port, code) },
-                        onDismiss = { showPairingDialogManual = false }
+                    Spacer(Modifier.height(12.dp))
+
+                    // Folder selector (server grouping).
+                    Text(AppStrings.folders, style = MaterialTheme.typography.titleSmall)
+                    var folderMenuLocal by remember { mutableStateOf(false) }
+                    Box {
+                        OutlinedButton(
+                            onClick = { folderMenuLocal = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text = folders.firstOrNull { it.id == viewModel.folderId }?.name ?: AppStrings.noFolder,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null)
+                        }
+                        DropdownMenu(expanded = folderMenuLocal, onDismissRequest = { folderMenuLocal = false }) {
+                            DropdownMenuItem(
+                                text = { Text(AppStrings.noFolder) },
+                                onClick = { viewModel.folderId = null; folderMenuLocal = false }
+                            )
+                            folders.forEach { folder ->
+                                DropdownMenuItem(
+                                    text = { Text(folder.name) },
+                                    onClick = { viewModel.folderId = folder.id; folderMenuLocal = false }
+                                )
+                            }
+                        }
+                    }
+
+                    // Icon Picker Grid
+                    Spacer(Modifier.height(12.dp))
+                    Text(AppStrings.chooseIcon, style = MaterialTheme.typography.titleSmall)
+                    Box(modifier = Modifier.height(150.dp)) {
+                        LazyVerticalGrid(
+                            columns = GridCells.Adaptive(80.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(IconUtils.availableIcons) { option ->
+                                val isSelected = viewModel.iconName == option.name
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier
+                                        .border(
+                                            width = if (isSelected) 2.dp else 0.dp,
+                                            color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                            shape = RoundedCornerShape(8.dp)
+                                        )
+                                        .clickable { viewModel.iconName = option.name }
+                                        .padding(8.dp)
+                                ) {
+                                    Icon(
+                                        option.icon,
+                                        contentDescription = option.label,
+                                        tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = option.label,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // Editing existing server OR pairing already done -> show main fields
+                    OutlinedTextField(
+                        value = viewModel.name,
+                        onValueChange = { viewModel.name = it },
+                        label = { Text(AppStrings.serverName) },
+                        modifier = Modifier.fillMaxWidth()
                     )
+
+                    OutlinedTextField(
+                        value = viewModel.host,
+                        onValueChange = { viewModel.host = it },
+                        label = { Text(AppStrings.hostIp) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(Modifier.height(8.dp))
+
+                    if (serverId != null) {
+                        OutlinedButton(
+                            onClick = { showPairingDialogManual = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.VpnKey, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(AppStrings.updatePair)
+                        }
+                    }
+
+                    if (showPairingDialogManual) {
+                        AdbPairingDialog(
+                            initialHost = viewModel.host,
+                            initialPort = viewModel.port,
+                            onPair = { host, port, code -> com.neytron.sshcommander.terminal.AdbPlatform.pair(host, port, code) },
+                            onDismiss = { showPairingDialogManual = false }
+                        )
+                    }
                 }
 
                 // --- WIZARD DIALOGS ---
@@ -216,21 +299,13 @@ fun AddEditServerScreen(
                                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                                 discoveredDevices.forEach { device ->
                                                     Card(
-                                                        onClick = { 
-                                                            selectedDevice = device
-                                                            if (device.pairingPort != null) {
+                                                            onClick = {
+                                                                selectedDevice = device
+                                                                // Always go to pairing dialog after user selects a discovered device
                                                                 wizardStep = 3
-                                                            } else {
-                                                                // Already paired or plain IP
-                                                                viewModel.host = device.host
-                                                                viewModel.port = device.port.toString()
-                                                                if (viewModel.name.isEmpty() || viewModel.name == viewModel.host) viewModel.name = device.name
-                                                                showWizard = false
-                                                                isScanning = false
-                                                            }
-                                                        },
-                                                        modifier = Modifier.fillMaxWidth()
-                                                    ) {
+                                                            },
+                                                            modifier = Modifier.fillMaxWidth()
+                                                        ) {
                                                         ListItem(
                                                             headlineContent = { Text(device.name) },
                                                             supportingContent = { Text("${device.host}:${device.port}") },
@@ -244,15 +319,6 @@ fun AddEditServerScreen(
                                         Spacer(Modifier.height(16.dp))
                                         HorizontalDivider(thickness = 0.5.dp)
                                         Spacer(Modifier.height(8.dp))
-                                        OutlinedButton(
-                                            onClick = { /* Experimental */ },
-                                            modifier = Modifier.fillMaxWidth(),
-                                            enabled = false
-                                        ) {
-                                            Icon(Icons.Default.QrCodeScanner, null)
-                                            Spacer(Modifier.width(8.dp))
-                                            Text(AppStrings.adbPairQR + " (Experimental)")
-                                        }
                                     }
                                     3 -> {
                                         // We reuse AdbPairingDialog logic or embed it
@@ -282,11 +348,12 @@ fun AddEditServerScreen(
                         onPair = { host, port, code -> 
                             val res = com.neytron.sshcommander.terminal.AdbPlatform.pair(host, port, code)
                             if (res.isSuccess) {
+                                // After successful pairing show Add Server fields and pre-fill Name/IP,
+                                // but leave Connection Port empty so user must enter it manually.
                                 viewModel.host = host
-                                // We don't know the connection port yet, usually it's discovery after pairing
-                                // But often it's already in the selectedDevice if it was both pairing and connect
-                                if (selectedDevice!!.port > 0) viewModel.port = selectedDevice!!.port.toString()
-                                if (viewModel.name.isEmpty() || viewModel.name == host) viewModel.name = selectedDevice!!.name
+                                viewModel.name = selectedDevice?.name ?: host
+                                viewModel.port = ""
+
                                 showWizard = false
                                 isScanning = false
                             }
@@ -297,27 +364,44 @@ fun AddEditServerScreen(
                 }
             }
 
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedTextField(
-                    value = viewModel.port,
-                    onValueChange = { viewModel.port = it },
-                    label = { Text(if (isAdb) AppStrings.adbConnectionPort else AppStrings.port) },
-                    modifier = Modifier.weight(1f),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    supportingText = if (isAdb) {
-                        { Text(AppStrings.adbConnectionPortHint) }
-                    } else null
-                )
+            // Connection port + username row. For new ADB add flow we hide the connection port here
+            if (!(isAdb && serverId == null && viewModel.host.isBlank())) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = viewModel.port,
+                        onValueChange = { viewModel.port = it },
+                        label = { Text(if (isAdb) AppStrings.adbConnectionPort else AppStrings.port) },
+                        modifier = Modifier.weight(1f),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        supportingText = if (isAdb) {
+                            { Text(AppStrings.adbConnectionPortHint) }
+                        } else null,
+                        isError = viewModel.portError != null
+                    )
+                    if (viewModel.portError != null) {
+                        Text(viewModel.portError!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
+                    }
 
+                    if (!isAdb) {
+                        OutlinedTextField(
+                            value = viewModel.username,
+                            onValueChange = { viewModel.username = it },
+                            label = { Text(AppStrings.username) },
+                            modifier = Modifier.weight(2f)
+                        )
+                    }
+                }
+            } else {
+                // When adding a new ADB server we still allow editing username below (keep UX consistent)
                 if (!isAdb) {
                     OutlinedTextField(
                         value = viewModel.username,
                         onValueChange = { viewModel.username = it },
                         label = { Text(AppStrings.username) },
-                        modifier = Modifier.weight(2f)
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
@@ -345,31 +429,33 @@ fun AddEditServerScreen(
             }
 
             // Folder selector (server grouping).
-            Text(AppStrings.folders, style = MaterialTheme.typography.titleSmall)
-            var folderMenu by remember { mutableStateOf(false) }
-            Box {
-                OutlinedButton(
-                    onClick = { folderMenu = true },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = folders.firstOrNull { it.id == viewModel.folderId }?.name ?: AppStrings.noFolder,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null)
-                }
-                DropdownMenu(expanded = folderMenu, onDismissRequest = { folderMenu = false }) {
-                    DropdownMenuItem(
-                        text = { Text(AppStrings.noFolder) },
-                        onClick = { viewModel.folderId = null; folderMenu = false }
-                    )
-                    folders.forEach { folder ->
-                        DropdownMenuItem(
-                            text = { Text(folder.name) },
-                            onClick = { viewModel.folderId = folder.id; folderMenu = false }
+            if (!(isAdb && serverId == null && viewModel.host.isBlank())) {
+                Text(AppStrings.folders, style = MaterialTheme.typography.titleSmall)
+                var folderMenu by remember { mutableStateOf(false) }
+                Box {
+                    OutlinedButton(
+                        onClick = { folderMenu = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = folders.firstOrNull { it.id == viewModel.folderId }?.name ?: AppStrings.noFolder,
+                            modifier = Modifier.weight(1f)
                         )
+                        Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null)
+                    }
+                    DropdownMenu(expanded = folderMenu, onDismissRequest = { folderMenu = false }) {
+                        DropdownMenuItem(
+                            text = { Text(AppStrings.noFolder) },
+                            onClick = { viewModel.folderId = null; folderMenu = false }
+                        )
+                        folders.forEach { folder ->
+                            DropdownMenuItem(
+                                text = { Text(folder.name) },
+                                onClick = { viewModel.folderId = folder.id; folderMenu = false }
+                            )
+                        }
                     }
                 }
             }
@@ -415,38 +501,40 @@ fun AddEditServerScreen(
                 }
             }
 
-            Text(AppStrings.chooseIcon, style = MaterialTheme.typography.titleSmall)
+            if (!(isAdb && serverId == null && viewModel.host.isBlank())) {
+                Text(AppStrings.chooseIcon, style = MaterialTheme.typography.titleSmall)
 
-            // Icon Picker Grid
-            Box(modifier = Modifier.height(150.dp)) {
-                LazyVerticalGrid(
-                    columns = GridCells.Adaptive(80.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(IconUtils.availableIcons) { option ->
-                        val isSelected = viewModel.iconName == option.name
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier
-                                .border(
-                                    width = if (isSelected) 2.dp else 0.dp,
-                                    color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
-                                    shape = RoundedCornerShape(8.dp)
+                // Icon Picker Grid
+                Box(modifier = Modifier.height(150.dp)) {
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(80.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(IconUtils.availableIcons) { option ->
+                            val isSelected = viewModel.iconName == option.name
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier
+                                    .border(
+                                        width = if (isSelected) 2.dp else 0.dp,
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+                                    .clickable { viewModel.iconName = option.name }
+                                    .padding(8.dp)
+                            ) {
+                                Icon(
+                                    option.icon,
+                                    contentDescription = option.label,
+                                    tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                                 )
-                                .clickable { viewModel.iconName = option.name }
-                                .padding(8.dp)
-                        ) {
-                            Icon(
-                                option.icon,
-                                contentDescription = option.label,
-                                tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = option.label,
-                                style = MaterialTheme.typography.labelSmall,
-                                maxLines = 1
-                            )
+                                Text(
+                                    text = option.label,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    maxLines = 1
+                                )
+                            }
                         }
                     }
                 }
