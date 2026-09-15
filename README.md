@@ -6,7 +6,7 @@
 
 **SSH Commander** — a powerful SSH/SFTP client with terminal, widgets, and biometric authentication.
 
-> **Current version:** 1.9.1 — Scripts Market, Advanced Mobile UX, Windows & Linux support.
+> **Current version:** 2.0.0 — Native ADB support, reworked Monitoring widgets, Windows & Linux support.
 
 ![App Screenshot](ScreenShots/screenshot.png)
 
@@ -14,13 +14,18 @@ SSH Commander is a powerful and user-friendly cross-platform client for remote s
 
 ## Features
 
-### Scripts Market (New in 1.9.0)
+### Native ADB Support (New in 2.0.0)
+- **Built-in ADB** — manage Android devices directly from the app, no external tools or platform-tools required.
+- **Device Discovery** — detect connected devices over Wi-Fi.
+- **Unified Workflow** — the same tabs, sessions, and UI patterns as SSH/SFTP.
+
+### Scripts Market 
 - **Centralized Repository** — browse and install community-driven scripts directly from the app.
 - **Auto-Sync** — backend automatically updates from GitHub, providing instant access to new recipes.
 - **Smart Templates** — support for {{VARIABLE}} syntax in scripts that prompts for values before execution.
 - **Categorization** — filter scripts by category: Voice Servers, VPN, Monitoring, Utils and more.
 
-### Advanced Mobile UX (New in 1.9.1)
+### Advanced Mobile UX 
 - **Focus Mode** — headers and tabs automatically collapse when the keyboard is open to maximize terminal height.
 - **Compact Toolbar** — unified scrollable bar with essential keys (Esc, Tab, Ctrl, Arrows) directly above the keyboard.
 - **Landscape Sidebar** — vertical control panel for landscape orientation, providing full vertical space for the console.
