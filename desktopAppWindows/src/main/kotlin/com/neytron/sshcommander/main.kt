@@ -29,7 +29,9 @@ import com.neytron.sshcommander.terminal.TerminalSession
 import com.neytron.sshcommander.terminal.AdbSession
 import com.neytron.sshcommander.ui.AppDeps
 import com.neytron.sshcommander.ui.LocalAppDeps
+import com.neytron.sshcommander.ui.theme.ModernAndroidEra
 import com.neytron.sshcommander.ui.theme.SSHCommanderTheme
+import com.neytron.sshcommander.ui.theme.Windows9xEra
 import java.io.File
 import javax.imageio.ImageIO
 import androidx.compose.runtime.CompositionLocalProvider
@@ -87,7 +89,13 @@ fun main() = application {
             else -> isSystemInDarkTheme()
         }
 
-        SSHCommanderTheme(darkTheme = darkTheme) {
+        val uiStyleName by settings.uiStyle.collectAsState(initial = "modern")
+        val era = when (uiStyleName) {
+            "win9x" -> Windows9xEra
+            else -> ModernAndroidEra
+        }
+
+        SSHCommanderTheme(darkTheme = darkTheme, era = era) {
             val secureStorage = DpapiSecureStorage(File(dataDir, "secrets.dpapi"))
             CompositionLocalProvider(
                 LocalAppDeps provides AppDeps(
@@ -105,7 +113,7 @@ fun main() = application {
                 // Surface со скруглением краев
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = if (era is Windows9xEra) RoundedCornerShape(0.dp) else RoundedCornerShape(12.dp),
                     color = MaterialTheme.colorScheme.background,
                     shadowElevation = 8.dp // Добавляем небольшую тень, так как системная пропадает
                 ) {

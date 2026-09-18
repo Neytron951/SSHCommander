@@ -23,6 +23,7 @@ class SettingsManager(context: Context) : AppSettings {
         val FONT_SIZE = stringPreferencesKey("font_size")
         val TIMEOUT = intPreferencesKey("timeout")
         val REBOOT_CONFIRM = stringPreferencesKey("reboot_confirm")
+        val UI_STYLE = stringPreferencesKey("ui_style")
 
         val TERM_BG_COLOR = stringPreferencesKey("term_bg_color")
         val TERM_TEXT_COLOR = stringPreferencesKey("term_text_color")
@@ -52,6 +53,7 @@ class SettingsManager(context: Context) : AppSettings {
     override val fontSize: Flow<String> = dataStore.data.map { it[FONT_SIZE] ?: "medium" }
     override val timeout: Flow<Int> = dataStore.data.map { it[TIMEOUT] ?: 10 }
     override val rebootConfirm: Flow<String> = dataStore.data.map { it[REBOOT_CONFIRM] ?: "always" }
+    override val uiStyle: Flow<String> = dataStore.data.map { it[UI_STYLE] ?: "modern" }
 
     override val termBgColor: Flow<String> = dataStore.data.map { it[TERM_BG_COLOR] ?: "#1A1B26" }
     override val termTextColor: Flow<String> = dataStore.data.map { it[TERM_TEXT_COLOR] ?: "#A9B1D6" }
@@ -80,6 +82,7 @@ class SettingsManager(context: Context) : AppSettings {
     override suspend fun setFontSize(size: String) { dataStore.edit { it[FONT_SIZE] = size } }
     override suspend fun setTimeout(value: Int) { dataStore.edit { it[TIMEOUT] = value } }
     override suspend fun setRebootConfirm(value: String) { dataStore.edit { it[REBOOT_CONFIRM] = value } }
+    override suspend fun setUiStyle(style: String) { dataStore.edit { it[UI_STYLE] = style } }
 
     override suspend fun setTermBgColor(color: String) { dataStore.edit { it[TERM_BG_COLOR] = color } }
     override suspend fun setTermTextColor(color: String) { dataStore.edit { it[TERM_TEXT_COLOR] = color } }

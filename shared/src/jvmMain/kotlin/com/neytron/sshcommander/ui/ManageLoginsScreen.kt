@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.*
+import com.neytron.sshcommander.ui.theme.EraCheckbox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -356,7 +357,7 @@ fun LoginDialog(
                         ) {
                             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Checkbox(checked = autoProvision, onCheckedChange = { autoProvision = it })
+                                                                    EraCheckbox(checked = autoProvision, onCheckedChange = { autoProvision = it })
                                     Text(AppStrings.autoProvisionDesc, fontWeight = FontWeight.Bold)
                                 }
                                 Text(

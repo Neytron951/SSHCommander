@@ -18,6 +18,7 @@ interface AppSettings {
     val fontSize: Flow<String>
     val timeout: Flow<Int>
     val rebootConfirm: Flow<String>
+    val uiStyle: Flow<String>
 
     val termBgColor: Flow<String>
     val termTextColor: Flow<String>
@@ -58,6 +59,7 @@ interface AppSettings {
     suspend fun setFontSize(size: String)
     suspend fun setTimeout(seconds: Int)
     suspend fun setRebootConfirm(mode: String)
+    suspend fun setUiStyle(style: String)
 
     suspend fun setTermBgColor(color: String)
     suspend fun setTermTextColor(color: String)

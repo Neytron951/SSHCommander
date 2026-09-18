@@ -11,6 +11,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
@@ -18,6 +19,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.navigation.NavType
@@ -29,7 +31,9 @@ import com.neytron.sshcommander.data.ExportImportManager
 import com.neytron.sshcommander.data.SettingsManager
 import com.neytron.sshcommander.data.TerminalScreenStore
 import com.neytron.sshcommander.ui.*
+import com.neytron.sshcommander.ui.theme.ModernAndroidEra
 import com.neytron.sshcommander.ui.theme.SSHCommanderTheme
+import com.neytron.sshcommander.ui.theme.Windows9xEra
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.android.Android
 import io.ktor.client.plugins.contentnegotiation.*
@@ -70,6 +74,12 @@ class MainActivity : FragmentActivity() {
                 }
             }
 
+            val uiStyleName by settingsManager.uiStyle.collectAsState(initial = "modern")
+            val era = when (uiStyleName) {
+                "win9x" -> Windows9xEra
+                else -> ModernAndroidEra
+            }
+
             CompositionLocalProvider(
                 LocalAppDeps provides AppDeps(
                     repository = serverRepository,
@@ -79,9 +89,10 @@ class MainActivity : FragmentActivity() {
                     httpClient = httpClient
                 )
             ) {
-                SSHCommanderTheme(darkTheme = darkTheme) {
+                SSHCommanderTheme(darkTheme = darkTheme, era = era) {
                     Surface(
                         modifier = Modifier.fillMaxSize(),
+                        shape = if (era is Windows9xEra) RoundedCornerShape(0.dp) else RoundedCornerShape(12.dp),
                         color = MaterialTheme.colorScheme.background
                     ) {
                         PhoneApp(

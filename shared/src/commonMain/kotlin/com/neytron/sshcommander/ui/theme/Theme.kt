@@ -1,15 +1,20 @@
 package com.neytron.sshcommander.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 // Storm Tokyo Night Palette: Сбалансированная тёмная тема без лишнего неона.
@@ -55,6 +60,8 @@ private val LightColorScheme = lightColorScheme(
     outline = Color(0xFF72777F)
 )
 
+val LocalEraStyle = staticCompositionLocalOf<EraStyle> { ModernAndroidEra }
+
 /**
  * Cross-platform theme for SSH Commander. Preserves the Android palette and
  * typography; dynamic color is Android-only so it is omitted here.
@@ -62,9 +69,30 @@ private val LightColorScheme = lightColorScheme(
 @Composable
 fun SSHCommanderTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    era: EraStyle = ModernAndroidEra,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
+    val colorScheme = if (era is Windows9xEra) {
+        lightColorScheme(
+            primary = era.buttonBackground,
+            onPrimary = era.buttonTextColor,
+            secondary = era.buttonBackground,
+            onSecondary = era.buttonTextColor,
+            tertiary = era.buttonBackground,
+            onTertiary = era.buttonTextColor,
+            background = era.appBackground,
+            onBackground = era.textColor,
+            surface = era.surfaceBackground,
+            onSurface = era.textColor,
+            surfaceVariant = Color(0xFFDFDFDF),
+            onSurfaceVariant = era.textColor,
+            outline = Color(0xFF808080),
+            primaryContainer = era.buttonBackground,
+            onPrimaryContainer = era.buttonTextColor
+        )
+    } else {
+        if (darkTheme) DarkColorScheme else LightColorScheme
+    }
 
     val customTypography = Typography(
         bodyLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Normal, fontSize = 16.sp),
@@ -78,9 +106,24 @@ fun SSHCommanderTheme(
         labelSmall = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium, fontSize = 11.sp)
     )
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = customTypography,
-        content = content
-    )
+    val customShapes = if (era is Windows9xEra) {
+        Shapes(
+            extraSmall = RoundedCornerShape(0.dp),
+            small = RoundedCornerShape(0.dp),
+            medium = RoundedCornerShape(0.dp),
+            large = RoundedCornerShape(0.dp),
+            extraLarge = RoundedCornerShape(0.dp)
+        )
+    } else {
+        Shapes()
+    }
+
+    CompositionLocalProvider(LocalEraStyle provides era) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = customTypography,
+            shapes = customShapes,
+            content = content
+        )
+    }
 }

@@ -34,6 +34,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.neytron.sshcommander.data.RemoteFile
 import com.neytron.sshcommander.sftp.SftpController
+import com.neytron.sshcommander.ui.theme.EraButton
+import com.neytron.sshcommander.ui.theme.EraTextButton
+import com.neytron.sshcommander.ui.theme.LocalEraStyle
+import com.neytron.sshcommander.ui.theme.Windows9xEra
 import kotlinx.coroutines.launch
 
 /**
@@ -75,6 +79,8 @@ fun SftpView(controller: SftpController?, modifier: Modifier = Modifier) {
 
     val clipboard = LocalClipboardManager.current
     val sftp = controller
+    val era = LocalEraStyle.current
+    val isWin9x = era is Windows9xEra
 
     if (sftp == null) {
         SftpPlaceholder()
@@ -374,7 +380,7 @@ fun SftpView(controller: SftpController?, modifier: Modifier = Modifier) {
                 )
             },
             confirmButton = {
-                Button(onClick = {
+                EraButton(onClick = {
                     if (newFolderName.isNotBlank()) {
                         scope.launch {
                             val ok = sftp.makeDirectory(currentPath, newFolderName.trim())
@@ -386,7 +392,7 @@ fun SftpView(controller: SftpController?, modifier: Modifier = Modifier) {
                 }) { Text("Create") }
             },
             dismissButton = {
-                androidx.compose.material3.TextButton(onClick = { showNewFolder = false }) { Text("Cancel") }
+                EraTextButton(onClick = { showNewFolder = false }) { Text("Cancel") }
             }
         )
     }
@@ -468,6 +474,8 @@ private fun SftpRow(
     onCopyPath: () -> Unit
 ) {
     var menuAnchor by remember { mutableStateOf<Offset?>(null) }
+    val era = LocalEraStyle.current
+    val isWin9x = era is Windows9xEra
 
     val singleTapState = rememberUpdatedState(onSingleTap)
     val doubleTapState = rememberUpdatedState(onDoubleTap)
@@ -541,40 +549,43 @@ private fun SftpRow(
                 ) {
                     DropdownMenu(
                         expanded = true,
-                        onDismissRequest = { menuAnchor = null }
+                        onDismissRequest = { menuAnchor = null },
+                        shape = if (isWin9x) RoundedCornerShape(0.dp) else RoundedCornerShape(8.dp),
+                        containerColor = if (isWin9x) era.surfaceBackground else MaterialTheme.colorScheme.surface,
+                        modifier = if (isWin9x) Modifier.background(era.surfaceBackground) else Modifier
                     ) {
                         if (file.isDirectory) {
                             DropdownMenuItem(
-                                text = { Text(AppStrings.open) },
+                                text = { Text(AppStrings.open, color = if (isWin9x) era.textColor else MaterialTheme.colorScheme.onSurface) },
                                 onClick = { menuAnchor = null; onOpen() },
-                                leadingIcon = { Icon(Icons.Default.FolderOpen, contentDescription = null) }
+                                leadingIcon = { Icon(Icons.Default.FolderOpen, contentDescription = null, tint = if (isWin9x) era.textColor else MaterialTheme.colorScheme.onSurfaceVariant) }
                             )
                         } else {
                             DropdownMenuItem(
-                                text = { Text(AppStrings.preview) },
+                                text = { Text(AppStrings.preview, color = if (isWin9x) era.textColor else MaterialTheme.colorScheme.onSurface) },
                                 onClick = { menuAnchor = null; onPreview() },
-                                leadingIcon = { Icon(Icons.Default.Preview, contentDescription = null) }
+                                leadingIcon = { Icon(Icons.Default.Preview, contentDescription = null, tint = if (isWin9x) era.textColor else MaterialTheme.colorScheme.onSurfaceVariant) }
                             )
                             DropdownMenuItem(
-                                text = { Text(AppStrings.editText) },
+                                text = { Text(AppStrings.editText, color = if (isWin9x) era.textColor else MaterialTheme.colorScheme.onSurface) },
                                 onClick = { menuAnchor = null; onEdit() },
-                                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
+                                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, tint = if (isWin9x) era.textColor else MaterialTheme.colorScheme.onSurfaceVariant) }
                             )
                             DropdownMenuItem(
-                                text = { Text(AppStrings.download) },
+                                text = { Text(AppStrings.download, color = if (isWin9x) era.textColor else MaterialTheme.colorScheme.onSurface) },
                                 onClick = { menuAnchor = null; onDownload() },
-                                leadingIcon = { Icon(Icons.Default.Download, contentDescription = null) }
+                                leadingIcon = { Icon(Icons.Default.Download, contentDescription = null, tint = if (isWin9x) era.textColor else MaterialTheme.colorScheme.onSurfaceVariant) }
                             )
                         }
                         DropdownMenuItem(
-                            text = { Text(AppStrings.copyPath) },
+                            text = { Text(AppStrings.copyPath, color = if (isWin9x) era.textColor else MaterialTheme.colorScheme.onSurface) },
                             onClick = { menuAnchor = null; onCopyPath() },
-                            leadingIcon = { Icon(Icons.Default.ContentCopy, contentDescription = null) }
+                            leadingIcon = { Icon(Icons.Default.ContentCopy, contentDescription = null, tint = if (isWin9x) era.textColor else MaterialTheme.colorScheme.onSurfaceVariant) }
                         )
                         DropdownMenuItem(
-                            text = { Text(AppStrings.delete) },
+                            text = { Text(AppStrings.delete, color = if (isWin9x) era.textColor else MaterialTheme.colorScheme.onSurface) },
                             onClick = { menuAnchor = null; onDelete() },
-                            leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) }
+                            leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = if (isWin9x) era.textColor else MaterialTheme.colorScheme.onSurfaceVariant) }
                         )
                     }
                 }

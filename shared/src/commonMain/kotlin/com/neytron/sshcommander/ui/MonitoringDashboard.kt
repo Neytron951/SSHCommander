@@ -34,6 +34,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.neytron.sshcommander.ui.theme.EraSlider
 import com.neytron.sshcommander.data.MonitorWidget
 import com.neytron.sshcommander.data.WidgetType
 import com.neytron.sshcommander.terminal.TerminalController
@@ -439,11 +440,11 @@ fun WidgetEditDialog(widget: MonitorWidget?, onDismiss: () -> Unit, onSave: (Str
                 }
 
                 Text("Font Size: ${fSize.toInt()}sp", style = MaterialTheme.typography.labelMedium)
-                Slider(value = fSize, onValueChange = { fSize = it }, valueRange = 8f..32f, steps = 24)
+                EraSlider(value = fSize, onValueChange = { fSize = it }, valueRange = 8f..32f, steps = 24)
                 Text("Size (Width x Height)", style = MaterialTheme.typography.labelMedium)
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Column(Modifier.weight(1f)) { Text("Width: $w", style = MaterialTheme.typography.bodySmall); Slider(value = w.toFloat(), onValueChange = { w = it.roundToInt() }, valueRange = 1f..12f, steps = 11) }
-                    Column(Modifier.weight(1f)) { Text("Height: $h", style = MaterialTheme.typography.bodySmall); Slider(value = h.toFloat(), onValueChange = { h = it.roundToInt() }, valueRange = 1f..10f, steps = 9) }
+                    Column(Modifier.weight(1f)) { Text("Width: $w", style = MaterialTheme.typography.bodySmall); EraSlider(value = w.toFloat(), onValueChange = { w = it.roundToInt() }, valueRange = 1f..12f, steps = 11) }
+                    Column(Modifier.weight(1f)) { Text("Height: $h", style = MaterialTheme.typography.bodySmall); EraSlider(value = h.toFloat(), onValueChange = { h = it.roundToInt() }, valueRange = 1f..10f, steps = 9) }
                 }
                 if (type == WidgetType.PERCENTAGE || type == WidgetType.CHART) OutlinedTextField(value = colorHex, onValueChange = { colorHex = it }, label = { Text(AppStrings.indicatorColor) }, modifier = Modifier.fillMaxWidth())
             }

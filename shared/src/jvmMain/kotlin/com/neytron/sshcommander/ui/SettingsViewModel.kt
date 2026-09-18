@@ -31,6 +31,9 @@ class SettingsViewModel(
     val rebootConfirm: StateFlow<String> = settings.rebootConfirm.stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5000), "always"
     )
+    val uiStyle: StateFlow<String> = settings.uiStyle.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), "modern"
+    )
     val language: StateFlow<String> = settings.language.stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5000), "en"
     )
@@ -63,6 +66,7 @@ class SettingsViewModel(
     fun setFontFamily(family: String) = viewModelScope.launch { settings.setFontFamily(family) }
     fun setTimeout(seconds: Int) = viewModelScope.launch { settings.setTimeout(seconds) }
     fun setRebootConfirm(mode: String) = viewModelScope.launch { settings.setRebootConfirm(mode) }
+    fun setUiStyle(style: String) = viewModelScope.launch { settings.setUiStyle(style) }
     fun setLanguage(lang: String) = viewModelScope.launch {
         settings.setLanguage(lang)
         AppStrings.language = lang

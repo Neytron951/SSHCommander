@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.*
+import com.neytron.sshcommander.ui.theme.EraCheckbox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -319,7 +320,7 @@ fun AddCommandDialog(
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = isDangerous, onCheckedChange = { isDangerous = it })
+                                    EraCheckbox(checked = isDangerous, onCheckedChange = { isDangerous = it })
                     Text(AppStrings.requiresBio)
                 }
             }

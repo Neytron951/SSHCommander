@@ -55,6 +55,7 @@ class DesktopSettings(private val dataDir: File) : AppSettings {
     override val fontSize: Flow<String> = str("font_size", "medium")
     override val timeout: Flow<Int> = int("timeout", 10)
     override val rebootConfirm: Flow<String> = str("reboot_confirm", "always")
+    override val uiStyle: Flow<String> = str("ui_style", "modern")
     override val termBgColor: Flow<String> = str("term_bg_color", "#1A1B26")
     override val termTextColor: Flow<String> = str("term_text_color", "#A9B1D6")
     override val termFontSizePx: Flow<Float> = flt("term_font_size_px", 14f)
@@ -82,6 +83,7 @@ class DesktopSettings(private val dataDir: File) : AppSettings {
     override suspend fun setFontSize(size: String) { props.setProperty("font_size", size); persist() }
     override suspend fun setTimeout(seconds: Int) { props.setProperty("timeout", seconds.toString()); persist() }
     override suspend fun setRebootConfirm(mode: String) { props.setProperty("reboot_confirm", mode); persist() }
+    override suspend fun setUiStyle(style: String) { props.setProperty("ui_style", style); persist() }
     override suspend fun setTermBgColor(color: String) { props.setProperty("term_bg_color", color); persist() }
     override suspend fun setTermTextColor(color: String) { props.setProperty("term_text_color", color); persist() }
     override suspend fun setTermFontSizePx(size: Float) { props.setProperty("term_font_size_px", size.toString()); persist() }

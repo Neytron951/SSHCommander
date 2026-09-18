@@ -35,7 +35,14 @@ import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.RoundedCornerShape
+import com.neytron.sshcommander.ui.theme.EraButton
+import com.neytron.sshcommander.ui.theme.EraCheckbox
+import com.neytron.sshcommander.ui.theme.EraOutlinedButton
+import com.neytron.sshcommander.ui.theme.EraSwitch
+import com.neytron.sshcommander.ui.theme.LocalEraStyle
+import com.neytron.sshcommander.ui.theme.ModernAndroidEra
 import com.neytron.sshcommander.ui.theme.SSHCommanderTheme
+import com.neytron.sshcommander.ui.theme.Windows9xEra
 import com.neytron.sshcommander.data.ExportImportManager
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
@@ -58,6 +65,7 @@ fun SettingsScreen(
     val privacyMode by viewModel.privacyMode.collectAsState()
     val autoReconnect by viewModel.autoReconnect.collectAsState()
     val biometricLock by viewModel.biometricLock.collectAsState()
+    val uiStyle by viewModel.uiStyle.collectAsState()
 
     val termBgColor by viewModel.termBgColor.collectAsState()
     val termTextColor by viewModel.termTextColor.collectAsState()
@@ -142,6 +150,23 @@ fun SettingsScreen(
                 }
             }
 
+            // Interface Era (Style)
+            SettingsSection(title = if (AppStrings.language == "ru") "Стиль интерфейса (Эпохи)" else "Interface Style (Eras)") {
+                Column {
+                    RadioButtonOption(
+                        text = if (AppStrings.language == "ru") "Современный Android" else "Modern Android",
+                        selected = uiStyle == "modern",
+                        enabled = !isTransitioning
+                    ) { viewModel.setUiStyle("modern") }
+                    
+                    RadioButtonOption(
+                        text = if (AppStrings.language == "ru") "Windows 9x (Ретро)" else "Windows 9x (Retro)",
+                        selected = uiStyle == "win9x",
+                        enabled = !isTransitioning
+                    ) { viewModel.setUiStyle("win9x") }
+                }
+            }
+
             // 2. Language
             SettingsSection(title = AppStrings.languageLabel) {
                 Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -217,7 +242,7 @@ fun SettingsScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    Switch(
+                    EraSwitch(
                         checked = privacyMode,
                         onCheckedChange = { viewModel.setPrivacyMode(it) },
                         enabled = !isTransitioning
@@ -242,7 +267,7 @@ fun SettingsScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    Switch(
+                    EraSwitch(
                         checked = autoReconnect,
                         onCheckedChange = { viewModel.setAutoReconnect(it) },
                         enabled = !isTransitioning
@@ -269,7 +294,7 @@ fun SettingsScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    Switch(
+                    EraSwitch(
                         checked = biometricLock,
                         onCheckedChange = { toggleBiometricLock(deps.biometric, it) { viewModel.setBiometricLock(it) } },
                         enabled = !isTransitioning
@@ -279,7 +304,7 @@ fun SettingsScreen(
 
             // SSH Keys Management
             SettingsSection(title = AppStrings.manageKeys) {
-                OutlinedButton(
+                EraOutlinedButton(
                     onClick = { if (!isTransitioning) onSshKeysClick() },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !isTransitioning
@@ -292,11 +317,10 @@ fun SettingsScreen(
 
             // Script Market
             SettingsSection(title = AppStrings.scriptMarket) {
-                Button(
+                EraButton(
                     onClick = { if (!isTransitioning) onScriptMarketClick() },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !isTransitioning,
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
+                    enabled = !isTransitioning
                 ) {
                     Icon(Icons.Default.Code, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
@@ -306,7 +330,7 @@ fun SettingsScreen(
 
             // Widget Settings
             SettingsSection(title = widgetCustomizationLabel) {
-                OutlinedButton(
+                EraOutlinedButton(
                     onClick = { if (!isTransitioning) onWidgetSettingsClick() },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !isTransitioning
@@ -322,10 +346,18 @@ fun SettingsScreen(
             // Export / Import
             SettingsSection(title = AppStrings.dataManagement) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Button(onClick = { if (!isTransitioning) savePicker("ssh_commander_backup.json") }, modifier = Modifier.fillMaxWidth(), enabled = !isTransitioning) {
+                    EraButton(
+                        onClick = { if (!isTransitioning) savePicker("ssh_commander_backup.json") },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isTransitioning
+                    ) {
                         Text(AppStrings.exportData)
                     }
-                    OutlinedButton(onClick = { if (!isTransitioning) uploadPicker() }, modifier = Modifier.fillMaxWidth(), enabled = !isTransitioning) {
+                    EraOutlinedButton(
+                        onClick = { if (!isTransitioning) uploadPicker() },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isTransitioning
+                    ) {
                         Text(AppStrings.importData)
                     }
                 }

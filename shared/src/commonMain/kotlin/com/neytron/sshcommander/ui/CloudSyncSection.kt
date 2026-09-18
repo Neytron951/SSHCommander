@@ -9,6 +9,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.neytron.sshcommander.data.DataBackupManager
+import com.neytron.sshcommander.ui.theme.EraButton
+import com.neytron.sshcommander.ui.theme.EraOutlinedButton
+import com.neytron.sshcommander.ui.theme.LocalEraStyle
+import com.neytron.sshcommander.ui.theme.Windows9xEra
 import kotlinx.coroutines.launch
 
 @Composable
@@ -31,6 +35,8 @@ fun CloudSyncSectionContent(
     val isAuthorized by authManager.isAuthorized.collectAsState()
     val userEmail by authManager.userEmail.collectAsState()
     val lastSync by settings.lastSyncTime.collectAsState(initial = 0L)
+    val era = LocalEraStyle.current
+    val isWin9x = era is Windows9xEra
 
     val driveService = remember(deps) {
         if (deps.httpClient != null) {
@@ -49,7 +55,7 @@ fun CloudSyncSectionContent(
     )
     
     if (!isAuthorized) {
-        Button(
+        EraButton(
             onClick = onSignInClick,
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -74,7 +80,7 @@ fun CloudSyncSectionContent(
                 }
                 Spacer(Modifier.height(8.dp))
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Button(
+                                                    EraButton(
                                         onClick = { 
                                             scope.launch {
                                                 try {
@@ -98,7 +104,7 @@ fun CloudSyncSectionContent(
                                         Text(if (AppStrings.language == "ru") "Загрузить в облако" else "Upload")
                                     }
 
-                                    Button(
+                                                    EraButton(
                                         onClick = { 
                                             scope.launch {
                                                 try {
@@ -117,18 +123,17 @@ fun CloudSyncSectionContent(
                                             }
                                         },
                                         enabled = driveService != null,
-                                        modifier = Modifier.weight(1f),
-                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
-                                    ) {
-                                        Text(if (AppStrings.language == "ru") "Скачать из облака" else "Download")
-                                    }
-                                }
-                                OutlinedButton(
-                                    onClick = { scope.launch { authManager.signOut() } },
-                                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
-                                ) {
-                                    Text(if (AppStrings.language == "ru") "Выйти из аккаунта" else "Sign Out")
-                                }
+                                                        modifier = Modifier.weight(1f)
+                                                    ) {
+                                                        Text(if (AppStrings.language == "ru") "Скачать из облака" else "Download")
+                                                    }
+                                                }
+                                                EraOutlinedButton(
+                                                    onClick = { scope.launch { authManager.signOut() } },
+                                                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                                                ) {
+                                                    Text(if (AppStrings.language == "ru") "Выйти из аккаунта" else "Sign Out")
+                                                }
             }
         }
     }

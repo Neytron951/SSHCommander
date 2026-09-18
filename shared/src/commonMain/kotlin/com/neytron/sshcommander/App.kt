@@ -128,6 +128,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.layout.onSizeChanged
@@ -192,7 +193,16 @@ import com.neytron.sshcommander.ui.getSystemFontFamily
 import com.neytron.sshcommander.ui.platformToast
 import com.neytron.sshcommander.ui.rememberSavePicker
 import com.neytron.sshcommander.ui.rememberUploadPicker
+import com.neytron.sshcommander.ui.theme.EraButton
+import com.neytron.sshcommander.ui.theme.EraCheckbox
+import com.neytron.sshcommander.ui.theme.EraOutlinedButton
+import com.neytron.sshcommander.ui.theme.EraSwitch
+import com.neytron.sshcommander.ui.theme.EraTextButton
+import com.neytron.sshcommander.ui.theme.LocalEraStyle
+import com.neytron.sshcommander.ui.theme.ModernAndroidEra
 import com.neytron.sshcommander.ui.theme.SSHCommanderTheme
+import com.neytron.sshcommander.ui.theme.Windows9xEra
+import com.neytron.sshcommander.ui.theme.win9xBevel
 import kotlinx.coroutines.launch
 
 /** Root composable shared by Android and Windows. */
@@ -219,13 +229,24 @@ fun App(
         else -> isSystemInDarkTheme()
     }
 
-    SSHCommanderTheme(darkTheme = darkTheme) {
+    val uiStyleName by (settings?.uiStyle?.collectAsState(initial = "modern")
+        ?: remember { mutableStateOf("modern") })
+    val era = when (uiStyleName) {
+        "win9x" -> Windows9xEra
+        else -> ModernAndroidEra
+    }
+
+    SSHCommanderTheme(darkTheme = darkTheme, era = era) {
         SSHCommanderLayout(
             terminalSessionFactory, sftpSessionFactory, serverRepository,
             settings, appVersion, initialServerId, backupManager
         )
     }
 }
+
+@Composable
+private fun eraShape(default: Shape, win9x: Shape = RoundedCornerShape(0.dp)): Shape =
+    if (LocalEraStyle.current is Windows9xEra) win9x else default
 
 /**
  * Adaptive layout:
@@ -861,7 +882,7 @@ fun SSHCommanderLayout(
     if (showSshKeyManager) {
         Dialog(onDismissRequest = { showSshKeyManager = false }) {
             Surface(
-                shape = RoundedCornerShape(12.dp),
+                shape = eraShape(RoundedCornerShape(12.dp)),
                 color = MaterialTheme.colorScheme.background,
                 modifier = Modifier.fillMaxSize(0.85f)
             ) {
@@ -954,7 +975,7 @@ fun SSHCommanderLayout(
         Dialog(onDismissRequest = { showScriptMarket = false }) {
             Surface(
                 modifier = Modifier.fillMaxSize(0.95f),
-                shape = RoundedCornerShape(16.dp),
+                shape = eraShape(RoundedCornerShape(16.dp)),
                 color = MaterialTheme.colorScheme.background
             ) {
                 ScriptMarketScreen(
@@ -1041,7 +1062,12 @@ private fun AdbPairingInstructionsDialog(
             }
         },
         confirmButton = {
-            Button(onClick = onDismiss, shape = RoundedCornerShape(12.dp)) { Text("Got it!") }
+            val era = LocalEraStyle.current
+            if (era is Windows9xEra) {
+                EraButton(onClick = onDismiss) { Text("Got it!") }
+            } else {
+                Button(onClick = onDismiss, shape = RoundedCornerShape(12.dp)) { Text("Got it!") }
+            }
         }
     )
 }
@@ -1088,12 +1114,12 @@ private fun SaveWorkspaceDialog(
             }
         },
         confirmButton = {
-            Button(onClick = { onSave(name.trim(), colorHex) }, enabled = name.isNotBlank()) {
+            EraButton(onClick = { onSave(name.trim(), colorHex) }, enabled = name.isNotBlank()) {
                 Text("Save")
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(AppStrings.cancel) }
+            EraTextButton(onClick = onDismiss) { Text(AppStrings.cancel) }
         }
     )
 }
@@ -1128,20 +1154,18 @@ private fun ScriptMarketSideContent(onOpenMarket: () -> Unit, isUltraNarrow: Boo
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
             Spacer(Modifier.height(24.dp))
-            Button(
+            EraButton(
                 onClick = onOpenMarket,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Open Market")
             }
-            
+
             Spacer(Modifier.height(8.dp))
-            
-            OutlinedButton(
+
+            EraOutlinedButton(
                 onClick = { platformOpenUrl("https://github.com/Neytron951/SSHC_Scripts") },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Icon(Icons.Default.Cloud, null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(8.dp))
@@ -1445,10 +1469,24 @@ private fun SidePaneTab(
     onClick: () -> Unit, 
     modifier: Modifier = Modifier
 ) {
+    val era = LocalEraStyle.current
+    val isWin9x = era is Windows9xEra
+    val tabBg = if (selected) {
+        if (isWin9x) era.buttonBackground else MaterialTheme.colorScheme.primary
+    } else {
+        if (isWin9x) era.surfaceBackground else Color.Transparent
+    }
+    val fg = if (selected) {
+        if (isWin9x) era.buttonTextColor else MaterialTheme.colorScheme.onPrimary
+    } else {
+        if (isWin9x) era.textColor else MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(6.dp))
-            .background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent)
+            .then(if (isWin9x) Modifier.win9xBevel() else Modifier)
+            .clip(if (isWin9x) RoundedCornerShape(0.dp) else RoundedCornerShape(6.dp))
+            .background(tabBg)
             .clickable(onClick = onClick)
             .padding(vertical = 6.dp),
         contentAlignment = Alignment.Center
@@ -1459,13 +1497,13 @@ private fun SidePaneTab(
                     imageVector = icon,
                     contentDescription = null,
                     modifier = Modifier.size(18.dp),
-                    tint = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = fg
                 )
             } else {
                 Text(
                     text = label,
                     style = MaterialTheme.typography.labelMedium,
-                    color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = fg,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -2048,6 +2086,8 @@ private fun CommandPanel(
     var selectedCategory by remember { mutableStateOf<String?>(null) }
 
     val categories = customCommands.mapNotNull { it.categoryName }.distinct().sorted()
+    val era = LocalEraStyle.current
+    val isWin9x = era is Windows9xEra
     val filteredCommands = customCommands.filter { cmd ->
         (selectedCategory == null || cmd.categoryName == selectedCategory) &&
         (searchQuery.isEmpty() || cmd.name.contains(searchQuery, ignoreCase = true) || cmd.command.contains(searchQuery, ignoreCase = true))
@@ -2140,10 +2180,10 @@ private fun CommandPanel(
                 }
                 
                 Surface(
-                    shape = RoundedCornerShape(8.dp),
+                    shape = if (isWin9x) RoundedCornerShape(0.dp) else RoundedCornerShape(8.dp),
                     color = color.copy(alpha = 0.9f),
                     contentColor = if (color.luminance() > 0.5f) Color.Black else Color.White,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().then(if (isWin9x) Modifier.win9xBevel() else Modifier)
                 ) {
                     Row(
                         modifier = Modifier
@@ -2185,13 +2225,13 @@ private fun CommandPanel(
             title = { Text(AppStrings.confirmExecution) },
             text = { Text(String.format(AppStrings.executeConfirmMsg, command)) },
             confirmButton = {
-                TextButton(onClick = {
+                EraButton(onClick = {
                     handleExecute(command)
                     pendingCommand = null
                 }) { Text(AppStrings.execute) }
             },
             dismissButton = {
-                TextButton(onClick = { pendingCommand = null }) { Text(AppStrings.cancel) }
+                EraTextButton(onClick = { pendingCommand = null }) { Text(AppStrings.cancel) }
             }
         )
     }
@@ -2210,14 +2250,29 @@ private fun CommandPanel(
 
 @Composable
 private fun CategoryChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    val era = LocalEraStyle.current
+    val isWin9x = era is Windows9xEra
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(16.dp),
-        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, if (selected) Color.Transparent else MaterialTheme.colorScheme.outlineVariant),
-        modifier = Modifier.padding(vertical = 2.dp)
+        shape = if (isWin9x) RoundedCornerShape(0.dp) else RoundedCornerShape(16.dp),
+        color = if (selected) {
+            if (isWin9x) era.buttonBackground else MaterialTheme.colorScheme.primary
+        } else {
+            if (isWin9x) era.surfaceBackground else MaterialTheme.colorScheme.surface
+        },
+        border = BorderStroke(1.dp, if (selected) Color.Transparent else if (isWin9x) era.textColor.copy(alpha = 0.4f) else MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier.padding(vertical = 2.dp).then(if (isWin9x) Modifier.win9xBevel() else Modifier)
     ) {
-        Text(label, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp), color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            color = if (selected) {
+                if (isWin9x) era.buttonTextColor else MaterialTheme.colorScheme.onPrimary
+            } else {
+                if (isWin9x) era.textColor else MaterialTheme.colorScheme.onSurface
+            }
+        )
     }
 }
 
@@ -2250,7 +2305,7 @@ private fun FillTemplateDialog(
             }
         },
         confirmButton = {
-            Button(onClick = {
+            EraButton(onClick = {
                 var filled = template
                 vars.forEach { v ->
                     filled = filled.replace("{{$v}}", values[v] ?: "")
@@ -2259,7 +2314,7 @@ private fun FillTemplateDialog(
             }) { Text("Run") }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            EraTextButton(onClick = onDismiss) { Text("Cancel") }
         }
     )
 }
@@ -2279,15 +2334,29 @@ private fun PaneSwitcher(selected: PaneType, onSelect: (PaneType) -> Unit) {
 
 @Composable
 private fun PaneTab(label: String, selected: Boolean, onClick: () -> Unit) {
-    val bg = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+    val era = LocalEraStyle.current
+    val isWin9x = era is Windows9xEra
+    val bg = if (selected) {
+        if (isWin9x) era.buttonBackground else MaterialTheme.colorScheme.primaryContainer
+    } else {
+        if (isWin9x) era.surfaceBackground else MaterialTheme.colorScheme.surfaceVariant
+    }
+    val textColor = if (selected) {
+        if (isWin9x) era.buttonTextColor else MaterialTheme.colorScheme.onPrimaryContainer
+    } else {
+        if (isWin9x) era.textColor else MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(6.dp),
-        color = bg
+        shape = if (isWin9x) RoundedCornerShape(0.dp) else RoundedCornerShape(6.dp),
+        color = bg,
+        modifier = if (isWin9x) Modifier.win9xBevel() else Modifier
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelLarge,
+            color = textColor,
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
         )
     }
@@ -2364,7 +2433,7 @@ private fun LoginSwitcher(
     var expanded by remember { mutableStateOf(false) }
     val active = logins.firstOrNull { it.id == activeLoginId }
     Box {
-        OutlinedButton(onClick = { expanded = true }) {
+        EraOutlinedButton(onClick = { expanded = true }) {
             Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(6.dp))
             Text(
@@ -2533,7 +2602,7 @@ private fun DesktopMenuBar(
                     DropdownMenuItem(
                         text = { Text(if (AppStrings.language == "ru") "Список серверов" else "Server list") },
                         leadingIcon = {
-                            Checkbox(
+                            EraCheckbox(
                                 checked = showServerList,
                                 onCheckedChange = null
                             )
@@ -2543,7 +2612,7 @@ private fun DesktopMenuBar(
                     DropdownMenuItem(
                         text = { Text(if (AppStrings.language == "ru") "Панель команд" else "Command panel") },
                         leadingIcon = {
-                            Checkbox(
+                            EraCheckbox(
                                 checked = showCommandPanel,
                                 onCheckedChange = null
                             )
@@ -2553,7 +2622,7 @@ private fun DesktopMenuBar(
                     DropdownMenuItem(
                         text = { Text(if (AppStrings.language == "ru") "Верхняя панель" else "Top bar") },
                         leadingIcon = {
-                            Checkbox(
+                            EraCheckbox(
                                 checked = showTopBar,
                                 onCheckedChange = null
                             )
@@ -2686,10 +2755,9 @@ private fun ServerDialog(
                     }
 
                     // --- PRIMARY PAIR AND CONNECT BUTTON ---
-                    Button(
+                    EraButton(
                         onClick = { showWizard = true; wizardStep = 1 },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
                         contentPadding = PaddingValues(16.dp)
                     ) {
                         Icon(Icons.Default.Android, null)
@@ -2982,12 +3050,12 @@ private fun ServerDialog(
             }
         },
         confirmButton = {
-            Button(onClick = ::submit) {
+            EraButton(onClick = ::submit) {
                 Text(if (isEdit) AppStrings.save else AppStrings.addServer)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(AppStrings.cancel) }
+            EraTextButton(onClick = onDismiss) { Text(AppStrings.cancel) }
         }
     )
 }
@@ -3020,7 +3088,7 @@ private fun FolderNameDialog(
             )
         },
         confirmButton = {
-            TextButton(
+            EraTextButton(
                 onClick = { onConfirm(name.trim()) },
                 enabled = name.isNotBlank()
             ) {
@@ -3028,7 +3096,7 @@ private fun FolderNameDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(AppStrings.cancel) }
+            EraTextButton(onClick = onDismiss) { Text(AppStrings.cancel) }
         }
     )
 }
@@ -3045,7 +3113,7 @@ private fun FolderDropdown(
     Column {
         Text(AppStrings.folders, style = MaterialTheme.typography.titleSmall)
         Box {
-            OutlinedButton(
+            EraOutlinedButton(
                 onClick = { expanded = true },
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -3173,7 +3241,7 @@ private fun ManageLoginsDialog(
                                 if (login.isDefault) {
                                     Icon(Icons.Default.Star, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp).padding(end = 8.dp))
                                 } else {
-                                    TextButton(onClick = {
+                                    EraTextButton(onClick = {
                                         scope.launch {
                                             repository?.updateLogin(login.copy(isDefault = true), null)
                                             logins.filter { it.id != login.id && it.isDefault }.forEach { other ->
@@ -3198,13 +3266,13 @@ private fun ManageLoginsDialog(
         },
         confirmButton = {
             Row {
-                Button(onClick = { adding = true }, enabled = !isProvisioning) {
+                EraButton(onClick = { adding = true }, enabled = !isProvisioning) {
                     Icon(Icons.Default.Add, null)
                     Spacer(Modifier.width(6.dp))
                     Text(AppStrings.addLogin)
                 }
                 Spacer(Modifier.width(12.dp))
-                TextButton(onClick = onDismiss) { Text(AppStrings.dismiss) }
+                EraTextButton(onClick = onDismiss) { Text(AppStrings.dismiss) }
             }
         }
     )
@@ -3284,13 +3352,13 @@ private fun ManageLoginsDialog(
             title = { Text(AppStrings.deleteLoginTitle) },
             text = { Text(String.format(AppStrings.deleteLoginMsg, login.label)) },
             confirmButton = {
-                TextButton(onClick = {
+                EraTextButton(onClick = {
                     scope.launch { repository?.deleteLogin(login) }
                     loginToDelete = null
                 }) { Text(AppStrings.delete, color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
-                TextButton(onClick = { loginToDelete = null }) { Text(AppStrings.cancel) }
+                EraTextButton(onClick = { loginToDelete = null }) { Text(AppStrings.cancel) }
             }
         )
     }
@@ -3371,7 +3439,8 @@ private fun IdentityEditDialog(
                         ) {
                             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Checkbox(checked = autoProvision, onCheckedChange = { autoProvision = it })
+                                    EraCheckbox(checked = autoProvision, onCheckedChange = { autoProvision = it })
+                                    Spacer(Modifier.width(8.dp))
                                     Text(AppStrings.autoProvisionDesc, fontWeight = FontWeight.Bold)
                                 }
                                 Text(
@@ -3449,7 +3518,7 @@ private fun IdentityEditDialog(
             }
         },
         confirmButton = {
-            Button(
+            EraButton(
                 onClick = {
                     onConfirm(
                         label.trim(), 
@@ -3475,7 +3544,7 @@ private fun IdentityEditDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !isProvisioning) { Text(AppStrings.cancel) }
+            EraTextButton(onClick = onDismiss, enabled = !isProvisioning) { Text(AppStrings.cancel) }
         }
     )
 }
@@ -3508,6 +3577,9 @@ private fun DesktopSettingsDialog(
     val termFontFamily by (settings?.termFontFamily?.collectAsState(initial = "JetBrains Mono")
         ?: remember { mutableStateOf("JetBrains Mono") })
     
+    val uiStyle by (settings?.uiStyle?.collectAsState(initial = "modern")
+        ?: remember { mutableStateOf("modern") })
+    
     var themeToPreview by remember { mutableStateOf<TerminalTheme?>(null) }
 
     val privacyMode by (settings?.privacyMode?.collectAsState(initial = false)
@@ -3539,6 +3611,21 @@ private fun DesktopSettingsDialog(
                 }
                 RadioButtonOption(AppStrings.themeSystem, themeMode == "system") {
                     scope.launch { settings?.setThemeMode("system") }
+                }
+
+                // Interface Era (Style)
+                SettingsBlockTitle(if (AppStrings.language == "ru") "Стиль интерфейса (Эпохи)" else "Interface Style (Eras)")
+                RadioButtonOption(
+                    if (AppStrings.language == "ru") "Современный Android" else "Modern Android",
+                    uiStyle == "modern"
+                ) {
+                    scope.launch { settings?.setUiStyle("modern") }
+                }
+                RadioButtonOption(
+                    if (AppStrings.language == "ru") "Windows 9x (Ретро)" else "Windows 9x (Retro)",
+                    uiStyle == "win9x"
+                ) {
+                    scope.launch { settings?.setUiStyle("win9x") }
                 }
 
                 // Language
@@ -3595,7 +3682,7 @@ private fun DesktopSettingsDialog(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    Switch(
+                    EraSwitch(
                         checked = privacyMode,
                         onCheckedChange = { scope.launch { settings?.setPrivacyMode(it) } }
                     )
@@ -3614,7 +3701,7 @@ private fun DesktopSettingsDialog(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    Switch(
+                    EraSwitch(
                         checked = autoReconnect,
                         onCheckedChange = { scope.launch { settings?.setAutoReconnect(it) } }
                     )
@@ -3624,7 +3711,7 @@ private fun DesktopSettingsDialog(
 
                 // SSH Keys Management
                 SettingsBlockTitle(AppStrings.manageKeys)
-                OutlinedButton(
+                EraOutlinedButton(
                     onClick = onSshKeysClick,
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -3632,7 +3719,6 @@ private fun DesktopSettingsDialog(
                     Spacer(Modifier.width(8.dp))
                     Text(AppStrings.sshKeys)
                 }
-
                 // Cloud Sync
                 CloudSyncSection(backupManager = backupManager)
 
@@ -3640,7 +3726,7 @@ private fun DesktopSettingsDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text(AppStrings.dismiss) }
+            EraTextButton(onClick = onDismiss) { Text(AppStrings.dismiss) }
         }
     )
 
@@ -3756,15 +3842,14 @@ private fun DesktopThemePreviewDialog(
             }
         },
         confirmButton = {
-            Button(
-                onClick = onApply,
-                shape = RoundedCornerShape(12.dp)
+            EraButton(
+                onClick = onApply
             ) {
                 Text(if (AppStrings.language == "ru") "Применить тему" else "Apply Theme", fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            EraTextButton(onClick = onDismiss) {
                 Text(AppStrings.cancel, color = MaterialTheme.colorScheme.error)
             }
         }
@@ -4299,7 +4384,7 @@ private fun AddCommandDialogDesktop(
                 ColorChipRow(presetColors, colorHex) { colorHex = it }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = isDangerous, onCheckedChange = { isDangerous = it })
+                    EraCheckbox(checked = isDangerous, onCheckedChange = { isDangerous = it })
                     Text(AppStrings.requiresBio)
                 }
             }
