@@ -8,6 +8,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -21,9 +22,12 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -104,14 +108,14 @@ object ModernAndroidEra : EraStyle {
  */
 object Windows9xEra : EraStyle {
     override val name = "Windows 9x"
-    override val appBackground = Color(0xFFC0C0C0) // Классический бирюзовый фоновый цвет рабочего стола Win95
+    override val appBackground = Color(0xFFC0C0C0) // Классический серый фоновый цвет
     override val surfaceBackground = Color(0xFFC0C0C0) // Серый цвет окон
     override val textColor = Color(0xFF000000) // Черный текст
 
     override val buttonShape = RoundedCornerShape(0.dp) // Абсолютно квадратные
-    override val buttonBorder = null // Объем рисуется через win9xBevel Modifier
-    override val buttonBackground = Color(0xFFC0C0C0)
-    override val buttonTextColor = Color(0xFF000000)
+    override val buttonBorder = null 
+    override val buttonBackground = Color(0xFFA0A0A0) // Темно-серый для активных элементов
+    override val buttonTextColor = Color(0xFF000000) // Всегда черный текст
     override val buttonHasBevel = true
 
     override val cardShape = RoundedCornerShape(0.dp)
@@ -126,7 +130,7 @@ object Windows9xEra : EraStyle {
 }
 
 /**
- * Вспомогательный Modifier для отрисовки объемного псевдо-3D эффекта Windows 95.
+ * Вспомогательный Modifier для отрисовки тонкой рамки в 1 пиксель (замена 3D эффекта).
  */
 fun Modifier.win9xBevel(
     isPressed: Boolean = false,
@@ -134,50 +138,17 @@ fun Modifier.win9xBevel(
 ): Modifier = drawBehind {
     val w = size.width
     val h = size.height
-
-    val white = Color(0xFFFFFFFF)
-    val lightGray = Color(0xFFDFDFDF)
-    val darkGray = Color(0xFF808080)
     val black = Color(0xFF000000)
+    val p = 1f 
 
-    if (isSunken) {
-        // Эффект вдавленности (для текстовых полей, полей ввода)
-        // Верх-Лево: темные рамки
-        drawLine(darkGray, Offset(0f, 0f), Offset(w, 0f), strokeWidth = 1.dp.toPx())
-        drawLine(darkGray, Offset(0f, 0f), Offset(0f, h), strokeWidth = 1.dp.toPx())
-        drawLine(black, Offset(1.dp.toPx(), 1.dp.toPx()), Offset(w - 1.dp.toPx(), 1.dp.toPx()), strokeWidth = 1.dp.toPx())
-        drawLine(black, Offset(1.dp.toPx(), 1.dp.toPx()), Offset(1.dp.toPx(), h - 1.dp.toPx()), strokeWidth = 1.dp.toPx())
-
-        // Низ-Право: белая/светлая рамка
-        drawLine(white, Offset(w, 0f), Offset(w, h), strokeWidth = 1.dp.toPx())
-        drawLine(white, Offset(0f, h), Offset(w, h), strokeWidth = 1.dp.toPx())
-        drawLine(lightGray, Offset(w - 1.dp.toPx(), 1.dp.toPx()), Offset(w - 1.dp.toPx(), h - 1.dp.toPx()), strokeWidth = 1.dp.toPx())
-        drawLine(lightGray, Offset(1.dp.toPx(), h - 1.dp.toPx()), Offset(w - 1.dp.toPx(), h - 1.dp.toPx()), strokeWidth = 1.dp.toPx())
-    } else if (isPressed) {
-        // Нажатая кнопка (вдавленная на 1 шаг, сдвинутая внутрь)
-        // Верх-Лево: темная граница
-        drawLine(darkGray, Offset(0f, 0f), Offset(w, 0f), strokeWidth = 1.5.dp.toPx())
-        drawLine(darkGray, Offset(0f, 0f), Offset(0f, h), strokeWidth = 1.5.dp.toPx())
-
-        // Низ-Право: легкая рамка
-        drawLine(white, Offset(w, 0f), Offset(w, h), strokeWidth = 1.dp.toPx())
-        drawLine(white, Offset(0f, h), Offset(w, h), strokeWidth = 1.dp.toPx())
-    } else {
-        // Выпуклое состояние (обычная кнопка или панель)
-        // Верх-Лево: белая внешняя рамка, светло-серая внутренняя
-        drawLine(white, Offset(0f, 0f), Offset(w, 0f), strokeWidth = 1.dp.toPx())
-        drawLine(white, Offset(0f, 0f), Offset(0f, h), strokeWidth = 1.dp.toPx())
-        drawLine(lightGray, Offset(1.dp.toPx(), 1.dp.toPx()), Offset(w - 1.dp.toPx(), 1.dp.toPx()), strokeWidth = 1.dp.toPx())
-        drawLine(lightGray, Offset(1.dp.toPx(), 1.dp.toPx()), Offset(1.dp.toPx(), h - 1.dp.toPx()), strokeWidth = 1.dp.toPx())
-
-        // Низ-Право: черная внешняя рамка, темно-серая внутренняя
-        drawLine(black, Offset(w, 0f), Offset(w, h), strokeWidth = 1.dp.toPx())
-        drawLine(black, Offset(0f, h), Offset(w, h), strokeWidth = 1.dp.toPx())
-        drawLine(darkGray, Offset(w - 1.dp.toPx(), 1.dp.toPx()), Offset(w - 1.dp.toPx(), h - 1.dp.toPx()), strokeWidth = 1.dp.toPx())
-        drawLine(darkGray, Offset(1.dp.toPx(), h - 1.dp.toPx()), Offset(w - 1.dp.toPx(), h - 1.dp.toPx()), strokeWidth = 1.dp.toPx())
-    }
+    // Рисуем простую рамку в 1 пиксель по периметру
+    drawLine(black, Offset(0f, 0f), Offset(w, 0f), strokeWidth = p)
+    drawLine(black, Offset(0f, 0f), Offset(0f, h), strokeWidth = p)
+    drawLine(black, Offset(w, 0f), Offset(w, h), strokeWidth = p)
+    drawLine(black, Offset(0f, h), Offset(w, h), strokeWidth = p)
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EraButton(
     onClick: () -> Unit,
@@ -191,41 +162,58 @@ fun EraButton(
     content: @Composable RowScope.() -> Unit
 ) {
     val era = LocalEraStyle.current
+    val isWin9x = era is Windows9xEra
     val pressed by interactionSource.collectIsPressedAsState()
 
-    Button(
-        onClick = onClick,
-        modifier = modifier.then(if (era.buttonHasBevel) Modifier.win9xBevel(isPressed = pressed) else Modifier),
-        enabled = enabled,
-        shape = if (era.buttonHasBevel) RoundedCornerShape(0.dp) else shape,
-        colors = if (era.buttonHasBevel) {
-            ButtonDefaults.buttonColors(
-                containerColor = era.buttonBackground,
-                contentColor = era.buttonTextColor,
-                disabledContainerColor = era.buttonBackground.copy(alpha = 0.55f),
-                disabledContentColor = era.buttonTextColor.copy(alpha = 0.55f)
-            )
-        } else {
-            colors
-        },
-        border = if (era.buttonHasBevel) BorderStroke(1.dp, Color(0xFF000000)) else border,
-        elevation = if (era.buttonHasBevel) {
-            ButtonDefaults.buttonElevation(
-                defaultElevation = 0.dp,
-                pressedElevation = 0.dp,
-                disabledElevation = 0.dp,
-                focusedElevation = 0.dp,
-                hoveredElevation = 0.dp
-            )
-        } else {
-            ButtonDefaults.buttonElevation()
-        },
-        interactionSource = interactionSource,
-        contentPadding = contentPadding,
-        content = content
-    )
+    val buttonContent = @Composable {
+        Button(
+            onClick = onClick,
+            modifier = modifier.then(if (isWin9x) Modifier.win9xBevel(isPressed = pressed) else Modifier),
+            enabled = enabled,
+            shape = if (isWin9x) RoundedCornerShape(0.dp) else shape,
+            colors = if (isWin9x) {
+                ButtonDefaults.buttonColors(
+                    containerColor = era.buttonBackground,
+                    contentColor = era.buttonTextColor,
+                    disabledContainerColor = era.buttonBackground.copy(alpha = 0.55f),
+                    disabledContentColor = era.buttonTextColor.copy(alpha = 0.55f)
+                )
+            } else {
+                colors
+            },
+            border = if (isWin9x) null else border,
+            elevation = if (isWin9x) {
+                ButtonDefaults.buttonElevation(
+                    defaultElevation = 0.dp,
+                    pressedElevation = 0.dp,
+                    disabledElevation = 0.dp,
+                    focusedElevation = 0.dp,
+                    hoveredElevation = 0.dp
+                )
+            } else {
+                ButtonDefaults.buttonElevation()
+            },
+            interactionSource = interactionSource,
+            contentPadding = contentPadding,
+            content = {
+                val contentModifier = if (isWin9x && pressed) Modifier.offset(1.dp, 1.dp) else Modifier
+                Box(modifier = contentModifier, contentAlignment = Alignment.Center) {
+                    Row(content = content)
+                }
+            }
+        )
+    }
+
+    if (isWin9x) {
+        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+            buttonContent()
+        }
+    } else {
+        buttonContent()
+    }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EraOutlinedButton(
     onClick: () -> Unit,
@@ -239,30 +227,47 @@ fun EraOutlinedButton(
     content: @Composable RowScope.() -> Unit
 ) {
     val era = LocalEraStyle.current
+    val isWin9x = era is Windows9xEra
     val pressed by interactionSource.collectIsPressedAsState()
 
-    OutlinedButton(
-        onClick = onClick,
-        modifier = modifier.then(if (era.buttonHasBevel) Modifier.win9xBevel(isPressed = pressed) else Modifier),
-        enabled = enabled,
-        shape = if (era.buttonHasBevel) RoundedCornerShape(0.dp) else shape,
-        colors = if (era.buttonHasBevel) {
-            ButtonDefaults.buttonColors(
-                containerColor = era.buttonBackground,
-                contentColor = era.buttonTextColor,
-                disabledContainerColor = era.buttonBackground.copy(alpha = 0.55f),
-                disabledContentColor = era.buttonTextColor.copy(alpha = 0.55f)
-            )
-        } else {
-            colors
-        },
-        border = if (era.buttonHasBevel) BorderStroke(1.dp, Color(0xFF000000)) else border,
-        interactionSource = interactionSource,
-        contentPadding = contentPadding,
-        content = content
-    )
+    val buttonContent = @Composable {
+        OutlinedButton(
+            onClick = onClick,
+            modifier = modifier.then(if (isWin9x) Modifier.win9xBevel(isPressed = pressed) else Modifier),
+            enabled = enabled,
+            shape = if (isWin9x) RoundedCornerShape(0.dp) else shape,
+            colors = if (isWin9x) {
+                ButtonDefaults.buttonColors(
+                    containerColor = era.buttonBackground,
+                    contentColor = era.buttonTextColor,
+                    disabledContainerColor = era.buttonBackground.copy(alpha = 0.55f),
+                    disabledContentColor = era.buttonTextColor.copy(alpha = 0.55f)
+                )
+            } else {
+                colors
+            },
+            border = if (isWin9x) null else border,
+            interactionSource = interactionSource,
+            contentPadding = contentPadding,
+            content = {
+                val contentModifier = if (isWin9x && pressed) Modifier.offset(1.dp, 1.dp) else Modifier
+                Box(modifier = contentModifier, contentAlignment = Alignment.Center) {
+                    Row(content = content)
+                }
+            }
+        )
+    }
+
+    if (isWin9x) {
+        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+            buttonContent()
+        }
+    } else {
+        buttonContent()
+    }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EraTextButton(
     onClick: () -> Unit,
@@ -274,27 +279,43 @@ fun EraTextButton(
     content: @Composable RowScope.() -> Unit
 ) {
     val era = LocalEraStyle.current
+    val isWin9x = era is Windows9xEra
     val pressed by interactionSource.collectIsPressedAsState()
 
-    TextButton(
-        onClick = onClick,
-        modifier = modifier.then(if (era.buttonHasBevel) Modifier.win9xBevel(isPressed = pressed) else Modifier),
-        enabled = enabled,
-        shape = if (era.buttonHasBevel) RoundedCornerShape(0.dp) else RoundedCornerShape(8.dp),
-        colors = if (era.buttonHasBevel) {
-            ButtonDefaults.buttonColors(
-                containerColor = era.buttonBackground,
-                contentColor = era.buttonTextColor,
-                disabledContainerColor = era.buttonBackground.copy(alpha = 0.55f),
-                disabledContentColor = era.buttonTextColor.copy(alpha = 0.55f)
-            )
-        } else {
-            colors
-        },
-        interactionSource = interactionSource,
-        contentPadding = contentPadding,
-        content = content
-    )
+    val buttonContent = @Composable {
+        TextButton(
+            onClick = onClick,
+            modifier = modifier.then(if (isWin9x) Modifier.win9xBevel(isPressed = pressed) else Modifier),
+            enabled = enabled,
+            shape = if (isWin9x) RoundedCornerShape(0.dp) else RoundedCornerShape(8.dp),
+            colors = if (isWin9x) {
+                ButtonDefaults.buttonColors(
+                    containerColor = era.buttonBackground,
+                    contentColor = era.buttonTextColor,
+                    disabledContainerColor = era.buttonBackground.copy(alpha = 0.55f),
+                    disabledContentColor = era.buttonTextColor.copy(alpha = 0.55f)
+                )
+            } else {
+                colors
+            },
+            interactionSource = interactionSource,
+            contentPadding = contentPadding,
+            content = {
+                val contentModifier = if (isWin9x && pressed) Modifier.offset(1.dp, 1.dp) else Modifier
+                Box(modifier = contentModifier, contentAlignment = Alignment.Center) {
+                    Row(content = content)
+                }
+            }
+        )
+    }
+
+    if (isWin9x) {
+        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+            buttonContent()
+        }
+    } else {
+        buttonContent()
+    }
 }
 
 @Composable

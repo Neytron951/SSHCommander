@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -34,6 +35,7 @@ import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -97,6 +99,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -110,6 +113,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -1461,6 +1465,7 @@ private fun ServerListPane(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SidePaneTab(
     label: String?, 
@@ -1482,33 +1487,53 @@ private fun SidePaneTab(
         if (isWin9x) era.textColor else MaterialTheme.colorScheme.onSurfaceVariant
     }
 
-    Box(
-        modifier = modifier
-            .then(if (isWin9x) Modifier.win9xBevel() else Modifier)
-            .clip(if (isWin9x) RoundedCornerShape(0.dp) else RoundedCornerShape(6.dp))
-            .background(tabBg)
-            .clickable(onClick = onClick)
-            .padding(vertical = 6.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            if (label == null) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                    tint = fg
-                )
-            } else {
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = fg,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+    val content = @Composable {
+        Box(
+            modifier = modifier
+                .then(if (isWin9x) Modifier.win9xBevel(isPressed = selected) else Modifier)
+                .clip(if (isWin9x) RoundedCornerShape(0.dp) else RoundedCornerShape(6.dp))
+                .background(tabBg)
+                .clickable(onClick = onClick)
+                .padding(vertical = 6.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = if (isWin9x && selected) Modifier.offset(1.dp, 1.dp) else Modifier
+            ) {
+                if (label == null) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = fg
+                    )
+                } else {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = fg
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = fg,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
+    }
+
+    if (isWin9x) {
+        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+            content()
+        }
+    } else {
+        content()
     }
 }
 
@@ -2179,33 +2204,53 @@ private fun CommandPanel(
                     if (c == Color.Black) MaterialTheme.colorScheme.primary else c
                 }
                 
-                Surface(
-                    shape = if (isWin9x) RoundedCornerShape(0.dp) else RoundedCornerShape(8.dp),
-                    color = color.copy(alpha = 0.9f),
-                    contentColor = if (color.luminance() > 0.5f) Color.Black else Color.White,
-                    modifier = Modifier.fillMaxWidth().then(if (isWin9x) Modifier.win9xBevel() else Modifier)
-                ) {
-                    Row(
+                val interactionSource = remember { MutableInteractionSource() }
+                val pressed by interactionSource.collectIsPressedAsState()
+
+                val surfaceContent = @Composable {
+                    Surface(
+                        shape = if (isWin9x) RoundedCornerShape(0.dp) else RoundedCornerShape(8.dp),
+                        color = color.copy(alpha = 0.9f),
+                        contentColor = if (color.luminance() > 0.5f) Color.Black else Color.White,
                         modifier = Modifier
-                            .combinedClickable(
-                                onClick = { run(cmd) },
-                                onLongClick = { onEditCommand(cmd) }
-                            )
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .fillMaxWidth()
+                            .then(if (isWin9x) Modifier.win9xBevel(isPressed = pressed) else Modifier),
+                        interactionSource = interactionSource,
+                        onClick = { run(cmd) }
                     ) {
-                        Text(
-                            cmd.name,
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
-                        )
-                        if (cmd.isDangerous) {
-                            Icon(Icons.Default.Warning, null, modifier = Modifier.size(14.dp).alpha(0.7f))
+                        Row(
+                            modifier = Modifier
+                                .combinedClickable(
+                                    onClick = { run(cmd) },
+                                    onLongClick = { onEditCommand(cmd) },
+                                    interactionSource = interactionSource,
+                                    indication = null
+                                )
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                                .then(if (isWin9x && pressed) Modifier.offset(1.dp, 1.dp) else Modifier),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                cmd.name,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
+                            )
+                            if (cmd.isDangerous) {
+                                Icon(Icons.Default.Warning, null, modifier = Modifier.size(14.dp).alpha(0.7f))
+                            }
                         }
                     }
+                }
+
+                if (isWin9x) {
+                    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                        surfaceContent()
+                    }
+                } else {
+                    surfaceContent()
                 }
             }
 
@@ -2248,31 +2293,48 @@ private fun CommandPanel(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CategoryChip(label: String, selected: Boolean, onClick: () -> Unit) {
     val era = LocalEraStyle.current
     val isWin9x = era is Windows9xEra
-    Surface(
-        onClick = onClick,
-        shape = if (isWin9x) RoundedCornerShape(0.dp) else RoundedCornerShape(16.dp),
-        color = if (selected) {
-            if (isWin9x) era.buttonBackground else MaterialTheme.colorScheme.primary
-        } else {
-            if (isWin9x) era.surfaceBackground else MaterialTheme.colorScheme.surface
-        },
-        border = BorderStroke(1.dp, if (selected) Color.Transparent else if (isWin9x) era.textColor.copy(alpha = 0.4f) else MaterialTheme.colorScheme.outlineVariant),
-        modifier = Modifier.padding(vertical = 2.dp).then(if (isWin9x) Modifier.win9xBevel() else Modifier)
-    ) {
-        Text(
-            label,
-            style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+    val content = @Composable {
+        Surface(
+            onClick = onClick,
+            shape = if (isWin9x) RoundedCornerShape(0.dp) else RoundedCornerShape(16.dp),
             color = if (selected) {
-                if (isWin9x) era.buttonTextColor else MaterialTheme.colorScheme.onPrimary
+                if (isWin9x) era.buttonBackground else MaterialTheme.colorScheme.primary
             } else {
-                if (isWin9x) era.textColor else MaterialTheme.colorScheme.onSurface
-            }
-        )
+                if (isWin9x) era.surfaceBackground else MaterialTheme.colorScheme.surface
+            },
+            modifier = Modifier
+                .padding(vertical = 2.dp)
+                .then(if (isWin9x) Modifier.win9xBevel(isPressed = selected) else Modifier)
+        ) {
+            Text(
+                label,
+                style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier
+                    .padding(
+                        horizontal = if (isWin9x) 6.dp else 10.dp,
+                        vertical = if (isWin9x) 2.dp else 4.dp
+                    )
+                    .then(if (isWin9x && selected) Modifier.offset(1.dp, 1.dp) else Modifier),
+                color = if (selected) {
+                    if (isWin9x) era.buttonTextColor else MaterialTheme.colorScheme.onPrimary
+                } else {
+                    if (isWin9x) era.textColor else MaterialTheme.colorScheme.onSurface
+                }
+            )
+        }
+    }
+
+    if (isWin9x) {
+        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+            content()
+        }
+    } else {
+        content()
     }
 }
 
@@ -2332,6 +2394,7 @@ private fun PaneSwitcher(selected: PaneType, onSelect: (PaneType) -> Unit) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PaneTab(label: String, selected: Boolean, onClick: () -> Unit) {
     val era = LocalEraStyle.current
@@ -2347,18 +2410,30 @@ private fun PaneTab(label: String, selected: Boolean, onClick: () -> Unit) {
         if (isWin9x) era.textColor else MaterialTheme.colorScheme.onSurfaceVariant
     }
 
-    Surface(
-        onClick = onClick,
-        shape = if (isWin9x) RoundedCornerShape(0.dp) else RoundedCornerShape(6.dp),
-        color = bg,
-        modifier = if (isWin9x) Modifier.win9xBevel() else Modifier
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelLarge,
-            color = textColor,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
-        )
+    val content = @Composable {
+        Surface(
+            onClick = onClick,
+            shape = if (isWin9x) RoundedCornerShape(0.dp) else RoundedCornerShape(6.dp),
+            color = bg,
+            modifier = if (isWin9x) Modifier.win9xBevel(isPressed = selected) else Modifier
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                color = textColor,
+                modifier = Modifier
+                    .padding(horizontal = 14.dp, vertical = 6.dp)
+                    .then(if (isWin9x && selected) Modifier.offset(1.dp, 1.dp) else Modifier)
+            )
+        }
+    }
+
+    if (isWin9x) {
+        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+            content()
+        }
+    } else {
+        content()
     }
 }
 
