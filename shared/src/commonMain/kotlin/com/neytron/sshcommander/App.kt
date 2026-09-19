@@ -1,6 +1,8 @@
 package com.neytron.sshcommander
 
 import androidx.compose.animation.*
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
@@ -26,6 +28,10 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.unit.lerp
+import androidx.compose.ui.draw.rotate
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -48,9 +54,14 @@ import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.unit.lerp
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.ChevronRight
@@ -186,6 +197,14 @@ import com.neytron.sshcommander.ui.SftpView
 import com.neytron.sshcommander.ui.getAvailableSystemFonts
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.unit.lerp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import com.neytron.sshcommander.ui.platformOpenUrl
 import com.neytron.sshcommander.ui.ScriptMarketScreen
 import com.neytron.sshcommander.ui.TerminalTheme
@@ -197,6 +216,7 @@ import com.neytron.sshcommander.ui.getSystemFontFamily
 import com.neytron.sshcommander.ui.platformToast
 import com.neytron.sshcommander.ui.rememberSavePicker
 import com.neytron.sshcommander.ui.rememberUploadPicker
+import com.neytron.sshcommander.ui.mascotPainter
 import com.neytron.sshcommander.ui.theme.EraButton
 import com.neytron.sshcommander.ui.theme.EraCheckbox
 import com.neytron.sshcommander.ui.theme.EraOutlinedButton
@@ -204,10 +224,15 @@ import com.neytron.sshcommander.ui.theme.EraSwitch
 import com.neytron.sshcommander.ui.theme.EraTextButton
 import com.neytron.sshcommander.ui.theme.LocalEraStyle
 import com.neytron.sshcommander.ui.theme.ModernAndroidEra
-import com.neytron.sshcommander.ui.theme.SSHCommanderTheme
 import com.neytron.sshcommander.ui.theme.Windows9xEra
+import com.neytron.sshcommander.ui.theme.Windows10Era
+import com.neytron.sshcommander.ui.theme.Windows10DarkEra
+import com.neytron.sshcommander.ui.theme.SSHCommanderTheme
 import com.neytron.sshcommander.ui.theme.win9xBevel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.PI
+import kotlin.math.atan2
 
 /** Root composable shared by Android and Windows. */
 @Composable
@@ -237,6 +262,8 @@ fun App(
         ?: remember { mutableStateOf("modern") })
     val era = when (uiStyleName) {
         "win9x" -> Windows9xEra
+        "win10" -> Windows10Era
+        "win10dark" -> Windows10DarkEra
         else -> ModernAndroidEra
     }
 
@@ -280,6 +307,7 @@ fun SSHCommanderLayout(
     var showSettingsDialog by remember { mutableStateOf(false) }
     var showSshKeyManager by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
+    var showWebbyAnimation by remember { mutableStateOf(false) }
     var showManageCommandsDialog by remember { mutableStateOf(false) }
     var showSaveWorkspaceDialog by remember { mutableStateOf(false) }
     var showScriptMarket by remember { mutableStateOf(false) }
@@ -899,7 +927,8 @@ fun SSHCommanderLayout(
         AboutDialog(
             appVersion = appVersion,
             settings = settings,
-            onDismiss = { showAboutDialog = false }
+            onDismiss = { showAboutDialog = false },
+            onMascotTrigger = { showWebbyAnimation = true }
         )
     }
 
@@ -1008,6 +1037,118 @@ fun SSHCommanderLayout(
         settings = settings,
         tourSteps = desktopTourSteps(),
         onImportJson = onImport
+    )
+    
+    if (showWebbyAnimation) {
+        Popup(
+            onDismissRequest = {},
+            properties = PopupProperties(focusable = false)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(9999f)
+            ) {
+                WebbyAnimationOverlay(onFinished = { showWebbyAnimation = false })
+            }
+        }
+    }
+}
+
+@Composable
+private fun WebbyAnimationOverlay(onFinished: () -> Unit) {
+    val painter = mascotPainter()
+    if (painter == null) {
+        onFinished()
+        return
+    }
+
+    val spiderCount = 15
+    val duration = 5000
+    
+    LaunchedEffect(Unit) {
+        delay(duration.toLong())
+        onFinished()
+    }
+
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxSize()
+            .zIndex(9999f)
+    ) {
+        val screenWidth = this.maxWidth
+        val screenHeight = this.maxHeight
+        
+        repeat(spiderCount) { index ->
+            WebbySpider(screenWidth, screenHeight, painter)
+        }
+    }
+}
+
+@Composable
+private fun WebbySpider(screenWidth: Dp, screenHeight: Dp, painter: Painter) {
+    val animProgress = remember { Animatable(0f) }
+    val startSide = remember { (0..3).random() } 
+    
+    val startX = remember(startSide, screenWidth) {
+        val w = if (screenWidth.value > 0) screenWidth.value.toInt() else 1024
+        when(startSide) {
+            1 -> w.toFloat().dp
+            3 -> (-100).dp
+            else -> (0..w).random().toFloat().dp
+        }
+    }
+    val startY = remember(startSide, screenHeight) {
+        val h = if (screenHeight.value > 0) screenHeight.value.toInt() else 768
+        when(startSide) {
+            0 -> (-100).dp
+            2 -> h.toFloat().dp
+            else -> (0..h).random().toFloat().dp
+        }
+    }
+    
+    val endX = remember(screenWidth) {
+        val w = if (screenWidth.value > 0) screenWidth.value.toInt() else 1024
+        (0..w).random().toFloat().dp
+    }
+    val endY = remember(screenHeight) {
+        val h = if (screenHeight.value > 0) screenHeight.value.toInt() else 768
+        (0..h).random().toFloat().dp
+    }
+    // Вычисляем угол направления движения паука в радианах, затем переводим в градусы
+    // Так как картинка по умолчанию смотрит вверх (-Y), базовый угол равен -90 градусам (или 270).
+    // Функция atan2(dy, dx) дает 0 градусов для направления вправо (+X).
+    val rotation = remember(startX, endX, startY, endY) {
+        val dx = endX.value - startX.value
+        val dy = endY.value - startY.value
+        val angleInDegrees = atan2(dy, dx) * (180 / PI)
+        (angleInDegrees + 90).toFloat() // Добавляем 90 градусов коррекции, так как голова паука на картинке смотрит ВВЕРХ
+    }
+
+    LaunchedEffect(Unit) {
+        delay((0..800).random().toLong())
+        animProgress.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(
+                durationMillis = (3000..5000).random(),
+                easing = LinearEasing
+            )
+        )
+    }
+
+    // Вычисляем координаты в пикселях напрямую через lerp прогресса анимации
+    val currentXPx = remember(startX, endX) { startX.value } + (endX.value - startX.value) * animProgress.value
+    val currentYPx = remember(startY, endY) { startY.value } + (endY.value - startY.value) * animProgress.value
+
+    Image(
+        painter = painter,
+        contentDescription = null,
+        modifier = Modifier
+            .size(80.dp)
+            .offset(currentXPx.dp, currentYPx.dp)
+            .graphicsLayer {
+                rotationZ = rotation
+            }
     )
 }
 
@@ -3676,31 +3817,38 @@ private fun DesktopSettingsDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Theme
-                SettingsBlockTitle(AppStrings.theme)
-                RadioButtonOption(AppStrings.themeLight, themeMode == "light") {
-                    scope.launch { settings?.setThemeMode("light") }
-                }
-                RadioButtonOption(AppStrings.themeDark, themeMode == "dark") {
-                    scope.launch { settings?.setThemeMode("dark") }
-                }
-                RadioButtonOption(AppStrings.themeSystem, themeMode == "system") {
-                    scope.launch { settings?.setThemeMode("system") }
-                }
-
                 // Interface Era (Style)
-                SettingsBlockTitle(if (AppStrings.language == "ru") "Стиль интерфейса (Эпохи)" else "Interface Style (Eras)")
+                SettingsBlockTitle(if (AppStrings.language == "ru") "Стиль интерфейса" else "Interface Style")
+                
                 RadioButtonOption(
-                    if (AppStrings.language == "ru") "Современный Android" else "Modern Android",
-                    uiStyle == "modern"
+                    if (AppStrings.language == "ru") "Material 3 Light" else "Material 3 Light",
+                    uiStyle == "modern" && themeMode == "light"
                 ) {
-                    scope.launch { settings?.setUiStyle("modern") }
+                    scope.launch { settings?.setUiStyle("modern"); settings?.setThemeMode("light") }
+                }
+                RadioButtonOption(
+                    if (AppStrings.language == "ru") "Material 3 Dark" else "Material 3 Dark",
+                    uiStyle == "modern" && themeMode == "dark"
+                ) {
+                    scope.launch { settings?.setUiStyle("modern"); settings?.setThemeMode("dark") }
                 }
                 RadioButtonOption(
                     if (AppStrings.language == "ru") "Windows 9x (Ретро)" else "Windows 9x (Retro)",
                     uiStyle == "win9x"
                 ) {
-                    scope.launch { settings?.setUiStyle("win9x") }
+                    scope.launch { settings?.setUiStyle("win9x"); settings?.setThemeMode("light") }
+                }
+                RadioButtonOption(
+                    if (AppStrings.language == "ru") "Windows 10 (Плоский)" else "Windows 10 (Flat)",
+                    uiStyle == "win10"
+                ) {
+                    scope.launch { settings?.setUiStyle("win10"); settings?.setThemeMode("light") }
+                }
+                RadioButtonOption(
+                    if (AppStrings.language == "ru") "Windows 10 Dark (Темный)" else "Windows 10 Dark",
+                    uiStyle == "win10dark"
+                ) {
+                    scope.launch { settings?.setUiStyle("win10dark"); settings?.setThemeMode("dark") }
                 }
 
                 // Language
@@ -4076,7 +4224,8 @@ private fun ColorChipRow(colors: List<String>, selectedColor: String, onSelect: 
 private fun AboutDialog(
     appVersion: String,
     settings: AppSettings?,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onMascotTrigger: () -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
     val deps = LocalAppDeps.current
@@ -4089,6 +4238,19 @@ private fun AboutDialog(
     var showLicense by remember { mutableStateOf(false) }
     var showAdConfirm1 by remember { mutableStateOf(false) }
     var showAdConfirm2 by remember { mutableStateOf(false) }
+    
+    // Webby Easter Egg
+    var clickCount by remember { mutableIntStateOf(0) }
+    val onVersionClick = {
+        clickCount++
+        println("[SSH Commander] About version click: $clickCount")
+        if (clickCount >= 5) {
+            platformToast("Webby is coming!")
+            onMascotTrigger()
+            clickCount = 0
+            onDismiss()
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -4102,11 +4264,20 @@ private fun AboutDialog(
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(AppStrings.appName, fontWeight = FontWeight.Bold)
-                Text(
-                    String.format(AppStrings.aboutVersion, appVersion.ifBlank { "2.0.0" }),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                    Box(
+                        modifier = Modifier
+                            .clickable { onVersionClick() }
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = String.format(AppStrings.aboutVersion, appVersion.ifBlank { "2.1.0" }),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
         },
         text = {

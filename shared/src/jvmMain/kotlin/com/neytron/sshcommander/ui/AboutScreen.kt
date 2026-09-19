@@ -21,7 +21,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun AboutScreen(
     onNavigateBack: () -> Unit,
-    appVersion: String = ""
+    appVersion: String = "",
+    onMascotTrigger: () -> Unit = {}
 ) {
     val deps = LocalAppDeps.current
     val scope = rememberCoroutineScope()
@@ -34,6 +35,17 @@ fun AboutScreen(
     var showLicenseDialog by remember { mutableStateOf(false) }
     var showAdConfirm1 by remember { mutableStateOf(false) }
     var showAdConfirm2 by remember { mutableStateOf(false) }
+    
+    // Webby Easter Egg
+    var clickCount by remember { mutableIntStateOf(0) }
+    val onVersionClick = {
+        clickCount++
+        if (clickCount >= 5) {
+            onMascotTrigger()
+            clickCount = 0
+            onNavigateBack()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -64,11 +76,20 @@ fun AboutScreen(
             )
             Spacer(Modifier.height(16.dp))
             Text(content.name, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            Text(
-                String.format(AppStrings.aboutVersion, appVersion),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                Box(
+                    modifier = Modifier
+                        .clickable { onVersionClick() }
+                        .padding(horizontal = 24.dp, vertical = 12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        String.format(AppStrings.aboutVersion, appVersion),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
             
             Spacer(Modifier.height(32.dp))
             

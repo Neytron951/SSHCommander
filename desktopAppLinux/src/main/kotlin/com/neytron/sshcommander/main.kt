@@ -32,6 +32,8 @@ import com.neytron.sshcommander.ui.LocalAppDeps
 import com.neytron.sshcommander.ui.theme.ModernAndroidEra
 import com.neytron.sshcommander.ui.theme.SSHCommanderTheme
 import com.neytron.sshcommander.ui.theme.Windows9xEra
+import com.neytron.sshcommander.ui.theme.Windows10Era
+import com.neytron.sshcommander.ui.theme.Windows10DarkEra
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.serialization.kotlinx.json.json
@@ -86,6 +88,8 @@ fun main() = application {
         val uiStyleName by settings.uiStyle.collectAsState(initial = "modern")
         val era = when (uiStyleName) {
             "win9x" -> Windows9xEra
+            "win10" -> Windows10Era
+            "win10dark" -> Windows10DarkEra
             else -> ModernAndroidEra
         }
 
@@ -105,7 +109,7 @@ fun main() = application {
             ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    shape = if (era is Windows9xEra) RoundedCornerShape(0.dp) else RoundedCornerShape(12.dp),
+                    shape = if (era is Windows9xEra || era is Windows10Era || era is Windows10DarkEra) RoundedCornerShape(0.dp) else RoundedCornerShape(12.dp),
                     color = MaterialTheme.colorScheme.background
                 ) {
                     Column(Modifier.fillMaxSize()) {
@@ -126,7 +130,7 @@ fun main() = application {
                             },
                             serverRepository = serverRepository,
                             settings = settings,
-                            appVersion = "2.0.0",
+                            appVersion = "2.1.0",
                             backupManager = ExportImportManager(serverRepository)
                         )
                     }

@@ -130,6 +130,58 @@ object Windows9xEra : EraStyle {
 }
 
 /**
+ * Современный плоский стиль Windows 10.
+ */
+object Windows10Era : EraStyle {
+    override val name = "Windows 10"
+    override val appBackground = Color(0xFFF2F2F2)
+    override val surfaceBackground = Color(0xFFFFFFFF)
+    override val textColor = Color(0xFF000000)
+
+    override val buttonShape = RoundedCornerShape(0.dp)
+    override val buttonBorder = null
+    override val buttonBackground = Color(0xFF0078D7) // Windows Blue
+    override val buttonTextColor = Color(0xFFFFFFFF)
+    override val buttonHasBevel = false
+
+    override val cardShape = RoundedCornerShape(0.dp)
+    override val cardBorder = BorderStroke(1.dp, Color(0xFFE5E5E5))
+    override val cardBackground = Color(0xFFFFFFFF)
+    override val cardHasBevel = false
+
+    override val textFieldShape = RoundedCornerShape(0.dp)
+    override val textFieldBorder = BorderStroke(2.dp, Color(0xFF666666))
+    override val textFieldBackground = Color(0xFFFFFFFF)
+    override val textFieldSunken = false
+}
+
+/**
+ * Темный плоский стиль Windows 10.
+ */
+object Windows10DarkEra : EraStyle {
+    override val name = "Windows 10 Dark"
+    override val appBackground = Color(0xFF171717)
+    override val surfaceBackground = Color(0xFF202020)
+    override val textColor = Color(0xFFFFFFFF)
+
+    override val buttonShape = RoundedCornerShape(0.dp)
+    override val buttonBorder = null
+    override val buttonBackground = Color(0xFF0078D7) // Тот же синий
+    override val buttonTextColor = Color(0xFFFFFFFF)
+    override val buttonHasBevel = false
+
+    override val cardShape = RoundedCornerShape(0.dp)
+    override val cardBorder = BorderStroke(1.dp, Color(0xFF333333))
+    override val cardBackground = Color(0xFF202020)
+    override val cardHasBevel = false
+
+    override val textFieldShape = RoundedCornerShape(0.dp)
+    override val textFieldBorder = BorderStroke(2.dp, Color(0xFF858585))
+    override val textFieldBackground = Color(0xFF1F1F1F)
+    override val textFieldSunken = false
+}
+
+/**
  * Вспомогательный Modifier для отрисовки тонкой рамки в 1 пиксель (замена 3D эффекта).
  */
 fun Modifier.win9xBevel(

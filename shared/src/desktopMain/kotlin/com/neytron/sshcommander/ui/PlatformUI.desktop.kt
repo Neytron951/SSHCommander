@@ -8,6 +8,16 @@ import androidx.compose.ui.draganddrop.DragAndDropEvent
 import androidx.compose.ui.draganddrop.DragAndDropTarget
 import androidx.compose.ui.draganddrop.awtTransferable
 import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.graphics.toComposeImageBitmap
+import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.runtime.remember
+import androidx.compose.ui.res.painterResource
+import org.jetbrains.skia.Image
+import androidx.compose.ui.res.useResource
+import androidx.compose.ui.text.ExperimentalTextApi
+import androidx.compose.ui.text.font.FontFamily
+import java.awt.GraphicsEnvironment
 import java.awt.datatransfer.DataFlavor
 import java.io.File
 
@@ -42,16 +52,16 @@ actual fun platformOpenUrl(url: String) {
     }
 }
 
-@OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
+@OptIn(ExperimentalTextApi::class)
 @Composable
-actual fun getSystemFontFamily(name: String): androidx.compose.ui.text.font.FontFamily {
-    return androidx.compose.runtime.remember(name) {
+actual fun getSystemFontFamily(name: String): FontFamily {
+    return remember(name) {
         when (name) {
-            "Monospace" -> androidx.compose.ui.text.font.FontFamily.Monospace
+            "Monospace" -> FontFamily.Monospace
             else -> try {
                 androidx.compose.ui.text.font.FontFamily(name)
             } catch (e: Exception) {
-                androidx.compose.ui.text.font.FontFamily.Monospace
+                FontFamily.Monospace
             }
         }
     }
@@ -85,11 +95,27 @@ actual fun Modifier.platformDragAndDrop(onFilesDropped: (List<String>) -> Unit):
 
 actual fun getAvailableSystemFonts(): List<String> {
     return try {
-        java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment()
+        GraphicsEnvironment.getLocalGraphicsEnvironment()
             .availableFontFamilyNames
             .toList()
             .sorted()
     } catch (e: Exception) {
         listOf("Monospace", "Serif", "SansSerif")
     }
+}
+
+@Composable
+actual fun mascotPainter(): Painter? {
+    val painter = remember {
+        runCatching {
+            val stream = Thread.currentThread().contextClassLoader.getResourceAsStream("webby.png")
+                ?: object {}.javaClass.getResourceAsStream("/webby.png")
+                ?: Thread.currentThread().contextClassLoader.getResourceAsStream("shared/src/desktopMain/resources/webby.png")
+            stream?.use { input ->
+                val bytes = input.readBytes()
+                BitmapPainter(Image.makeFromEncoded(bytes).toComposeImageBitmap())
+            }
+        }.getOrNull()
+    }
+    return painter
 }

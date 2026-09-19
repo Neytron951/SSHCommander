@@ -2,6 +2,7 @@ package com.neytron.sshcommander.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.painter.Painter
 
 /**
  * Platform back navigation handler.
@@ -43,3 +44,7 @@ expect fun getAvailableSystemFonts(): List<String>
 /** Platform-specific Drag-and-Drop support for files. */
 @Composable
 expect fun Modifier.platformDragAndDrop(onFilesDropped: (List<String>) -> Unit): Modifier
+
+/** Returns the mascot painter (Webby). */
+@Composable
+expect fun mascotPainter(): Painter?

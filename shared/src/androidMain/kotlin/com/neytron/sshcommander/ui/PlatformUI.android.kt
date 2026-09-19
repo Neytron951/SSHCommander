@@ -4,8 +4,13 @@ import android.content.Context
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import com.neytron.sshcommander.shared.R
 
 /** Set once by androidApp's Application/MainActivity so shared code can toast. */
 object AndroidAppContext {
@@ -64,4 +69,9 @@ actual fun getAvailableSystemFonts(): List<String> {
     // We could try to list more, but Android font system is very fragmented.
     // Basic families are usually enough for a terminal/editor context.
     return fonts.toList().sorted()
+}
+
+@Composable
+actual fun mascotPainter(): Painter? {
+    return painterResource(R.drawable.webby)
 }

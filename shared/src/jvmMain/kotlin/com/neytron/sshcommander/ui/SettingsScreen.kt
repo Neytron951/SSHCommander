@@ -141,29 +141,38 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            // 1. Theme
-            SettingsSection(title = AppStrings.theme) {
-                Column {
-                    RadioButtonOption(AppStrings.themeLight, themeMode == "light", !isTransitioning) { viewModel.setThemeMode("light") }
-                    RadioButtonOption(AppStrings.themeDark, themeMode == "dark", !isTransitioning) { viewModel.setThemeMode("dark") }
-                    RadioButtonOption(AppStrings.themeSystem, themeMode == "system", !isTransitioning) { viewModel.setThemeMode("system") }
-                }
-            }
-
             // Interface Era (Style)
-            SettingsSection(title = if (AppStrings.language == "ru") "Стиль интерфейса (Эпохи)" else "Interface Style (Eras)") {
+            SettingsSection(title = if (AppStrings.language == "ru") "Стиль интерфейса" else "Interface Style") {
                 Column {
                     RadioButtonOption(
-                        text = if (AppStrings.language == "ru") "Современный Android" else "Modern Android",
-                        selected = uiStyle == "modern",
+                        text = "Material 3 Light",
+                        selected = uiStyle == "modern" && themeMode == "light",
                         enabled = !isTransitioning
-                    ) { viewModel.setUiStyle("modern") }
+                    ) { viewModel.setUiStyle("modern"); viewModel.setThemeMode("light") }
+
+                    RadioButtonOption(
+                        text = "Material 3 Dark",
+                        selected = uiStyle == "modern" && themeMode == "dark",
+                        enabled = !isTransitioning
+                    ) { viewModel.setUiStyle("modern"); viewModel.setThemeMode("dark") }
                     
                     RadioButtonOption(
                         text = if (AppStrings.language == "ru") "Windows 9x (Ретро)" else "Windows 9x (Retro)",
                         selected = uiStyle == "win9x",
                         enabled = !isTransitioning
-                    ) { viewModel.setUiStyle("win9x") }
+                    ) { viewModel.setUiStyle("win9x"); viewModel.setThemeMode("light") }
+
+                    RadioButtonOption(
+                        text = if (AppStrings.language == "ru") "Windows 10 (Плоский)" else "Windows 10 (Flat)",
+                        selected = uiStyle == "win10",
+                        enabled = !isTransitioning
+                    ) { viewModel.setUiStyle("win10"); viewModel.setThemeMode("light") }
+
+                    RadioButtonOption(
+                        text = if (AppStrings.language == "ru") "Windows 10 Dark (Темный)" else "Windows 10 Dark",
+                        selected = uiStyle == "win10dark",
+                        enabled = !isTransitioning
+                    ) { viewModel.setUiStyle("win10dark"); viewModel.setThemeMode("dark") }
                 }
             }
 

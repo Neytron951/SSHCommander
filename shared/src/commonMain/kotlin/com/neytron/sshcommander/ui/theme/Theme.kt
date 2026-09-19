@@ -90,6 +90,42 @@ fun SSHCommanderTheme(
             primaryContainer = era.buttonBackground,
             onPrimaryContainer = era.buttonTextColor
         )
+    } else if (era is Windows10Era) {
+        lightColorScheme(
+            primary = era.buttonBackground,
+            onPrimary = era.buttonTextColor,
+            secondary = era.buttonBackground,
+            onSecondary = era.buttonTextColor,
+            tertiary = era.buttonBackground,
+            onTertiary = era.buttonTextColor,
+            background = era.appBackground,
+            onBackground = era.textColor,
+            surface = era.surfaceBackground,
+            onSurface = era.textColor,
+            surfaceVariant = Color(0xFFE5E5E5),
+            onSurfaceVariant = era.textColor,
+            outline = Color(0xFF666666),
+            primaryContainer = Color(0xFFCCE4F7),
+            onPrimaryContainer = Color(0xFF001D34)
+        )
+    } else if (era is Windows10DarkEra) {
+        darkColorScheme(
+            primary = era.buttonBackground,
+            onPrimary = era.buttonTextColor,
+            secondary = era.buttonBackground,
+            onSecondary = era.buttonTextColor,
+            tertiary = era.buttonBackground,
+            onTertiary = era.buttonTextColor,
+            background = era.appBackground,
+            onBackground = era.textColor,
+            surface = era.surfaceBackground,
+            onSurface = era.textColor,
+            surfaceVariant = Color(0xFF333333),
+            onSurfaceVariant = era.textColor,
+            outline = Color(0xFF858585),
+            primaryContainer = Color(0xFF1E1E1E),
+            onPrimaryContainer = Color(0xFFFFFFFF)
+        )
     } else {
         if (darkTheme) DarkColorScheme else LightColorScheme
     }
@@ -106,7 +142,7 @@ fun SSHCommanderTheme(
         labelSmall = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium, fontSize = 11.sp)
     )
 
-    val customShapes = if (era is Windows9xEra) {
+    val customShapes = if (era is Windows9xEra || era is Windows10Era || era is Windows10DarkEra) {
         Shapes(
             extraSmall = RoundedCornerShape(0.dp),
             small = RoundedCornerShape(0.dp),
