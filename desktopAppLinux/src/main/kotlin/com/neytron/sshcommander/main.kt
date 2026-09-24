@@ -41,10 +41,12 @@ import kotlinx.serialization.json.Json
 import java.io.File
 import javax.imageio.ImageIO
 import androidx.compose.runtime.CompositionLocalProvider
+import com.neytron.sshcommander.terminal.AdbPlatform
 
 fun main() = application {
     // Persist servers in the user's home directory so they survive restarts.
     val dataDir = File(System.getProperty("user.home"), ".sshcommander")
+    AdbPlatform.init(dataDir)
     val secureStorage = FileSecureStorage(File(dataDir, "secrets.json"))
     val serverRepository: ServerRepository = JsonServerRepository(
         dataDir = dataDir,
@@ -130,7 +132,7 @@ fun main() = application {
                             },
                             serverRepository = serverRepository,
                             settings = settings,
-                            appVersion = "2.1.0",
+                            appVersion = "2.1.1",
                             backupManager = ExportImportManager(serverRepository)
                         )
                     }

@@ -1,5 +1,6 @@
 package com.neytron.sshcommander.terminal
 
+import androidx.compose.ui.graphics.ImageBitmap
 import com.flyfishxu.kadb.Kadb
 import com.flyfishxu.kadb.shell.AdbShellPacket
 import com.neytron.sshcommander.data.MonitorWidget
@@ -7,6 +8,7 @@ import com.neytron.sshcommander.data.Server
 import com.neytron.sshcommander.data.ServerStats
 import com.neytron.sshcommander.data.TerminalScreen
 import com.neytron.sshcommander.data.WidgetType
+import com.neytron.sshcommander.ui.decodePreviewImage
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -156,6 +158,26 @@ class AdbSession(
         sendInput("$command\n")
     }
 
+    /**
+     * Асинхронно запускает отдельную ADB Shell команду в фоне (не забивая интерактивный терминал)
+     * и возвращает текстовый результат. Идеально подходит для утилит автоматизации, логката и кнопок!
+     */
+    fun executeAdbShellAsync(command: String, onResult: (String) -> Unit) {
+        scope.launch(Dispatchers.IO) {
+            val result = try {
+                kadb?.let { device ->
+                    val response = device.shell(command)
+                    response.output.trim()
+                } ?: "Error: ADB not connected"
+            } catch (e: Exception) {
+                e.message ?: "Execution error"
+            }
+            withContext(Dispatchers.Main) {
+                onResult(result)
+            }
+        }
+    }
+
     override fun addWidget(title: String, command: String, type: WidgetType, x: Int, y: Int, w: Int, h: Int, fontSize: Float, colorHex: String?, textAlign: String, textVerticalAlign: String) {}
     override fun deleteWidget(id: String) {}
     override fun updateWidget(updatedWidget: MonitorWidget) {}
@@ -168,6 +190,24 @@ class AdbSession(
         }
     }
     override fun clearTerminal() { terminalScreen.clear(); _terminalRevision.value++ }
+    override fun executeAdbShell(command: String, onResult: (String) -> Unit) { executeAdbShellAsync(command, onResult) }
+    override suspend fun captureScreenFrame(): ImageBitmap? = withContext(Dispatchers.IO) {
+        val bytes = try {
+            val device = kadb ?: Kadb.create(server.host, server.port)
+            val stream = device.open("shell:screencap -p")
+            val byteArray = stream.source.readByteArray()
+            stream.close()
+            if (device !== kadb) device.close()
+            byteArray
+        } catch (e: Exception) {
+            null
+        }
+        if (bytes != null && bytes.isNotEmpty()) {
+            withContext(Dispatchers.Default) {
+                decodePreviewImage(bytes)
+            }
+        } else null
+    }
     override fun disconnect() { 
         shellJob?.cancel()
         kadb?.close()

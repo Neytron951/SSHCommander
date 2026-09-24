@@ -37,6 +37,7 @@ import com.neytron.sshcommander.ui.theme.Windows10DarkEra
 import java.io.File
 import javax.imageio.ImageIO
 import androidx.compose.runtime.CompositionLocalProvider
+import com.neytron.sshcommander.terminal.AdbPlatform
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.serialization.kotlinx.json.json
@@ -44,6 +45,7 @@ import kotlinx.serialization.json.Json
 
 fun main() = application {
     val dataDir = File(System.getProperty("user.home"), ".sshcommander")
+    AdbPlatform.init(dataDir)
     val serverRepository: ServerRepository = JsonServerRepository(
         dataDir = dataDir,
         secureStorage = DpapiSecureStorage(File(dataDir, "secrets.dpapi"))
@@ -141,7 +143,7 @@ fun main() = application {
                             },
                             serverRepository = serverRepository,
                             settings = settings,
-                            appVersion = "2.1.0",
+                            appVersion = "2.1.1",
                             backupManager = ExportImportManager(serverRepository)
                         )
                     }

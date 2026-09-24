@@ -4,6 +4,7 @@ import com.neytron.sshcommander.data.ConnectionProfile
 import com.neytron.sshcommander.data.Server
 import com.neytron.sshcommander.data.ServerStats
 import com.neytron.sshcommander.data.TerminalScreen
+import androidx.compose.ui.graphics.ImageBitmap
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -44,6 +45,8 @@ interface TerminalController {
     fun executeCommand(command: String)
     fun updateSize(cols: Int, rows: Int)
     fun clearTerminal()
+    suspend fun captureScreenFrame(): ImageBitmap?
+    fun executeAdbShell(command: String, onResult: (String) -> Unit)
     fun disconnect()
     fun close()
 }

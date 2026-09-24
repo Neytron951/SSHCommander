@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neytron.sshcommander.data.*
@@ -129,6 +130,8 @@ class SshViewModel(
         currentServer?.let { viewModelScope.launch { repository.insertHistory(CommandHistoryEntity(serverId = it.id, command = command, output = "")) } }
     }
     override fun updateSize(cols: Int, rows: Int) { activeController?.updateSize(cols, rows) }
+    override suspend fun captureScreenFrame(): ImageBitmap? = activeController?.captureScreenFrame()
+    override fun executeAdbShell(command: String, onResult: (String) -> Unit) { activeController?.executeAdbShell(command, onResult) ?: onResult("") }
     override fun sendCtrlC() { activeController?.sendCtrlC() }
     override fun sendEscape() { activeController?.sendEscape() }
     override fun sendBackspace() { activeController?.sendBackspace() }

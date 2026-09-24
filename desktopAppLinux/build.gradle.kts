@@ -14,7 +14,7 @@ val jpackageJdk: String = javaToolchains.launcherFor {
 }.get().metadata.installationPath.asFile.absolutePath
 
 val appName: String = (project.findProperty("appName") as? String)?.takeIf { it.isNotBlank() } ?: "SSH Commander"
-val appVersion: String = (project.findProperty("appVersion") as? String)?.takeIf { it.isNotBlank() } ?: "2.0.0"
+val appVersion: String = (project.findProperty("appVersion") as? String)?.takeIf { it.isNotBlank() } ?: "2.1.1"
 
 dependencies {
     implementation(project(":shared"))

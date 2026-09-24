@@ -205,6 +205,9 @@ import androidx.compose.ui.zIndex
 import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import com.neytron.sshcommander.ui.AdbControlPanel
+import com.neytron.sshcommander.ui.AdbLogcatView
+import com.neytron.sshcommander.ui.AdbScreenView
 import com.neytron.sshcommander.ui.platformOpenUrl
 import com.neytron.sshcommander.ui.ScriptMarketScreen
 import com.neytron.sshcommander.ui.TerminalTheme
@@ -1032,6 +1035,39 @@ fun SSHCommanderLayout(
         )
     }
 
+    val terminalSession = activeSession?.terminal
+    val connectionError by terminalSession?.error?.collectAsState(initial = null) ?: remember { mutableStateOf(null) }
+    var dismissedError by remember(terminalSession, connectionError) { mutableStateOf(false) }
+
+    if (connectionError != null && !dismissedError && selectedServer != null) {
+        AlertDialog(
+            onDismissRequest = { dismissedError = true },
+            title = { Text("Ошибка подключения") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Не удалось подключиться, проверьте данные для подключения.")
+                    Spacer(Modifier.height(4.dp))
+                    Text("IP: ${selectedServer.host}", fontWeight = FontWeight.Bold)
+                    Text("Порт: ${selectedServer.port}", fontWeight = FontWeight.Bold)
+                    Text("Детали: $connectionError", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    dismissedError = true
+                    terminalSession?.connect()
+                }) {
+                    Text("Retry")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { dismissedError = true }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     // First-run guide: welcome → language → tab tour (or JSON import).
     OnboardingGate(
         settings = settings,
@@ -1269,7 +1305,7 @@ private fun SaveWorkspaceDialog(
     )
 }
 
-enum class PaneType { Terminal, Sftp, Split, Dashboard }
+enum class PaneType { Terminal, Sftp, Split, Dashboard, AdbControl, AdbLogcat, AdbScreen, AdbControlAndScreen }
 
 @Composable
 private fun ScriptMarketSideContent(onOpenMarket: () -> Unit, isUltraNarrow: Boolean) {
@@ -2087,7 +2123,7 @@ private fun InteractionPane(
                         )
                         Spacer(Modifier.width(8.dp))
                     }
-                    PaneSwitcher(pane, onPaneChange)
+                    PaneSwitcher(pane, server.protocol == Protocol.ADB, onPaneChange)
                 }
                 HorizontalDivider()
             }
@@ -2197,6 +2233,44 @@ private fun InteractionPane(
                 }
                 PaneType.Sftp -> SftpView(sftpController)
                 PaneType.Dashboard -> MonitoringDashboard(terminalSession)
+                PaneType.AdbControl -> {
+                    Box(Modifier.fillMaxSize()) {
+                        terminalSession?.let { AdbControlPanel(it) }
+                    }
+                }
+                PaneType.AdbLogcat -> {
+                    Box(Modifier.fillMaxSize()) {
+                        terminalSession?.let { AdbLogcatView(it) }
+                    }
+                }
+                PaneType.AdbScreen -> {
+                    Box(Modifier.fillMaxSize()) {
+                        terminalSession?.let { AdbScreenView(it) }
+                    }
+                }
+                PaneType.AdbControlAndScreen -> {
+                    val controlPanelWidth = remember { mutableFloatStateOf(340f) }
+                    var splitWidthPx by remember { mutableIntStateOf(0) }
+                    Row(
+                        Modifier
+                            .fillMaxSize()
+                            .onSizeChanged { splitWidthPx = it.width }
+                    ) {
+                        Box(Modifier.weight(1f).fillMaxHeight()) {
+                            terminalSession?.let { AdbScreenView(it) }
+                        }
+                        ResizableDivider(
+                            onDrag = { delta ->
+                                controlPanelWidth.floatValue = (controlPanelWidth.floatValue - delta).coerceIn(240f, 500f)
+                            },
+                            onDragEnd = {},
+                            orientation = ResizeOrientation.Horizontal
+                        )
+                        Box(Modifier.width(controlPanelWidth.floatValue.dp).fillMaxHeight()) {
+                            terminalSession?.let { AdbControlPanel(it) }
+                        }
+                    }
+                }
             }
         }
     }
@@ -2523,15 +2597,22 @@ private fun FillTemplateDialog(
 }
 
 @Composable
-private fun PaneSwitcher(selected: PaneType, onSelect: (PaneType) -> Unit) {
+private fun PaneSwitcher(selected: PaneType, isAdb: Boolean, onSelect: (PaneType) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         PaneTab("Terminal", selected == PaneType.Terminal) { onSelect(PaneType.Terminal) }
-        PaneTab("SFTP", selected == PaneType.Sftp) { onSelect(PaneType.Sftp) }
-        PaneTab("Monitoring", selected == PaneType.Dashboard) { onSelect(PaneType.Dashboard) }
-        PaneTab(
-            if (AppStrings.language == "ru") "Терминал + SFTP" else "Terminal + SFTP",
-            selected == PaneType.Split
-        ) { onSelect(PaneType.Split) }
+        if (!isAdb) {
+            PaneTab("SFTP", selected == PaneType.Sftp) { onSelect(PaneType.Sftp) }
+            PaneTab("Monitoring", selected == PaneType.Dashboard) { onSelect(PaneType.Dashboard) }
+            PaneTab(
+                if (AppStrings.language == "ru") "Терминал + SFTP" else "Terminal + SFTP",
+                selected == PaneType.Split
+            ) { onSelect(PaneType.Split) }
+        } else {
+            PaneTab("ADB Control", selected == PaneType.AdbControl) { onSelect(PaneType.AdbControl) }
+            PaneTab("Screen", selected == PaneType.AdbScreen) { onSelect(PaneType.AdbScreen) }
+            PaneTab("Control + Screen", selected == PaneType.AdbControlAndScreen) { onSelect(PaneType.AdbControlAndScreen) }
+            PaneTab("Logcat", selected == PaneType.AdbLogcat) { onSelect(PaneType.AdbLogcat) }
+        }
     }
 }
 
@@ -4272,7 +4353,7 @@ private fun AboutDialog(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = String.format(AppStrings.aboutVersion, appVersion.ifBlank { "2.1.0" }),
+                            text = String.format(AppStrings.aboutVersion, appVersion.ifBlank { "2.1.1" }),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

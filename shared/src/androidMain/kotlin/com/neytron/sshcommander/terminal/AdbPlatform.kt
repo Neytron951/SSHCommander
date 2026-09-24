@@ -8,8 +8,33 @@ import javax.jmdns.JmDNS
 import javax.jmdns.ServiceEvent
 import javax.jmdns.ServiceListener
 import com.flyfishxu.kadb.Kadb
+import com.flyfishxu.kadb.cert.KadbCert
+import com.neytron.sshcommander.ui.AndroidAppContext
+import java.io.File
 
 actual object AdbPlatform {
+    init {
+        try {
+            AndroidAppContext.appContext?.let { ctx ->
+                val keyFile = File(File(ctx.filesDir, "data"), "adbkey")
+                KadbCert.configure(FileKadbPrivateKeyStore(keyFile))
+                println("[ADB-Android] Configured persistent KadbCert at ${keyFile.absolutePath}")
+            }
+        } catch (e: Exception) {
+            println("[ADB-Android] Failed to init persistent key store: ${e.message}")
+        }
+    }
+
+    fun init(dataDir: File) {
+        try {
+            val keyFile = File(dataDir, "adbkey")
+            KadbCert.configure(FileKadbPrivateKeyStore(keyFile))
+            println("[ADB-Android] Configured persistent KadbCert at ${keyFile.absolutePath}")
+        } catch (e: Exception) {
+            println("[ADB-Android] Failed to configure persistent KadbCert: ${e.message}")
+        }
+    }
+
     actual suspend fun pair(host: String, port: Int, code: String): Result<Unit> = withContext(Dispatchers.IO) {
         println("[ADB-Android] Starting pure Kotlin pairing with $host:$port using Kadb")
         try {
@@ -31,6 +56,10 @@ actual object AdbPlatform {
     }
 
     actual fun isAdbAvailable(): Boolean = true
+
+    actual fun launchScrcpy(host: String, port: Int): Result<Unit> {
+        return Result.failure(Exception("scrcpy is supported on Desktop platforms."))
+    }
 
     actual fun startDownload() {}
 

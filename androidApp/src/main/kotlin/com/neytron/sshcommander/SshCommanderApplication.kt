@@ -8,6 +8,7 @@ import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.neytron.sshcommander.data.JsonServerRepository
+import com.neytron.sshcommander.terminal.AdbPlatform
 import com.neytron.sshcommander.ui.AndroidAppContext
 import com.neytron.sshcommander.worker.WidgetUpdateWorker
 import java.io.File
@@ -27,6 +28,7 @@ class SshCommanderApplication : Application() {
         super.onCreate()
         Log.d("SshApp", "Application onCreate started")
         AndroidAppContext.appContext = applicationContext
+        AdbPlatform.init(File(filesDir, "data"))
         setupWidgetUpdateWorker()
 
         // Инициализация Yandex Mobile Ads SDK

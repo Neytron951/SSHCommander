@@ -12,8 +12,8 @@ android {
         applicationId = "com.neytron.sshcommander"
         minSdk = 24
         targetSdk = 37
-        versionCode = 14
-        versionName = "2.1.0"
+        versionCode = 15
+        versionName = "2.1.1"
     }
 
     buildFeatures {

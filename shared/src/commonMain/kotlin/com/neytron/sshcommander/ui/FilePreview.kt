@@ -70,6 +70,7 @@ internal fun previewKindOf(name: String): PreviewKind {
  * Android) — see the actual implementations.
  */
 internal expect fun decodePreviewImage(bytes: ByteArray): ImageBitmap?
+internal expect fun decodeScreenImage(bytes: ByteArray, maxWidth: Int = 960, maxHeight: Int = 540): ImageBitmap?
 
 /**
  * Basic in-memory preview dialog for SFTP files — no download to disk.

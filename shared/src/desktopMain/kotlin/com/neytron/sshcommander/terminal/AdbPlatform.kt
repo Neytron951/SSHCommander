@@ -9,6 +9,8 @@ import javax.jmdns.ServiceEvent
 import javax.jmdns.ServiceListener
 import org.conscrypt.Conscrypt
 import com.flyfishxu.kadb.Kadb
+import com.flyfishxu.kadb.cert.KadbCert
+import java.io.File
 
 actual object AdbPlatform {
     init {
@@ -18,6 +20,24 @@ actual object AdbPlatform {
             println("[ADB-Desktop] Conscrypt provider initialized")
         } catch (e: Exception) {
             println("[ADB-Desktop] Conscrypt initialization failed: ${e.message}")
+        }
+        try {
+            val dataDir = File(System.getProperty("user.home", "."), ".sshcommander")
+            val keyFile = File(dataDir, "adbkey")
+            KadbCert.configure(FileKadbPrivateKeyStore(keyFile))
+            println("[ADB-Desktop] Configured persistent KadbCert at ${keyFile.absolutePath}")
+        } catch (e: Exception) {
+            println("[ADB-Desktop] Failed to init persistent key store: ${e.message}")
+        }
+    }
+
+    fun init(dataDir: File) {
+        try {
+            val keyFile = File(dataDir, "adbkey")
+            KadbCert.configure(FileKadbPrivateKeyStore(keyFile))
+            println("[ADB-Desktop] Configured persistent KadbCert at ${keyFile.absolutePath}")
+        } catch (e: Exception) {
+            println("[ADB-Desktop] Failed to configure persistent KadbCert: ${e.message}")
         }
     }
 
@@ -42,6 +62,17 @@ actual object AdbPlatform {
     }
 
     actual fun isAdbAvailable(): Boolean = true
+
+    actual fun launchScrcpy(host: String, port: Int): Result<Unit> {
+        return try {
+            val target = if (port == 5555 || port == 0) host else "$host:$port"
+            ProcessBuilder("scrcpy", "-s", target, "--window-title", "SSH Commander - $host")
+                .start()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(Exception("scrcpy не найден в системе. Установите scrcpy для HD 60 FPS трансляции: https://github.com/Genymobile/scrcpy"))
+        }
+    }
 
     actual fun startDownload() {}
 

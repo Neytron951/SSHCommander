@@ -1,5 +1,6 @@
 package com.neytron.sshcommander.terminal
 
+import androidx.compose.ui.graphics.ImageBitmap
 import com.jcraft.jsch.ChannelShell
 import com.jcraft.jsch.Session
 import com.neytron.sshcommander.data.ConnectionProfile
@@ -249,6 +250,9 @@ class TerminalSession(
         terminalScreen.clear()
         _terminalRevision.value++
     }
+
+    override suspend fun captureScreenFrame(): ImageBitmap? = null
+    override fun executeAdbShell(command: String, onResult: (String) -> Unit) { onResult("") }
 
     override fun addWidget(title: String, command: String, type: WidgetType, x: Int, y: Int, w: Int, h: Int, fontSize: Float, colorHex: String?, textAlign: String, textVerticalAlign: String) {
         val current = _monitorWidgets.value.toMutableList()

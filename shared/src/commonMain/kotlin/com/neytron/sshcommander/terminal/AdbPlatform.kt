@@ -33,4 +33,9 @@ expect object AdbPlatform {
      * Scans for ADB devices on the network using mDNS.
      */
     fun scanDevices(): Flow<List<DiscoveredDevice>>
+
+    /**
+     * Launches external scrcpy for hardware-accelerated 60 FPS video streaming over ADB.
+     */
+    fun launchScrcpy(host: String, port: Int): Result<Unit>
 }
