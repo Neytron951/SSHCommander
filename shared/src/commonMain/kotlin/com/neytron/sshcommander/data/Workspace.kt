@@ -17,7 +17,8 @@ data class WorkspaceItem(
     val isPinned: Boolean = false,
     val tabColorHex: String? = null,
     val initialPath: String? = null,
-    val lastCommand: String? = null
+    val lastCommand: String? = null,
+    val terminalOutput: String? = null
 )
 
 enum class WorkspaceItemType {

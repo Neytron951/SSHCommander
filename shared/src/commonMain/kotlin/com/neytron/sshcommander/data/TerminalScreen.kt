@@ -330,6 +330,25 @@ internal class ScreenBuffer(var rows: Int, var cols: Int) {
             else -> defaultColor
         }
     }
+
+    fun getPlainText(): String {
+        val sb = StringBuilder()
+        var lastRow = rows - 1
+        while (lastRow >= 0 && !cells[lastRow].any { it.char != ' ' }) lastRow--
+        val renderLastRow = maxOf(lastRow, cursorRow)
+
+        for (r in 0..renderLastRow) {
+            var lastCol = -1
+            for (c in 0 until cols) if (cells[r][c].char != ' ') lastCol = c
+            if (r == cursorRow) lastCol = maxOf(lastCol, cursorCol)
+
+            for (c in 0..lastCol) {
+                sb.append(cells[r][c].char)
+            }
+            if (r < renderLastRow) sb.append("\r\n")
+        }
+        return sb.toString()
+    }
 }
 
 class TerminalScreen(
@@ -498,6 +517,15 @@ class TerminalScreen(
 
     fun appendExternal(text: String) {
         current.appendText(text)
+    }
+
+    fun getPlainText(): String {
+        val full = current.getPlainText()
+        val lines = full.lines()
+        if (lines.size > 50) {
+            return lines.takeLast(50).joinToString("\n")
+        }
+        return full
     }
 
     fun render(defaultColor: Color): AnnotatedString = current.render(defaultColor)

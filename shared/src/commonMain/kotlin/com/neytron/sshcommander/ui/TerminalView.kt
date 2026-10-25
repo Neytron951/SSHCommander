@@ -144,7 +144,7 @@ fun TerminalView(
         
         // Estimate dimensions based on font
         val charWidth = remember(localFontSize, density) {
-            with(density) { (localFontSize * 0.6f).sp.toPx() }
+            with(density) { (localFontSize * 0.52f).sp.toPx() }
         }
         val charHeight = remember(localFontSize, density) {
             with(density) { (localFontSize * 1.15f).sp.toPx() }
@@ -153,7 +153,7 @@ fun TerminalView(
         val availableWidth = with(density) { (maxWidth - 20.dp).toPx() }
         val availableHeight = with(density) { (maxHeight - 20.dp).toPx() }
         
-        val cols = (availableWidth / charWidth).toInt().coerceIn(20, 250)
+        val cols = (availableWidth / charWidth).toInt().coerceIn(20, 400)
         val rows = (availableHeight / charHeight).toInt().coerceIn(5, 100)
         
         LaunchedEffect(cols, rows) {

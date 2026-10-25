@@ -426,6 +426,17 @@ fun SSHCommanderLayout(
             )
             sessions.add(tab)
             if (firstNewTabId == -1) firstNewTabId = tab.id
+
+            connectSession(tab, item.loginId)
+            item.terminalOutput?.let { output ->
+                tab.terminal?.terminalScreen?.appendExternal(output)
+            }
+            item.initialPath?.let { path ->
+                scope.launch {
+                    delay(1500)
+                    tab.sftp?.goTo(path)
+                }
+            }
         }
         
         // Reset active session to the first tab of the opened workspace
@@ -439,10 +450,12 @@ fun SSHCommanderLayout(
             WorkspaceItem(
                 serverId = tab.serverId,
                 loginId = tab.loginId,
-                type = WorkspaceItemType.TERMINAL, // Defaulting to terminal for now
+                type = WorkspaceItemType.TERMINAL,
                 isPinned = tab.isPinned,
                 tabColorHex = tab.tabColorHex,
-                initialPath = tab.sftp?.currentPath?.value
+                initialPath = tab.sftp?.currentPath?.value,
+                lastCommand = null,
+                terminalOutput = tab.terminal?.terminalScreen?.getPlainText()
             )
         }
         scope.launch {

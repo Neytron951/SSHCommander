@@ -705,7 +705,8 @@ fun ServerControlScreen(
                             loginId = bundle?.lastLoginId,
                             type = com.neytron.sshcommander.data.WorkspaceItemType.TERMINAL,
                             initialPath = bundle?.sftp?.currentPath?.value,
-                            lastCommand = bundle?.terminal?.lastCommand?.value
+                            lastCommand = bundle?.terminal?.lastCommand?.value,
+                            terminalOutput = bundle?.terminal?.terminalScreen?.getPlainText()
                         )
                     }
                     deps.repository.insertWorkspace(com.neytron.sshcommander.data.Workspace(name = name, colorHex = color, items = items))

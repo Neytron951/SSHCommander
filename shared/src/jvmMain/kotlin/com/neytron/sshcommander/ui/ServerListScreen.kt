@@ -163,6 +163,11 @@ fun ServerListScreen(
                                 val bundle = SessionManager.getOrCreateBundle(sid, server, profile, deps.settings, RepositoryHostKeyStore(deps.repository))
                                 bundle.lastLoginId = item.loginId
                                 
+                                // Restore terminal output if present
+                                item.terminalOutput?.let { output ->
+                                    bundle.terminal?.terminalScreen?.appendExternal(output)
+                                }
+
                                 // Restore state
                                 item.initialPath?.let { path ->
                                     scope.launch {
