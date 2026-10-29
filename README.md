@@ -6,11 +6,7 @@
 
 **SSH Commander** — a powerful SSH/SFTP client with terminal, widgets, and biometric authentication.
 
-<<<<<<< HEAD
 > **Current version:** 2.2.0 — CLI & Headless AI/Terminal control, Advanced Workspaces with output & directory persistence, and more.
-=======
-> **Current version:** 2.1.3 — Native ADB support, reworked Monitoring widgets, Windows & Linux support.
->>>>>>> origin/main
 
 ![App Screenshot](ScreenShots/screenshot.png)
 
