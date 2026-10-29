@@ -22,6 +22,8 @@ dependencies {
     implementation(compose.desktop.currentOs)
     implementation(compose.material3)
     implementation(compose.materialIconsExtended)
+    implementation(libs.jna)
+    implementation(libs.jna.platform)
 }
 
 compose.desktop {
@@ -34,6 +36,7 @@ compose.desktop {
             packageVersion = appVersion
             description = "SSH/SFTP client for Windows"
             vendor = "Neytron"
+            outputBaseDir.set(rootDir.resolve("dist"))
             
             // Явно добавляем модули, которые jpackage не может определить автоматически
             modules("java.net.http", "java.scripting", "jdk.unsupported")
@@ -47,7 +50,14 @@ compose.desktop {
                 // Stable UpgradeCode ensures that updating the app replaces the old entry
                 // instead of creating a "bundled" duplicate in Add/Remove Programs.
                 upgradeUuid = "8a9728d1-02e7-4faa-883f-29c2d985f6f8"
+                console = true
             }
         }
     }
+}
+
+tasks.register<Copy>("createPortableFolder") {
+    dependsOn("createDistributable")
+    from(rootDir.resolve("dist/app/SSH Commander"))
+    into(rootDir.resolve("dist/Portable"))
 }

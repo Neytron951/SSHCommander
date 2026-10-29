@@ -22,9 +22,9 @@ fun interface HostKeyStore {
  * Logger for debugging SSH connections.
  */
 class JSchLogger : Logger {
-    override fun isEnabled(level: Int): Boolean = true
+    override fun isEnabled(level: Int): Boolean = false
     override fun log(level: Int, message: String) {
-        println("JSCH: $message")
+        System.err.println("JSCH: $message")
     }
 }
 
@@ -42,14 +42,10 @@ class SshConnectionManager(
                 if (java.security.Security.getProvider("BC") == null) {
                     val bcProvider = bcProviderClass.getConstructor().newInstance() as java.security.Provider
                     java.security.Security.addProvider(bcProvider)
-                    println("JSCH: BouncyCastle registered in SshConnectionManager.")
                 }
-            } catch (e: Exception) {
-                println("JSCH: [DEBUG] BouncyCastle registration skipped: ${e.message}")
-            }
+            } catch (_: Exception) {}
             
             JSch.setLogger(JSchLogger())
-            println("JSCH: RUNTIME VERSION: ${JSch.VERSION}")
         }
 
         suspend fun closeSession(serverId: Int) = sessionMutex.withLock {

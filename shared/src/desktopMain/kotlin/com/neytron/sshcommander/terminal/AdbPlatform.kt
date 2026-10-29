@@ -17,38 +17,26 @@ actual object AdbPlatform {
         try {
             // Conscrypt is needed for TLS pairing on JVM
             java.security.Security.insertProviderAt(Conscrypt.newProvider(), 1)
-            println("[ADB-Desktop] Conscrypt provider initialized")
-        } catch (e: Exception) {
-            println("[ADB-Desktop] Conscrypt initialization failed: ${e.message}")
-        }
+        } catch (_: Exception) {}
         try {
             val dataDir = File(System.getProperty("user.home", "."), ".sshcommander")
             val keyFile = File(dataDir, "adbkey")
             KadbCert.configure(FileKadbPrivateKeyStore(keyFile))
-            println("[ADB-Desktop] Configured persistent KadbCert at ${keyFile.absolutePath}")
-        } catch (e: Exception) {
-            println("[ADB-Desktop] Failed to init persistent key store: ${e.message}")
-        }
+        } catch (_: Exception) {}
     }
 
     fun init(dataDir: File) {
         try {
             val keyFile = File(dataDir, "adbkey")
             KadbCert.configure(FileKadbPrivateKeyStore(keyFile))
-            println("[ADB-Desktop] Configured persistent KadbCert at ${keyFile.absolutePath}")
-        } catch (e: Exception) {
-            println("[ADB-Desktop] Failed to configure persistent KadbCert: ${e.message}")
-        }
+        } catch (_: Exception) {}
     }
 
     actual suspend fun pair(host: String, port: Int, code: String): Result<Unit> = withContext(Dispatchers.IO) {
-        println("[ADB-Desktop] Starting pure Kotlin pairing with $host:$port using Kadb")
         try {
             Kadb.pair(host, port, code)
-            println("[ADB-Desktop] Pairing successful via Kadb!")
             Result.success(Unit)
         } catch (e: Exception) {
-            println("[ADB-Desktop] Pairing error: ${e.message}")
             Result.failure(e)
         }
     }

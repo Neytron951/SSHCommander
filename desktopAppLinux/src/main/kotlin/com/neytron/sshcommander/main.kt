@@ -41,9 +41,11 @@ import kotlinx.serialization.json.Json
 import java.io.File
 import javax.imageio.ImageIO
 import androidx.compose.runtime.CompositionLocalProvider
+import com.neytron.sshcommander.data.HeadlessSshExecutor
 import com.neytron.sshcommander.terminal.AdbPlatform
+import kotlinx.coroutines.runBlocking
 
-fun main() = application {
+fun main(args: Array<String>) {
     // Persist servers in the user's home directory so they survive restarts.
     val dataDir = File(System.getProperty("user.home"), ".sshcommander")
     AdbPlatform.init(dataDir)
@@ -52,7 +54,16 @@ fun main() = application {
         dataDir = dataDir,
         secureStorage = secureStorage
     )
-    val settings: AppSettings = DesktopSettings(dataDir)
+
+    if (args.isNotEmpty()) {
+        runBlocking {
+            handleCliArgs(args, serverRepository)
+        }
+        return
+    }
+
+    application {
+        val settings: AppSettings = DesktopSettings(dataDir)
 
     // App icon for the window title bar / taskbar.
     val windowIcon: Painter? = runCatching {
@@ -132,7 +143,7 @@ fun main() = application {
                             },
                             serverRepository = serverRepository,
                             settings = settings,
-                            appVersion = "2.1.3",
+                            appVersion = "2.2.0",
                             backupManager = ExportImportManager(serverRepository)
                         )
                     }
@@ -140,4 +151,117 @@ fun main() = application {
             }
         }
     }
+}
+}
+
+suspend fun handleCliArgs(args: Array<String>, serverRepository: ServerRepository): Boolean {
+    if (args.isEmpty()) return false
+    val executor = HeadlessSshExecutor(serverRepository)
+    when (args[0]) {
+        "--help", "-h", "help" -> {
+            println("SSH Commander CLI")
+            println("Usage:")
+            println("  ssh-commander --list                                List all configured servers")
+            println("  ssh-commander --exec <server> \"<command>\"           Execute SSH command (server can be ID, name, IP, or part of name)")
+            println("                                                      Note: Wrap compound commands in quotes (e.g. \"cd dir && ls\")")
+            println("  ssh-commander --list-commands                       List saved quick commands")
+            println("  ssh-commander --run-command <cmd> <server>          Run a saved quick command on server")
+            println("  ssh-commander --add-command \"<name>\" \"<cmd>\"        Save a new quick command")
+            println("  ssh-commander --delete-command <id>                 Delete a quick command by ID")
+            return true
+        }
+        "--list", "list" -> {
+            val servers = executor.listServers()
+            if (servers.isEmpty()) {
+                println("No servers configured.")
+            } else {
+                println("Configured Servers:")
+                servers.forEach { s ->
+                    println("  [ID: ${s.id}] ${s.name} (${s.host}:${s.port}) - User: ${s.username}")
+                }
+            }
+            return true
+        }
+        "--exec", "exec" -> {
+            if (args.size < 3) {
+                println("Error: Missing arguments for exec.")
+                println("Usage: ssh-commander --exec <server> \"<command>\"")
+                return true
+            }
+            val serverIdOrName = args[1]
+            val command = args.drop(2).joinToString(" ")
+            try {
+                val result = executor.executeCommand(serverIdOrName, command)
+                print(result)
+            } catch (e: Exception) {
+                println("Error: ${e.message}")
+            }
+            return true
+        }
+        "--list-commands", "list-commands" -> {
+            val cmds = executor.listCommands()
+            if (cmds.isEmpty()) {
+                println("No quick commands saved.")
+            } else {
+                println("Quick Commands:")
+                cmds.forEach { c ->
+                    println("  [ID: ${c.id}] ${c.name}: ${c.command}")
+                }
+            }
+            return true
+        }
+        "--run-command", "run-command" -> {
+            if (args.size < 3) {
+                println("Error: Missing arguments.")
+                println("Usage: ssh-commander --run-command <command_name_or_id> <server> [var=val ...]")
+                return true
+            }
+            val cmdNameOrId = args[1]
+            val serverIdOrName = args[2]
+            val extraArgs = args.drop(3)
+            try {
+                val result = executor.runQuickCommand(cmdNameOrId, serverIdOrName, extraArgs)
+                print(result)
+            } catch (e: Exception) {
+                println("Error: ${e.message}")
+            }
+            return true
+        }
+        "--add-command", "add-command" -> {
+            if (args.size < 3) {
+                println("Error: Missing arguments.")
+                println("Usage: ssh-commander --add-command \"<name>\" \"<command>\"")
+                return true
+            }
+            val name = args[1]
+            val command = args.drop(2).joinToString(" ")
+            try {
+                executor.addCommand(name, command)
+                println("Quick command '$name' added successfully.")
+            } catch (e: Exception) {
+                println("Error: ${e.message}")
+            }
+            return true
+        }
+        "--delete-command", "delete-command" -> {
+            if (args.size < 2) {
+                println("Error: Missing command ID.")
+                println("Usage: ssh-commander --delete-command <id>")
+                return true
+            }
+            val id = args[1].toIntOrNull()
+            if (id == null) {
+                println("Error: Invalid command ID.")
+                return true
+            }
+            try {
+                executor.deleteCommand(id)
+                println("Quick command ID $id deleted.")
+            } catch (e: Exception) {
+                println("Error: ${e.message}")
+            }
+            return true
+        }
+    }
+    return false
 }
